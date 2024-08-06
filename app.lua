@@ -85,7 +85,7 @@ function VKInstance:init(app, enableValidationLayers)
 	local layerProps = vkGetVector('VkLayerProperties', vkassert, vk.vkEnumerateInstanceLayerProperties)
 	print'vulkan layers:'
 	for i=0,#layerProps-1 do
-		print('', 
+		print('',
 			ffi.string(layerProps.v[i].layerName, vk.VK_MAX_EXTENSION_NAME_SIZE),
 			ffi.string(layerProps.v[i].description, vk.VK_MAX_DESCRIPTION_SIZE)
 		)
@@ -124,18 +124,19 @@ end
 
 function VKInstance:getRequiredExtensions(app, enableValidationLayers)
 	local extensions = vkGetVector('char const *', sdlvksafe, sdl.SDL_Vulkan_GetInstanceExtensions, app.window)
-	
+
 	print'vulkan extensions:'
 	for i=0,#extensions-1 do
 		print('', ffi.string(extensions.v[i]))
 	end
-	
+
 	if enableValidationLayers then
 		extensions:emplace_back()[0] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME
 	end
 
-	return extensions 
+	return extensions
 end
+
 
 local VKPhysicalDevice = class()
 
@@ -144,7 +145,7 @@ function VKPhysicalDevice:init(instance, surface, deviceExtensions)
 	print'devices:'
 	for i=0,#physDevs-1 do
 		local props = VKPhysicalDevice:getProps(physDevs.v[i])
-		print('', 
+		print('',
 			ffi.string(props.deviceName)
 			..' type='..tostring(props.deviceType)
 		)
@@ -169,7 +170,7 @@ function VKPhysicalDevice:isDeviceSuitable(physDev, surface, deviceExtensions)
 		local swapChainSupport = self:querySwapChainSupport(physDev, surface)
 		swapChainAdequate = #swapChainSupport.formats > 0 and #swapChainSupport.presentModes > 0
 	end
-	
+
 	local features = vkGet('VkPhysicalDeviceFeatures', nil, vk.vkGetPhysicalDeviceFeatures, physDev)
 	return indices
 		and extensionsSupported
@@ -187,7 +188,7 @@ function VKPhysicalDevice:findQueueFamilies(physDev, surface)
 		if 0 ~= bit.band(f.queueFlags, vk.VK_QUEUE_GRAPHICS_BIT) then
 			indices.graphicsFamily = i
 		end
-		
+
 		local supported = vkGet('VkBool32', vkassert, vk.vkGetPhysicalDeviceSurfaceSupportKHR, physDev, i, surface)
 		if supported ~= 0 then
 			indices.presentFamily = i
@@ -227,6 +228,11 @@ function VKPhysicalDevice:getProps(physDev)
 	return vkGet('VkPhysicalDeviceProperties', nil, vk.vkGetPhysicalDeviceProperties, physDev or self.id)
 end
 
+function VKPhysicalDevice:getFormatProps(physDev, format)
+	physDev = physDev or self.id
+	return vkGet('VkFormatProperties', nil, vk.vkGetPhysicalDeviceFormatProperties, physDev, format)
+end
+
 function VKPhysicalDevice:getMaxUsableSampleCount(...)
 	local props = self:getProps(...)
 	local counts = bit.band(props.limits.framebufferColorSampleCounts, props.limits.framebufferDepthSampleCounts)
@@ -247,18 +253,18 @@ function VKPhysicalDevice:findDepthFormat()
 			vk.VK_FORMAT_D24_UNORM_S8_UINT,
 		},
 		vk.VK_IMAGE_TILING_OPTIMAL,
-		vk.VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT 
+		vk.VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
 	)
 end
 
 function VKPhysicalDevice:findSupportedFormat(candidates, tiling, features)
 	for _,format in ipairs(candidates) do
-		local props = vkGet('VkFormatProperties', nil, vk.vkGetPhysicalDeviceFormatProperties, self.id, format)
-		if tiling == vk.VK_IMAGE_TILING_LINEAR 
+		local props = self:getFormatProps(nil, format)
+		if tiling == vk.VK_IMAGE_TILING_LINEAR
 		and bit.band(props.linearTilingFeatures, features) == features
 		then
 			return format
-		elseif tiling == vk.VK_IMAGE_TILING_OPTIMAL 
+		elseif tiling == vk.VK_IMAGE_TILING_OPTIMAL
 		and bit.band(props.optimalTilingFeatures, features) == features
 		then
 			return format
@@ -313,7 +319,7 @@ function VKDevice:createDevice(physDev, deviceExtensions, enableValidationLayers
 	if enableValidationLayers then
 		thisValidationLayers.emplace_back()[0] = validationLayer	-- TODO vector copy?
 	end
-	
+
 	local info = ffi.new'VkDeviceCreateInfo[1]'
 	info[0].sType = vk.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO
 	info[0].queueCreateInfoCount = #queueCreateInfos
@@ -324,6 +330,34 @@ function VKDevice:createDevice(physDev, deviceExtensions, enableValidationLayers
 	info[0].ppEnabledExtensionNames = deviceExtensions.v
 	info[0].pEnabledFeatures = deviceFeatures
 	return vkGet('VkDevice', vkassert, vk.vkCreateDevice, physDev, info, nil)
+end
+
+
+local VKDeviceMakeFromStagingBuffer = class()
+
+function VKDeviceMakeFromStagingBuffer:create(physDev, device, srcData, bufferSize)
+	local info = ffi.new'VkBufferCreateInfo[1]'
+	info[0].sType = vk.VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO
+	info[0].size = bufferSize
+	info[0].usage = vk.VK_BUFFER_USAGE_TRANSFER_SRC_BIT
+	info[0].sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE
+	local buffer = vkGet('VkBuffer', vkassert, vk.vkCreateBuffer, device, info, nil)
+
+	local memReq = vkGet('VkMemoryRequirements', nil, vk.vkGetBufferMemoryRequirements, device, buffer)
+
+	local info = ffi.new'VkMemoryAllocateInfo[1]'
+	info[0].allocationSize = memReq.size
+	info[0].memoryTypeIndex = physDev:findMemoryType(memReq.memoryTypeBits, bit.bor(vk.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
+	local memory = vkGet('VkDeviceMemory', vkassert, vk.vkAllocateMemory, device, info, nil)
+
+	vkassert(vk.vkBindBufferMemory, device, buffer, memory, 0)
+
+	local dstData = vkGet('void*', vkassert, vk.vkMapMemory, device, memory, 0, bufferSize, 0)
+	ffi.copy(dstData, srcData, bufferSize)
+
+	vk.vkUnmapMemory(device, memory)
+
+	return {buffer=buffer, memory=memory}
 end
 
 
@@ -358,7 +392,7 @@ function VKDeviceMemoryImage:createImage(
 	local image = vkGet('VkImage', vkassert, vk.vkCreateImage, device, info, nil)
 
 	local memReq = vkGet('VkMemoryRequirements', nil, vk.vkGetImageMemoryRequirements, device, image)
-	
+
 	local info = ffi.new'VkMemoryAllocateInfo[1]'
 	info[0].sType = vk.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO
 	info[0].allocationSize = memReq.size
@@ -367,6 +401,48 @@ function VKDeviceMemoryImage:createImage(
 	vkassert(vk.vkBindImageMemory, device, image, imageMemory, 0)
 
 	return {image=image, imageMemory=imageMemory}
+end
+
+function VKDeviceMemoryImage:makeTextureFromStaged(
+	physDev,
+	device,
+	commandPool,
+	srcData,
+	bufferSize,
+	texWidth,
+	texHeight,
+	mipLevels
+)
+	local stagingBufferAndMemory = VKDeviceMakeFromStagingBuffer:create(physDev, device, srcData, bufferSize)
+	local imageAndMemory = self:createImage(physDev,
+		device,
+		texWidth,
+		texHeight,
+		mipLevels,
+		vk.VK_SAMPLE_COUNT_1_BIT,
+		vk.VK_FORMAT_R8G8B8A8_SRGB,
+		vk.VK_IMAGE_TILING_OPTIMAL,
+		bit.bor(vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+			vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+			vk.VK_IMAGE_USAGE_SAMPLED_BIT),
+		vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+	)
+
+	commandPool:transitionImageLayout(
+		imageAndMemory.image,
+		vk.VK_IMAGE_LAYOUT_UNDEFINED,
+		vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		mipLevels
+	)
+
+	commandPool:copyBufferToImage(
+		stagingBufferAndMemory.buffer,
+		imageAndMemory.image,
+		texWidth,
+		texHeight
+	)
+
+	return imageAndMemory
 end
 
 local VKSwapchain = class()
@@ -390,9 +466,9 @@ function VKSwapchain:init(width, height, physDev, device, surface, msaaSamples)
 	info[0].imageColorSpace = surfaceFormat.colorSpace
 	info[0].imageExtent = extent
 	info[0].imageArrayLayers = 1
-	info[0].imageUsage = vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT 
+	info[0].imageUsage = vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
 	info[0].preTransform = swapChainSupport.capabilities.currentTransform
-	info[0].compositeAlpha = vk.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR 
+	info[0].compositeAlpha = vk.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR
 	info[0].presentMode = presentMode
 	info[0].clipped = vk.VK_TRUE
 	local indices = physDev:findQueueFamilies(nil, surface)
@@ -404,17 +480,17 @@ function VKSwapchain:init(width, height, physDev, device, surface, msaaSamples)
 		queueFamilyIndices:emplace_back()[0] = index
 	end
 	if indices.graphicsFamily ~= indices.presentFamily then
-		info[0].imageSharingMode = vk.VK_SHARING_MODE_CONCURRENT 
+		info[0].imageSharingMode = vk.VK_SHARING_MODE_CONCURRENT
 		info[0].queueFamilyIndexCount = #queueFamilyIndices
 		info[0].pQueueFamilyIndices = queueFamilyIndices.v
 	else
 		info[0].imageSharingMode = vk.VK_SHARING_MODE_EXCLUSIVE
 	end
-	
+
 	local id = vkGet('VkSwapchainKHR', vkassert, vk.vkCreateSwapchainKHR, device, info, nil)
-	
+
 	local images = vkGetVector('VkImage', vkassert, vk.vkGetSwapchainImagesKHR, device, id)
-	
+
 	local imageViews = vector'VkImageView'
 	for i=0,#images-1 do
 		imageViews:emplace_back()[0] = self:createImageView(
@@ -441,7 +517,7 @@ function VKSwapchain:init(width, height, physDev, device, surface, msaaSamples)
 		bit.bor(vk.VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT, vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT),
 		vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	)
-	
+
 	local colorImageView = self:createImageView(
 		device,
 		colorImageAndMemory.image,
@@ -580,7 +656,7 @@ function VKSwapchain:createRenderPass(physDev, device, swapChainImageFormat, msa
 	a[0].stencilStoreOp = vk.VK_ATTACHMENT_STORE_OP_DONT_CARE
 	a[0].initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED
 	a[0].finalLayout = vk.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-		
+
 	local colorAttachmentRef = ffi.new'VkAttachmentReference[1]'
 	colorAttachmentRef[0].attachment = 0
 	colorAttachmentRef[0].layout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
@@ -590,7 +666,7 @@ function VKSwapchain:createRenderPass(physDev, device, swapChainImageFormat, msa
 	local colorAttachmentResolveRef = ffi.new'VkAttachmentReference[1]'
 	colorAttachmentResolveRef[0].attachment = 2
 	colorAttachmentResolveRef[0].layout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-	
+
 	local subpasses = vector'VkSubpassDescription'
 	local s = subpasses:emplace_back()
 	s[0].pipelineBindPoint = vk.VK_PIPELINE_BIND_POINT_GRAPHICS
@@ -598,9 +674,9 @@ function VKSwapchain:createRenderPass(physDev, device, swapChainImageFormat, msa
 	s[0].pColorAttachments = colorAttachmentRef
 	s[0].pResolveAttachments = colorAttachmentResolveRef
 	s[0].pDepthStencilAttachment = depthAttachmentRef
-	
+
 	local dependencies = vector'VkSubpassDependency'
-	local d = dependencies:emplace_back()	
+	local d = dependencies:emplace_back()
 	d[0].srcSubpass = vk.VK_SUBPASS_EXTERNAL
 	d[0].dstSubpass = 0
 	d[0].srcStageMask = bit.bor(
@@ -660,16 +736,16 @@ local Vertex = struct{
 			d.inputRate = vk.VK_VERTEX_INPUT_RATE_VERTEX
 			return d
 		end
-	
+
 		mt.getAttributeDescriptions = function()
 			local ar = vector'VkVertexInputAttributeDescription'
-			
+
 			local a = ar:emplace_back()
 			a[0].location = 0
 			a[0].binding = 0
 			a[0].format = vk.VK_FORMAT_R32G32B32_SFLOAT
 			a[0].offset = ffi.offsetof('Vertex', 'pos')
-	
+
 			local a = ar:emplace_back()
 			a[0].location = 1
 			a[0].binding = 0
@@ -692,21 +768,21 @@ local VKGraphicsPipeline = class()
 function VKGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 	-- descriptorSetLayout is only used by graphicsPipeline
 	local bindings = vector'VkDescriptorSetLayoutBinding'
-	
+
 	--uboLayoutBinding
 	local b = bindings:emplace_back()
 	b[0].binding = 0
 	b[0].descriptorType = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
 	b[0].descriptorCount = 1
 	b[0].stageFlags = vk.VK_SHADER_STAGE_VERTEX_BIT
-	
+
 	--samplerLayoutBinding
 	local b = bindings:emplace_back()
 	b[0].binding = 1
 	b[0].descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
 	b[0].descriptorCount = 1
 	b[0].stageFlags = vk.VK_SHADER_STAGE_FRAGMENT_BIT
-		
+
 	local info = ffi.new'VkDescriptorSetLayoutCreateInfo[1]'
 	info[0].sType = vk.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO
 	info[0].bindingCount = #bindings
@@ -715,10 +791,10 @@ function VKGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 
 	local vertShaderModule = VKShaderModule:fromFile(device, "shader-vert.spv")
 	local fragShaderModule = VKShaderModule:fromFile(device, "shader-frag.spv")
-	
+
 	local bindingDescriptions = vector'VkVertexInputBindingDescription'
 	bindingDescriptions:push_back(Vertex:getBindingDescription())
-	
+
 	local attributeDescriptions = Vertex:getAttributeDescriptions();
 	local vertexInputInfo = ffi.new'VkPipelineVertexInputStateCreateInfo[1]'
 	vertexInputInfo[0].sType = vk.VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO
@@ -778,14 +854,14 @@ function VKGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 	local dynamicStates = vector'VkDynamicState'
 	dynamicStates:push_back(vk.VK_DYNAMIC_STATE_VIEWPORT)
 	dynamicStates:push_back(vk.VK_DYNAMIC_STATE_SCISSOR)
-	
+
 	local dynamicState = ffi.new'VkPipelineDynamicStateCreateInfo[1]'
 	dynamicState[0].dynamicStateCount = #dynamicStates
 	dynamicState[0].pDynamicStates = dynamicStates.v
-	
+
 	local descriptorSetLayouts = vector'VkDescriptorSetLayout'
 	descriptorSetLayouts:push_back(descriptorSetLayout)
-	
+
 	local info = ffi.new'VkPipelineLayoutCreateInfo[1]'
 	info[0].sType = vk.VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO
 	info[0].setLayoutCount = #descriptorSetLayouts
@@ -793,14 +869,14 @@ function VKGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 	local pipelineLayout = vkGet('VkPipelineLayout', vkassert, vk.vkCreatePipelineLayout, device, info, nil)
 
 	local shaderStages = vector'VkPipelineShaderStageCreateInfo'
-	
-	local s = shaderStages:emplace_back() 	
+
+	local s = shaderStages:emplace_back()
 	s[0].sType = vk.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO
 	s[0].stage = vk.VK_SHADER_STAGE_VERTEX_BIT
 	s[0].module = vertShaderModule
 	s[0].pName = 'main'	--'vert'	--GLSL uses 'main', but clspv doesn't allow 'main', so ...
-		
-	local s = shaderStages:emplace_back() 	
+
+	local s = shaderStages:emplace_back()
 	s[0].sType = vk.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO
 	s[0].stage = vk.VK_SHADER_STAGE_FRAGMENT_BIT
 	s[0].module = fragShaderModule
@@ -821,8 +897,231 @@ function VKGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 	info[0].layout = pipelineLayout
 	info[0].renderPass = renderPass
 	info[0].subpass = 0
+
 	--info[0].basePipelineHandle = {}
 	self.id = vkGet('VkPipeline', vkassert, vk.vkCreateGraphicsPipelines, device, nil, 1, info, nil)
+end
+
+
+function VKSingleTimeCommand(device, queue, commandPool, callback)
+	local info = ffi.new'VkCommandBufferAllocateInfo[1]'
+	info[0].sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO
+	info[0].commandPool = commandPool
+	info[0].level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY
+	info[0].commandBufferCount = 1
+
+	--local cmds = vkGet('VkCommandBuffer', vkassert, vk.vkAllocateCommandBuffers, device, info)
+	-- I want to keep the pointer so ...
+	local cmds = ffi.new'VkCommandBuffer[1]'
+	vkassert(vk.vkAllocateCommandBuffers, device, info, cmds)
+
+	local info = ffi.new'VkCommandBufferBeginInfo[1]'
+	info[0].sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO
+	info[0].flags = vk.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
+	vkassert(vk.vkBeginCommandBuffer, cmds[0], info)
+
+	callback(cmds[0])
+
+	vkassert(vk.vkEndCommandBuffer, cmds[0])
+
+	local submits = ffi.new'VkSubmitInfo[1]'
+	submits[0].sType = vk.VK_STRUCTURE_TYPE_SUBMIT_INFO
+	submits[0].commandBufferCount = 1
+	submits[0].pCommandBuffers = cmds
+	vkassert(vk.vkQueueSubmit, queue, 1, submits, nil)
+	vkassert(vk.vkQueueWaitIdle, queue)
+end
+
+
+local VKCommandPool = class()
+
+function VKCommandPool:init(physDev, device, surface)
+	local queueFamilyIndices = physDev:findQueueFamilies(nil, surface)
+
+	local info = ffi.new'VkCommandPoolCreateInfo[1]'
+	info[0].sType = vk.VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO
+	info[0].flags = vk.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT
+	info[0].queueFamilyIndex = queueFamilyIndices.graphicsFamily
+	self.id = vkGet('VkCommandPool', vkassert, vk.vkCreateCommandPool, device.id, info, nil)
+
+	self.device = device.id
+	self.graphicsQueue = device.graphicsQueue
+end
+
+function VKCommandPool:transitionImageLayout(image, oldLayout, newLayout, mipLevels)
+	VKSingleTimeCommand(self.device, self.graphicsQueue, self.id,
+	function(commandBuffer)
+		local barrier = ffi.new'VkImageMemoryBarrier[1]'
+		barrier[0].oldLayout = oldLayout
+		barrier[0].newLayout = newLayout
+		barrier[0].srcQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED
+		barrier[0].dstQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED
+		barrier[0].image = image
+		barrier[0].subresourceRange.aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT
+		barrier[0].subresourceRange.levelCount = mipLevels
+		barrier[0].subresourceRange.layerCount = 1
+
+		local srcStage, dstStage
+		if oldLayout == vk.VK_IMAGE_LAYOUT_UNDEFINED
+		and newLayout == vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+		then
+			barrier[0].srcAccessMask = 0
+			barrier[0].dstAccessMask = vk.VK_ACCESS_TRANSFER_WRITE_BIT
+			srcStage = vk.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT
+			dstStage = vk.VK_PIPELINE_STAGE_TRANSFER_BIT
+		elseif oldLayout == vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+		and newLayout == vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+		then
+			barrier[0].srcAccessMask = vk.VK_ACCESS_TRANSFER_WRITE_BIT
+			barrier[0].dstAccessMask = vk.VK_ACCESS_SHADER_READ_BIT
+			srcStage = vk.VK_PIPELINE_STAGE_TRANSFER_BIT
+			dstStage = vk.VK_PIPELINE_STAGE_FRAGMENT_SHADER
+		else
+			error "unsupported layout transition!"
+		end
+
+		vk.vkCmdPipelineBarrier(
+			commandBuffer,	-- commandBuffer
+			srcStage,       -- srcStageMask
+			dstStage,       -- dstStageMask
+			0,              -- dependencyFlags
+            0,              -- memoryBarrierCount
+            nil,            -- pMemoryBarriers
+            0,              -- bufferMemoryBarrierCount
+            nil,            -- pBufferMemoryBarriers
+            1,              -- imageMemoryBarrierCount
+            barrier         -- pImageMemoryBarriers
+		)
+	end)
+end
+
+function VKCommandPool:copyBuffer(srcBuffer, dstBuffer, size)
+	VKSingleTimeCommand(self.device, self.graphicsQueue, self.id,
+	function(commandBuffer)
+		local regions = ffi.new'VkBufferCopy[1]'
+		regions[0].size = size
+		vk.vkCmdCopyBuffer(
+			commandBuffer,
+			srcBuffer,
+			dstBuffer,
+			1,
+			regions
+		)
+	end)
+end
+
+function VKCommandPool:copyBufferToImage(buffer, image, width, height)
+	VKSingleTimeCommand(self.device, self.graphicsQueue, self.id,
+	function(commandBuffer)
+		local regions = ffi.new'VkBufferImageCopy[1]'
+		regions[0].imageSubresource.aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT
+		regions[0].imageSubresource.layerCount = 1
+		regions[0].imageExtent.width = width
+		regions[0].imageExtent.height = height
+		regions[0].imageExtent.depth = 1
+		vk.vkCmdCopyBufferToImage(
+			commandBuffer,
+			buffer,
+			image,
+			vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1,
+			regions
+		)
+	end)
+end
+
+
+local VKDeviceMemoryBuffer = class()
+
+function VKDeviceMemoryBuffer:init(physDev, device, size, usage, properties)
+	local info = ffi.new'VkBufferCreateInfo[1]'
+	info[0].sType = vk.VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO
+	info[0].flags = 0
+	info[0].size = size
+	info[0].usage = usage
+	info[0].sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE
+	local buffer = vkGet('VkBuffer', vkassert, vk.vkCreateBuffer, device, info, nil)
+
+	local memReq = vkGet('VkMemoryRequirements', nil, vk.vkGetBufferMemoryRequirements, device, buffer)
+
+	local info = ffi.new'VkMemoryAllocateInfo[1]'
+	info[0].allocationSize = memReq.size
+	info[0].memoryTypeIndex = physDev:findMemoryType(memReq.memoryTypeBits, properties)
+	local memory = vkGet('VkDeviceMemory', vkassert, vk.vkAllocateMemory, device, info, nil)
+
+	vkassert(vk.vkBindBufferMemory, device, buffer, memory, 0)
+
+	self.buffer = buffer
+	self.memory = memory
+end
+
+function VKDeviceMemoryBuffer:makeBufferFromStaged(physDev, device, commandPool, srcData, bufferSize)
+	-- TODO esp this, is a raii ,and should free upon dtor upon scope end
+	local stagingBufferAndMemory = VKDeviceMakeFromStagingBuffer:create(
+		physDev,
+		device,
+		srcData,
+		bufferSize
+	)
+
+	local bufferAndMemory = VKDeviceMemoryBuffer(
+		physDev,
+		device,
+		bufferSize,
+		bit.bor(vk.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			vk.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT),
+		vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+	)
+
+	commandPool:copyBuffer(
+		stagingBufferAndMemory.buffer,
+		bufferAndMemory.buffer,
+		bufferSize
+	)
+
+	return bufferAndMemory
+end
+
+
+local VKMesh = class()
+
+function VKMesh:init(physDev, device, commandPool)
+	local ObjLoader = require 'mesh.objloader'
+	local mesh = ObjLoader():load"viking_room.obj";
+
+	local indices = mesh.triIndexes	-- vector'int32_t'
+	asserteq(indices.type, 'int32_t') 	-- well, uint, but whatever
+	-- copy from MeshVertex_t to Vertex ... TODO why bother ...
+	local vertices = vector'Vertex'
+	vertices:resize(#mesh.vtxs)
+	for i=0,#mesh.vtxs-1 do
+		local srcv = mesh.vtxs.v[i]
+		local dstv = vertices.v[i]
+		dstv.pos = srcv.pos
+		dstv.texCoord = srcv.texcoord	-- TODO y-flip?
+		dstv.color:set(1, 1, 1)	-- do our objects have normal properties?  nope, just v vt vn ... why doesn't the demo use normals? does it bake lighting?
+	end
+
+	local vertexBufferAndMemory = VKDeviceMemoryBuffer:makeBufferFromStaged(
+		physDev,
+		device.id,
+		commandPool,
+		vertices.v,
+		#vertices * ffi.sizeof(vertices.type)
+	)
+
+	local numIndices = #indices
+	local indexBufferAndMemory = VKDeviceMemoryBuffer:makeBufferFromStaged(
+		physDev,
+		device.id,
+		commandPool,
+		indices.v,
+		#indices * ffi.sizeof(indices.type)
+	)
+
+	self.vertexBufferAndMemory = vertexBufferAndMemory
+	self.indexBufferAndMemory = indexBufferAndMemory
+	self.numIndices = numIndices
 end
 
 
@@ -841,22 +1140,52 @@ function VKCommon:init(app)
 
 	local deviceExtensions = vector'char const *'
 	deviceExtensions:emplace_back()[0] = VK_KHR_SWAPCHAIN_EXTENSION_NAME
-	
+
 	self.physDev = VKPhysicalDevice(self.instance.id, self.surface, deviceExtensions)
-	
+
 	self.msaaSamples = self.physDev:getMaxUsableSampleCount()
 print('msaaSamples', self.msaaSamples)
-	
+
 	self.device = VKDevice(
 		self.physDev.id,
 		deviceExtensions,
 		enableValidationLayers,
 		self.physDev:findQueueFamilies(nil, self.surface)
 	)
-	
+
 	self.swapChain = self:createSwapChain(app)
 
-	self.graphicsPipeline = VKGraphicsPipeline(physDev, self.device.id, self.swapChain.renderPass, self.msaaSamples)
+	self.graphicsPipeline = VKGraphicsPipeline(self.physDev, self.device.id, self.swapChain.renderPass, self.msaaSamples)
+
+	self.commandPool = VKCommandPool(self.physDev, self.device, self.surface)
+
+	self.textureImageAndMemory = self:createTextureImage()
+
+	self.textureImageView = self.swapChain:createImageView(
+		self.device.id,
+		self.textureImageAndMemory.image,
+		vk.VK_FORMAT_R8G8B8A8_SRGB,
+		vk.VK_IMAGE_ASPECT_COLOR_BIT,
+		self.mipLevels)
+
+	local info = ffi.new'VkSamplerCreateInfo[1]'
+	info[0].magFilter = vk.VK_FILTER_LINEAR
+	info[0].minFilter = vk.VK_FILTER_LINEAR
+	info[0].mipmapMode = vk.VK_SAMPLER_MIPMAP_MODE_LINEAR
+	info[0].addressModeU = vk.VK_SAMPLER_ADDRESS_MODE_REPEAT
+	info[0].addressModeV = vk.VK_SAMPLER_ADDRESS_MODE_REPEAT
+	info[0].addressModeW = vk.VK_SAMPLER_ADDRESS_MODE_REPEAT
+	info[0].anisotropyEnable = vk.VK_TRUE
+	info[0].maxAnisotropy = self.physDev:getProps().limits.maxSamplerAnisotropy
+	info[0].compareEnable = vk.VK_FALSE
+	info[0].compareOp = vk.VK_COMPARE_OP_ALWAYS
+	info[0].minLod = 0
+	info[0].maxLod = self.mipLevels
+	info[0].borderColor = vk.VK_BORDER_COLOR_INT_OPAQUE_BLACK
+	info[0].unnormalizedCoordinates = vk.VK_FALSE
+	self.textureSampler = vkGet('VkSampler', vkassert, vk.vkCreateSampler, self.device.id, info, nil)
+
+	self.mesh = VKMesh(self.physDev, self.device, self.commandPool)
 end
 
 function VKCommon:createSwapChain(app)
@@ -867,6 +1196,146 @@ function VKCommon:createSwapChain(app)
 		self.device.id,
 		self.surface,
 		self.msaaSamples)
+end
+
+function VKCommon:createTextureImage()
+	local texturePath = 'viking_room.png'
+	local Image = require 'image'
+	local image = assert(Image(texturePath))
+	image = image:setChannels(4)
+	assert(image.channels == 4)	-- TODO setChannels
+	local bufferSize = image.width * image.height * image.channels
+
+	-- TODO why store in 'self', why not store with 'textureImageAndMemory' and 'textureImageView' all in one place?
+	self.mipLevels = math.floor(math.log(math.max(image.width, image.height), 2)) + 1
+	local textureImageAndMemory = VKDeviceMemoryImage:makeTextureFromStaged(
+		self.physDev,
+		self.device.id,
+		self.commandPool,
+		image.buffer,
+		bufferSize,
+		image.width,
+		image.height,
+		self.mipLevels
+	)
+
+	self:generateMipmaps(
+		textureImageAndMemory.image,
+		vk.VK_FORMAT_R8G8B8A8_SRGB,
+		image.width,
+		image.height,
+		self.mipLevels
+	)
+
+	return textureImageAndMemory
+end
+
+function VKCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, mipLevels)
+	local formatProperties = self.physDev:getFormatProps(nil, imageFormat)
+
+	if 0 == bit.band(formatProperties.optimalTilingFeatures, vk.VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) then
+		error "texture image format does not support linear blitting!"
+	end
+
+	VKSingleTimeCommand(self.device.id, self.device.graphicsQueue, self.commandPool.id,
+	function(commandBuffer)
+		local barrier = ffi.new'VkImageMemoryBarrier[1]'
+		barrier[0].srcQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED
+		barrier[0].dstQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED
+		barrier[0].image = image
+		barrier[0].subresourceRange.aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT
+		barrier[0].subresourceRange.levelCount = 1
+		barrier[0].subresourceRange.layerCount = 1
+
+		local mipWidth = texWidth
+		local mipHeight = texHeight
+
+		for i=1,mipLevels-1 do
+			barrier[0].subresourceRange.baseMipLevel = i - 1
+			barrier[0].oldLayout = vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+			barrier[0].newLayout = vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+			barrier[0].srcAccessMask = vk.VK_ACCESS_TRANSFER_WRITE_BIT
+			barrier[0].dstAccessMask = vk.VK_ACCESS_TRANSFER_READ_BIT
+
+			vk.vkCmdPipelineBarrier(
+				commandBuffer,						-- commandBuffer
+				vk.VK_PIPELINE_STAGE_TRANSFER_BIT,  -- srcStageMask
+				vk.VK_PIPELINE_STAGE_TRANSFER_BIT,	-- dstStageMask
+				0,									-- dependencyFlags
+				0,									-- memoryBarrierCount
+				nil,								-- pMemoryBarriers
+				0,									-- bufferMemoryBarrierCount
+				nil,								-- pBufferMemoryBarriers
+				1,									-- imageMemoryBarrierCount
+				barrier								-- pImageMemoryBarriers
+			)
+
+			local blit = ffi.new'VkImageBlit[1]'
+			blit[0].srcSubresource.aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT
+			blit[0].srcSubresource.mipLevel = i-1
+			blit[0].srcSubresource.layerCount = 1
+			blit[0].srcOffsets[1].x = mipWidth
+			blit[0].srcOffsets[1].y = mipHeight
+			blit[0].srcOffsets[1].z = 1
+			blit[0].dstSubresource.aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT
+			blit[0].dstSubresource.mipLevel = i
+			blit[0].dstSubresource.layerCount = 1
+			blit[0].dstOffsets[1].x = mipWidth > 1 and math.floor(mipWidth / 2) or 1
+			blit[0].dstOffsets[1].y = mipHeight > 1 and math.floor(mipHeight / 2) or 1
+			blit[0].dstOffsets[1].z = 1
+
+			vk.vkCmdBlitImage(
+				commandBuffer,
+				image,
+				vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				image,
+				vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				1,
+				blit,
+				vk.VK_FILTER_LINEAR
+			)
+
+			barrier[0].oldLayout = vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+			barrier[0].newLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			barrier[0].srcAccessMask = vk.VK_ACCESS_TRANSFER_READ_BIT
+			barrier[0].dstAccessMask = vk.VK_ACCESS_SHADER_READ_BIT
+
+			vk.vkCmdPipelineBarrier(
+				commandBuffer,								-- commandBuffer
+	            vk.VK_PIPELINE_STAGE_TRANSFER_BIT,  		-- srcStageMask
+                vk.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,   -- dstStageMask
+				0,											-- dependencyFlags
+				0,											-- memoryBarrierCount
+				nil,										-- pMemoryBarriers
+				0,											-- bufferMemoryBarrierCount
+				nil,										-- pBufferMemoryBarriers
+				1,											-- imageMemoryBarrierCount
+				barrier										-- pImageMemoryBarriers
+			)
+
+			if mipWidth > 1 then mipWidth = math.floor(mipWidth / 2) end
+			if mipHeight > 1 then mipHeight = math.floor(mipHeight / 2) end
+		end
+
+		barrier[0].subresourceRange.baseMipLevel = mipLevels - 1;
+		barrier[0].oldLayout = vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+		barrier[0].newLayout = vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+		barrier[0].srcAccessMask = vk.VK_ACCESS_TRANSFER_WRITE_BIT
+		barrier[0].dstAccessMask = vk.VK_ACCESS_TRANSFER_READ_BIT
+
+		vk.vkCmdPipelineBarrier(
+			commandBuffer,								-- commandBuffer
+			vk.VK_PIPELINE_STAGE_TRANSFER_BIT,  		-- srcStageMask
+			vk.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,   -- dstStageMask
+			0,											-- dependencyFlags
+			0,											-- memoryBarrierCount
+			nil,										-- pMemoryBarriers
+			0,											-- bufferMemoryBarrierCount
+			nil,										-- pBufferMemoryBarriers
+			1,											-- imageMemoryBarrierCount
+			barrier										-- pImageMemoryBarriers
+		)
+	end)
 end
 
 function VKCommon:setFramebufferResized()
@@ -888,7 +1357,7 @@ local SDLApp = require 'sdl.app'	-- TODO sdl.app ?  and gl.app and imgui.app ?
 
 local VulkanApp = SDLApp:subclass()
 
-VulkanApp.title = 'Vulkan test' 
+VulkanApp.title = 'Vulkan test'
 VulkanApp.sdlCreateWindowFlags = bit.bor(VulkanApp.sdlCreateWindowFlags, sdl.SDL_WINDOW_VULKAN)
 
 function VulkanApp:initWindow()
@@ -908,8 +1377,8 @@ end
 
 function VulkanApp:exit()
 	self.vkCommon:exit()
-	
+
 	VulkanApp.super.exit(self)
 end
 
-return VulkanApp 
+return VulkanApp
