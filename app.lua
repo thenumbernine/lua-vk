@@ -1,4 +1,6 @@
 local ffi = require 'ffi'
+local range = require 'ext.range'
+local table = require 'ext.table'
 local vec3f = require 'vec-ffi.vec3f'
 local math = require 'ext.math'	-- clamp
 local vk = require 'ffi.req' 'vulkan'
@@ -763,6 +765,16 @@ local Vertex = struct{
 	end,
 }
 
+local UniformBufferObject = struct{
+	name = 'UniformBufferObject',
+	fields = {
+		{name = 'model', type = 'float[16]'},
+		{name = 'view', type = 'float[16]'},
+		{name = 'proj', type = 'float[16]'},
+	},
+}
+asserteq(ffi.sizeof'UniformBufferObject', 4 * 4 * ffi.sizeof'float' * 3)
+
 local VKGraphicsPipeline = class()
 
 function VKGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
@@ -787,7 +799,7 @@ function VKGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 	info[0].sType = vk.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO
 	info[0].bindingCount = #bindings
 	info[0].pBindings = bindings.v
-	local descriptorSetLayout = vkGet('VkDescriptorSetLayout', nil, vk.vkCreateDescriptorSetLayout, device, info, nil)
+	self.descriptorSetLayout = vkGet('VkDescriptorSetLayout', nil, vk.vkCreateDescriptorSetLayout, device, info, nil)
 
 	local vertShaderModule = VKShaderModule:fromFile(device, "shader-vert.spv")
 	local fragShaderModule = VKShaderModule:fromFile(device, "shader-frag.spv")
@@ -860,7 +872,7 @@ function VKGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 	dynamicState[0].pDynamicStates = dynamicStates.v
 
 	local descriptorSetLayouts = vector'VkDescriptorSetLayout'
-	descriptorSetLayouts:push_back(descriptorSetLayout)
+	descriptorSetLayouts:push_back(self.descriptorSetLayout)
 
 	local info = ffi.new'VkPipelineLayoutCreateInfo[1]'
 	info[0].sType = vk.VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO
@@ -1083,6 +1095,14 @@ function VKDeviceMemoryBuffer:makeBufferFromStaged(physDev, device, commandPool,
 end
 
 
+local VKBufferMemoryAndMapped = class()
+
+function VKBufferMemoryAndMapped:init(bm, mapped)
+	self.bm = bm
+	self.mapped = mapped
+end
+
+
 local VKMesh = class()
 
 function VKMesh:init(physDev, device, commandPool)
@@ -1128,6 +1148,7 @@ end
 local VKCommon = class()
 
 VKCommon.enableValidationLayers = false
+VKCommon.maxFramesInFlight = 2
 
 function VKCommon:init(app)
 	self.framebufferResized = false
@@ -1186,6 +1207,68 @@ print('msaaSamples', self.msaaSamples)
 	self.textureSampler = vkGet('VkSampler', vkassert, vk.vkCreateSampler, self.device.id, info, nil)
 
 	self.mesh = VKMesh(self.physDev, self.device, self.commandPool)
+
+	self.uniformBuffers = range(self.maxFramesInFlight):mapi(function(i)
+		local size = ffi.sizeof'UniformBufferObject'
+		local bm = VKDeviceMemoryBuffer(
+			self.physDev,
+			self.device.id,
+			size,
+			vk.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			bit.bor(
+				vk.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+				vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+			)
+		)
+		local mapped = vkGet('void*', vkassert, vk.vkMapMemory, self.device.id, bm.memory, 0, size, 0)
+		return VKBufferMemoryAndMapped(bm, mapped)
+	end)
+
+	local poolSizes = vector'VkDescriptorPoolSize'
+	local p = poolSizes:emplace_back()
+	p[0].type = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
+	p[0].descriptorCount = self.maxFramesInFlight
+	local p = poolSizes:emplace_back()
+	p[0].type = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+	p[0].descriptorCount = self.maxFramesInFlight
+
+	local info = ffi.new'VkDescriptorPoolCreateInfo[1]'
+	info[0].sType = vk.VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO
+	info[0].maxSets = self.maxFramesInFlight
+	info[0].poolSizeCount = #poolSizes
+	info[0].pPoolSizes = poolSizes.v
+	self.descriptorPool = vkGet('VkDescriptorPool', vkassert, vk.vkCreateDescriptorPool, self.device.id, info, nil)
+
+	self.descriptorSets = self:createDescriptorSets()
+
+	local info = ffi.new'VkCommandBufferAllocateInfo[1]'
+	info[0].sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO
+	info[0].commandPool = self.commandPool.id
+	info[0].level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY
+	info[0].commandBufferCount = self.maxFramesInFlight
+	self.commandBuffers = vkGet('VkCommandBuffer', vkassert, vk.vkAllocateCommandBuffers, self.device.id, info)
+
+	self.imageAvailableSemaphores = vector'VkSemaphore'
+	for i=0,self.maxFramesInFlight-1 do
+		local info = ffi.new'VkSemaphoreCreateInfo[1]'
+		info[0].sType = vk.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
+		self.imageAvailableSemaphores:push_back(vkGet('VkSemaphore', vkassert, vk.vkCreateSemaphore, self.device.id, info, nil))
+	end
+
+	self.renderFinishedSemaphores = vector'VkSemaphore'
+	for i=0,self.maxFramesInFlight-1 do
+		local info = ffi.new'VkSemaphoreCreateInfo[1]'
+		info[0].sType = vk.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
+		self.renderFinishedSemaphores:push_back(vkGet('VkSemaphore', vkassert, vk.vkCreateSemaphore, self.device.id, info, nil))
+	end
+
+	self.inFlightFences = vector'VkFence'
+	for i=0,self.maxFramesInFlight-1 do
+		local info = ffi.new'VkFenceCreateInfo[1]'
+		info[0].sType = vk.VK_STRUCTURE_TYPE_FENCE_CREATE_INFO
+		info[0].flags = vk.VK_FENCE_CREATE_SIGNALED_BIT
+		self.inFlightFences:push_back(vkGet('VkFence', vkassert, vk.vkCreateFence, self.device.id, info, nil))
+	end
 end
 
 function VKCommon:createSwapChain(app)
@@ -1338,11 +1421,77 @@ function VKCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, mipLe
 	end)
 end
 
+function VKCommon:createDescriptorSets()
+	local layouts = vector'VkDescriptorSetLayout'
+	for i=1,self.maxFramesInFlight do
+		layouts:push_back(self.graphicsPipeline.descriptorSetLayout)
+	end
+
+	local info = ffi.new'VkDescriptorSetAllocateInfo[1]'
+	info[0].sType = vk.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO
+	info[0].descriptorPool = self.descriptorPool
+	info[0].descriptorSetCount = #layouts -- self.maxFramesInFlight
+	info[0].pSetLayouts = layouts.v	-- length matches descriptorSetCount I think?
+
+	--[[ vkGet just allocates one
+	-- vkGetVector expects a 'count' field to determine size
+	-- ... we have to statically allocate for this function ...
+	local descriptorSets = vkGet('VkDescriptorSet',
+		vkassert,
+		vk.vkAllocateDescriptorSets,
+		self.device.id,
+		info
+	)
+	--]]
+	-- [[
+	local descriptorSets = vector'VkDescriptorSet'
+	descriptorSets:resize(self.maxFramesInFlight)
+	vkassert(vk.vkAllocateDescriptorSets, self.device.id, info, descriptorSets.v)
+	--]]
+
+	for i=0,self.maxFramesInFlight-1 do
+		local bufferInfo = ffi.new'VkDescriptorBufferInfo[1]'
+		bufferInfo[0].buffer = self.uniformBuffers[i+1].buffer
+		bufferInfo[0].range = ffi.sizeof'UniformBufferObject'
+
+		local imageInfo = ffi.new'VkDescriptorImageInfo[1]'
+		imageInfo[0].sampler = self.textureSampler
+		imageInfo[0].imageView = self.textureImageView
+		imageInfo[0].imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+
+		local descriptorWrites = vector'VkWriteDescriptorSet'
+		local d = descriptorWrites:emplace_back()
+		d[0].sType = vk.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET
+		d[0].dstSet = descriptorSets.v[i]
+		d[0].dstBinding = 0
+		d[0].descriptorCount = 1
+		d[0].descriptorType = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
+		d[0].pBufferInfo = bufferInfo
+
+		local d = descriptorWrites:emplace_back()
+		d[0].dstSet = descriptorSets.v[i]
+		d[0].dstBinding = 1
+		d[0].descriptorCount = 1
+		d[0].descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+		d[0].pImageInfo = imageInfo
+
+		vk.vkUpdateDescriptorSets(
+			self.device.id,
+			#descriptorWrites,
+			descriptorWrites.v,
+			0,
+			nil)
+	end
+
+	return descriptorSets
+end
+
 function VKCommon:setFramebufferResized()
 	self.framebufferResized = true
 end
 
 function VKCommon:drawFrame()
+
 end
 
 function VKCommon:exit()
