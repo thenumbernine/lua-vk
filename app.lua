@@ -1,11 +1,13 @@
 local ffi = require 'ffi'
 local range = require 'ext.range'
 local table = require 'ext.table'
+local timer = require 'ext.timer'
 local vec3f = require 'vec-ffi.vec3f'
 local math = require 'ext.math'	-- clamp
 local vk = require 'ffi.req' 'vulkan'
 local vector = require 'ffi.cpp.vector-lua'
 local asserteq = require 'ext.assert'.eq
+local matrix_ffi = require 'matrix.ffi'
 
 -- TODO put these in SDL2 ... they don't immediately #include
 local sdl = require 'sdl'
@@ -450,8 +452,11 @@ end
 local VKSwapchain = class()
 
 function VKSwapchain:init(width, height, physDev, device, surface, msaaSamples)
+	self.width = width
+	self.height = height
+	
 	local swapChainSupport = physDev:querySwapChainSupport(nil, surface)
-	local extent = self:chooseSwapExtent(width, height, swapChainSupport.capabilities)
+	self.extent = self:chooseSwapExtent(width, height, swapChainSupport.capabilities)
 
 	local imageCount = swapChainSupport.capabilities.minImageCount + 1
 	if swapChainSupport.capabilities.maxImageCount > 0 then
@@ -466,7 +471,7 @@ function VKSwapchain:init(width, height, physDev, device, surface, msaaSamples)
 	info[0].minImageCount = imageCount
 	info[0].imageFormat = surfaceFormat.format
 	info[0].imageColorSpace = surfaceFormat.colorSpace
-	info[0].imageExtent = extent
+	info[0].imageExtent = self.extent
 	info[0].imageArrayLayers = 1
 	info[0].imageUsage = vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
 	info[0].preTransform = swapChainSupport.capabilities.currentTransform
@@ -489,25 +494,25 @@ function VKSwapchain:init(width, height, physDev, device, surface, msaaSamples)
 		info[0].imageSharingMode = vk.VK_SHARING_MODE_EXCLUSIVE
 	end
 
-	local id = vkGet('VkSwapchainKHR', vkassert, vk.vkCreateSwapchainKHR, device, info, nil)
+	self.id = vkGet('VkSwapchainKHR', vkassert, vk.vkCreateSwapchainKHR, device, info, nil)
 
-	local images = vkGetVector('VkImage', vkassert, vk.vkGetSwapchainImagesKHR, device, id)
+	self.images = vkGetVector('VkImage', vkassert, vk.vkGetSwapchainImagesKHR, device, self.id)
 
-	local imageViews = vector'VkImageView'
-	for i=0,#images-1 do
-		imageViews:emplace_back()[0] = self:createImageView(
+	self.imageViews = vector'VkImageView'
+	for i=0,#self.images-1 do
+		self.imageViews:emplace_back()[0] = self:createImageView(
 			device,
-			images.v[i],
+			self.images.v[i],
 			surfaceFormat.format,
 			vk.VK_IMAGE_ASPECT_COLOR_BIT,
 			1)
 	end
 
-	local renderPass = self:createRenderPass(physDev, device, surfaceFormat.format, msaaSamples)
+	self.renderPass = self:createRenderPass(physDev, device, surfaceFormat.format, msaaSamples)
 
 	local colorFormat = surfaceFormat.format
 
-	local colorImageAndMemory = VKDeviceMemoryImage:createImage(
+	self.colorImageAndMemory = VKDeviceMemoryImage:createImage(
 		physDev,
 		device,
 		width,
@@ -520,9 +525,9 @@ function VKSwapchain:init(width, height, physDev, device, surface, msaaSamples)
 		vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	)
 
-	local colorImageView = self:createImageView(
+	self.colorImageView = self:createImageView(
 		device,
-		colorImageAndMemory.image,
+		self.colorImageAndMemory.image,
 		colorFormat,
 		vk.VK_IMAGE_ASPECT_COLOR_BIT,
 		1
@@ -530,7 +535,7 @@ function VKSwapchain:init(width, height, physDev, device, surface, msaaSamples)
 
 	local depthFormat = physDev:findDepthFormat()
 
-	local depthImageAndMemory = VKDeviceMemoryImage:createImage(
+	self.depthImageAndMemory = VKDeviceMemoryImage:createImage(
 		physDev,
 		device,
 		width,
@@ -542,47 +547,35 @@ function VKSwapchain:init(width, height, physDev, device, surface, msaaSamples)
 		vk.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
 		vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	)
-	local depthImageView = self:createImageView(
+	self.depthImageView = self:createImageView(
 		device,
-		depthImageAndMemory.image,
+		self.depthImageAndMemory.image,
 		depthFormat,
 		vk.VK_IMAGE_ASPECT_DEPTH_BIT,
 		1
 	)
 
-	local framebuffers = vector'VkFramebuffer'
-	for i=0,#imageViews-1 do
+	self.framebuffers = vector'VkFramebuffer'
+	for i=0,#self.imageViews-1 do
 		local attachments = vector'VkImageView'
-		attachments:push_back(colorImageView)
-		attachments:push_back(depthImageView)
-		attachments:push_back(imageViews.v[i])
+		attachments:push_back(self.colorImageView)
+		attachments:push_back(self.depthImageView)
+		attachments:push_back(self.imageViews.v[i])
 		local info = ffi.new'VkFramebufferCreateInfo[1]'
 		info[0].sType = vk.VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO
-		info[0].renderPass = renderPass
+		info[0].renderPass = self.renderPass
 		info[0].attachmentCount = #attachments
 		info[0].pAttachments = attachments.v
 		info[0].width = width
 		info[0].height = height
 		info[0].layers = 1
-		framebuffers:push_back(vkGet('VkFramebuffer', vkassert, vk.vkCreateFramebuffer, device, info, nil))
+		self.framebuffers:push_back(vkGet('VkFramebuffer', vkassert, vk.vkCreateFramebuffer, device, info, nil))
 	end
-
-	self.id = id
-	self.renderPass = renderPass
-	self.depthImageAndMemory = depthImageAndMemory
-	self.depthImageView = depthImageView
-	self.colorImageAndMemory = colorImageAndMemory
-	self.colorImageView = colorImageView
-	self.width = width
-	self.height = height
-	self.images = images
-	self.imageViews = imageViews
-	self.framebuffers = framebuffers
 end
 
 function VKSwapchain:chooseSwapExtent(width, height, capabilities)
 	if capabilities.currentExtent.width ~= -1 then
-		return capabilities.currentExtent
+		return ffi.new('VkExtent2D', capabilities.currentExtent)
 	else
 		local actualExtent = ffi.new('VkExtent2D', width, height)
 		actualExtent.width = math.clamp(actualExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width)
@@ -921,11 +914,13 @@ function VKSingleTimeCommand(device, queue, commandPool, callback)
 	info[0].commandPool = commandPool
 	info[0].level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY
 	info[0].commandBufferCount = 1
-
-	--local cmds = vkGet('VkCommandBuffer', vkassert, vk.vkAllocateCommandBuffers, device, info)
-	-- I want to keep the pointer so ...
+	--[[
+	local cmds = vkGet('VkCommandBuffer', vkassert, vk.vkAllocateCommandBuffers, device, info)
+	--]]
+	-- [[ I want to keep the pointer so ...
 	local cmds = ffi.new'VkCommandBuffer[1]'
 	vkassert(vk.vkAllocateCommandBuffers, device, info, cmds)
+	--]]
 
 	local info = ffi.new'VkCommandBufferBeginInfo[1]'
 	info[0].sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO
@@ -1151,6 +1146,7 @@ VKCommon.enableValidationLayers = false
 VKCommon.maxFramesInFlight = 2
 
 function VKCommon:init(app)
+	self.app = assert(app)
 	self.framebufferResized = false
 	self.currentFrame = 0
 
@@ -1174,15 +1170,15 @@ print('msaaSamples', self.msaaSamples)
 		self.physDev:findQueueFamilies(nil, self.surface)
 	)
 
-	self.swapChain = self:createSwapChain(app)
+	self.swapchain = self:createSwapchain()
 
-	self.graphicsPipeline = VKGraphicsPipeline(self.physDev, self.device.id, self.swapChain.renderPass, self.msaaSamples)
+	self.graphicsPipeline = VKGraphicsPipeline(self.physDev, self.device.id, self.swapchain.renderPass, self.msaaSamples)
 
 	self.commandPool = VKCommandPool(self.physDev, self.device, self.surface)
 
 	self.textureImageAndMemory = self:createTextureImage()
 
-	self.textureImageView = self.swapChain:createImageView(
+	self.textureImageView = self.swapchain:createImageView(
 		self.device.id,
 		self.textureImageAndMemory.image,
 		vk.VK_FORMAT_R8G8B8A8_SRGB,
@@ -1246,7 +1242,14 @@ print('msaaSamples', self.msaaSamples)
 	info[0].commandPool = self.commandPool.id
 	info[0].level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY
 	info[0].commandBufferCount = self.maxFramesInFlight
+	--[[
 	self.commandBuffers = vkGet('VkCommandBuffer', vkassert, vk.vkAllocateCommandBuffers, self.device.id, info)
+	--]]
+	-- [[ can't use vkGet and can't use vkGetVector ...
+	self.commandBuffers = vector'VkCommandBuffer'
+	self.commandBuffers:resize(self.maxFramesInFlight)
+	vkassert(vk.vkAllocateCommandBuffers, self.device.id, info, self.commandBuffers.v)
+	--]]
 
 	self.imageAvailableSemaphores = vector'VkSemaphore'
 	for i=0,self.maxFramesInFlight-1 do
@@ -1271,7 +1274,8 @@ print('msaaSamples', self.msaaSamples)
 	end
 end
 
-function VKCommon:createSwapChain(app)
+function VKCommon:createSwapchain()
+	local app = self.app
 	return VKSwapchain(
 		app.width,
 		app.height,
@@ -1491,7 +1495,197 @@ function VKCommon:setFramebufferResized()
 end
 
 function VKCommon:drawFrame()
+	local result = vk.vkWaitForFences(
+		self.device.id,
+		1,
+		self.inFlightFences.v + self.currentFrame,
+		vk.VK_TRUE,
+		ffi.cast('uint64_t', -1)	-- UINT64_MAX
+	)
+	if result ~= vk.VK_SUCCESS then
+		error("vkWaitForRences failed: "..tostring(result))
+	end
 
+	local imageIndex = ffi.new'uint32_t[1]'
+	local info = ffi.new'VkAcquireNextImageInfoKHR[1]'
+	info[0].sType = vk.VK_STRUCTURE_TYPE_ACQUIRE_NEXT_IMAGE_INFO_KHR
+	info[0].swapchain = self.swapchain.id
+	info[0].timeout = ffi.cast('uint64_t', -1)
+	info[0].semaphore = self.imageAvailableSemaphores.v[self.currentFrame]
+	local result = vk.vkAcquireNextImage2KHR(self.device.id, info, imageIndex)
+	if result == vk.VK_ERROR_OUT_OF_DATE_KHR then
+		self:recreateSwapchain()
+		return
+	elseif result ~= vk.VK_SUCCESS
+	and result ~= vk.VK_SUBOPTIMAL_KHR
+	then
+		error("vkAcquireNextImage2KHR failed: "..tostring(result))
+	end
+
+	self:updateUniformBuffer(self.currentFrame)
+
+	vkassert(vk.vkResetFences, self.device.id, 1, self.inFlightFences.v + self.currentFrame)
+
+	vkassert(vk.vkResetCommandBuffer, self.commandBuffers.v[self.currentFrame], 0)
+	self:recordCommandBuffer(self.commandBuffers.v[self.currentFrame], imageIndex[0])
+
+	local waitStages = ffi.new'VkPipelineStageFlags[1]'
+	waitStages[0] = vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+	
+	local info = ffi.new'VkSubmitInfo[1]'
+	info[0].sType = vk.VK_STRUCTURE_TYPE_SUBMIT_INFO
+	info[0].waitSemaphoreCount = 1
+	info[0].pWaitSemaphores = self.imageAvailableSemaphores.v + self.currentFrame
+	info[0].pWaitDstStageMask = waitStages
+	info[0].commandBufferCount = 1
+	info[0].pCommandBuffers = self.commandBuffers.v + self.currentFrame
+	info[0].signalSemaphoreCount = 1
+	info[0].pSignalSemaphores = self.renderFinishedSemaphores.v + self.currentFrame
+	vkassert(vk.vkQueueSubmit,
+		self.device.graphicsQueue,
+		1,
+		info,
+		self.inFlightFences[currentFrame]
+	)
+
+	-- TODO reason to keep the gc'd ptr around
+	local swapchains = ffi.new'VkSwapchainKHR[1]'
+	swapchains[0] = self.swapchain.id
+
+	local info = ffi.new'VkPresentInfoKHR[1]'
+	info[0].sType = vk.VK_STRUCTURE_TYPE_PRESENT_INFO_KHR
+	info[0].waitSemaphoreCount = 1
+	info[0].pWaitSemaphores = self.renderFinishedSemaphores.v + self.currentFrame
+	info[0].swapchainCount = 1
+	info[0].pSwapchains = swapchains
+	info[0].pImageIndices = imageIndex
+	-- TODO what's info[0].pResults vs the results returned from vkQueuePresentKHR ?
+	local result = vk.vkQueuePresentKHR(
+		self.device.presentQueue,
+		info)
+	if result == vk.VK_ERROR_OUT_OF_DATE_KHR
+	or result == vk.VK_SUBOPTIMAL_KHR
+	or self.framebufferResized
+	then
+		self.framebufferResized = false
+		self:recreateSwapchain()
+	elseif result ~= vk.VK_SUCCESS then
+		error("vkQueuePresentKHR failed: "..tostring(result))
+	end
+
+	self.currentFrame = (self.currentFrame + 1) % self.maxFramesInFlight
+end
+
+local identMat = matrix_ffi({
+	{1,0,0,0},
+	{0,1,0,0},
+	{0,0,1,0},
+	{0,0,0,1},
+}, 'float')
+
+VKCommon.startTime = timer.getTime()
+function VKCommon:updateUniformBuffer()
+	local app = self.app
+	local currentTime = timer.getTime()
+	local time = currentTime - self.startTime
+		
+	local ar = tonumber(self.swapchain.extent.width) / tonumber(self.swapchain.extent.height)
+
+	local ubo = UniformBufferObject()
+	ffi.copy(ubo.model, app.view.mvMat.ptr, 4 * 4 * ffi.sizeof'float')
+	-- TODO maybe transpose ...
+	ffi.copy(ubo.view, identMat.ptr, 4 * 4 * ffi.sizeof'float')
+	ffi.copy(ubo.proj, app.view.projMat.ptr, 4 * 4 * ffi.sizeof'float')
+
+	ffi.copy(self.uniformBuffers[self.currentFrame+1].mapped, ubo, ffi.sizeof'UniformBufferObject')
+end
+
+function VKCommon:recordCommandBuffer(commandBuffer, imageIndex)
+	-- TODO per vulkan api, if we just have null info, can we pass null?
+	local info = ffi.new'VkCommandBufferBeginInfo[1]'
+	info[0].sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO
+	vkassert(vk.vkBeginCommandBuffer, commandBuffer, info)
+
+	local clearValues = vector'VkClearValue'
+	local c = clearValues:emplace_back()
+	c[0].color.float32[0] = 0
+	c[0].color.float32[1] = 0
+	c[0].color.float32[2] = 0
+	c[0].color.float32[3] = 1
+	local c = clearValues:emplace_back()
+	c[0].depthStencil.depth = 1
+	c[0].depthStencil.stencil = 0
+
+	local info = ffi.new'VkRenderPassBeginInfo[1]'
+	info[0].sType = vk.VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO
+	info[0].renderPass = self.swapchain.renderPass
+	info[0].framebuffer = self.swapchain.framebuffers.v[imageIndex]
+	-- TODO will equals assign here, or will it just mess things up?
+	info[0].renderArea.extent.width = self.swapchain.extent.width
+	info[0].renderArea.extent.height = self.swapchain.extent.height
+	info[0].clearValueCount = #clearValues
+	info[0].pClearValues = clearValues.v
+	vk.vkCmdBeginRenderPass(commandBuffer, info, vk.VK_SUBPASS_CONTENTS_INLINE)
+
+	vk.vkCmdBindPipeline(commandBuffer, vk.VK_PIPELINE_BIND_POINT_GRAPHICS, self.graphicsPipeline.id)
+
+	local viewports = ffi.new'VkViewport[1]'
+	viewports[0].width = self.swapchain.extent.width
+	viewports[0].height = self.swapchain.extent.height
+	viewports[0].minDepth = 0
+	viewports[0].maxDepth = 1
+	vk.vkCmdSetViewport(commandBuffer, 0, 1, viewports)
+
+	local scissors = ffi.new'VkRect2D[1]'
+	scissors[0].extent.width = self.swapchain.extent.width
+	scissors[0].extent.height = self.swapchain.extent.height
+	vk.vkCmdSetScissor(commandBuffer, 0, 1, scissors)
+
+	local vertexBuffers = ffi.new'VkBuffer[1]'
+	vertexBuffers[0] = self.mesh.vertexBufferAndMemory.buffer
+	local vertexOffsets = ffi.new'VkDeviceSize[1]'
+	vk.vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, vertexOffsets)
+
+	vk.vkCmdBindIndexBuffer(
+		commandBuffer,
+		self.mesh.indexBufferAndMemory.buffer,
+		0,
+		vk.VK_INDEX_TYPE_UINT32
+	)
+
+	vk.vkCmdBindDescriptorSets(
+		commandBuffer,
+		vk.VK_PIPELINE_BIND_POINT_GRAPHICS,
+		self.graphicsPipeline.pipelineLayout,
+		0,
+		1,
+		self.descriptorSets.v + self.currentFrame,
+		0,
+		nil
+	)
+
+	vk.vkCmdDrawIndexed(
+		commandBuffer,
+		self.mesh.numIndices,
+		1,
+		0,
+		0,
+		0
+	)
+
+	vk.vkCmdEndRenderPass(commandBuffer)
+	vk.vkEndCommandBuffer(commandBuffer)
+end
+
+function VKCommon:recreateSwapchain()
+	local app = self.app
+	if app.width == 0 or app.height == 0 then
+		error "herE"
+	end
+
+	vkassert(vk.vkDeviceWaitIdle, self.device.id)
+
+	self.swapchain = self:createSwapchain()
 end
 
 function VKCommon:exit()
@@ -1503,8 +1697,12 @@ end
 
 -- [[ VulkanApp
 local SDLApp = require 'sdl.app'	-- TODO sdl.app ?  and gl.app and imgui.app ?
+SDLApp.viewUseBuiltinMatrixMath = true
 
-local VulkanApp = SDLApp:subclass()
+-- TODO move view and orbit out of glapp ... but to where ...
+-- seems like we're going to need a geometry library soon ...
+-- TODO should glapp.view always :subclass() for you? like glapp.orbit and imgui.withorbit already do?
+local VulkanApp = require 'glapp.view'.apply(SDLApp):subclass()
 
 VulkanApp.title = 'Vulkan test'
 VulkanApp.sdlCreateWindowFlags = bit.bor(VulkanApp.sdlCreateWindowFlags, sdl.SDL_WINDOW_VULKAN)
