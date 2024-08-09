@@ -1,4 +1,9 @@
-local vk = require 'ffi.req' 'vulkan'
+local table = require 'ext.table'
+local vk = require 'vk'
+local VKPhysDev = require 'vk.physdev'
+
+local vkassert = require 'vk.util'.vkassert
+local vkGetVector = require 'vk.util'.vkGetVector
 
 local VKInstance = require 'vk.raii'{
 	ctype = 'VkInstance',
@@ -6,5 +11,14 @@ local VKInstance = require 'vk.raii'{
 	create = vk.vkCreateInstance,
 	destroy = vk.vkDestroyInstance,
 }
+
+function VKInstance:getPhysDevs()
+	local physDevs = table()
+	local physDevIDs = vkGetVector('VkPhysicalDevice', vkassert, vk.vkEnumeratePhysicalDevices, self.id)
+	for i=0,#physDevIDs-1 do
+		physDevs:insert(VKPhysDev(physDevIDs.v[i]))
+	end
+	return physDevs
+end
 
 return VKInstance

@@ -34,41 +34,8 @@ local VK_API_VERISON_1_0 = VK_MAKE_API_VERSION(0, 1, 0, 0)
 local class = require 'ext.class'
 
 local vkassert = require 'vk.util'.vkassert
-
-local function addlast(last, ...)
-	if select('#', ...) == 0 then
-		return last
-	else
-		return select(1, ...), addlast(last, select(2, ...))
-	end
-end
-
-local function vkGet(ctype, check, f, ...)
-	local result = ffi.new(ctype..'[1]')
-	if check then
-		check(f, addlast(result, ...))
-	else
-		f(addlast(result, ...))
-	end
-	return result[0]
-end
-
-local function vkGetVector(ctype, check, f, ...)
-	local count = ffi.new'uint32_t[1]'
-	if check then
-		check(f, addlast(nil, addlast(count, ...)))
-	else
-		f(addlast(nil, addlast(count, ...)))
-	end
-	local vec = vector(ctype)
-	vec:resize(count[0])
-	if check then
-		check(f, addlast(vec.v, addlast(count, ...)))
-	else
-		f(addlast(vec.v, addlast(count, ...)))
-	end
-	return vec
-end
+local vkGet = require 'vk.util'.vkGet
+local vkGetVector = require 'vk.util'.vkGetVector
 
 local VulkanInstance = class()
 
@@ -134,19 +101,19 @@ function VulkanPhysicalDevice:init(common, deviceExtensions)
 	local instance = common.instance
 	local surface = common.surface
 
-	local physDevs = vkGetVector('VkPhysicalDevice', vkassert, vk.vkEnumeratePhysicalDevices, instance.obj.id)
+	local physDevs = instance.obj:getPhysDevs()
 	print'devices:'
-	for i=0,#physDevs-1 do
-		local props = VulkanPhysicalDevice:getProps(physDevs.v[i])
+	for _,physDev in ipairs(physDevs) do
+		local props = physDev:getProps()
 		print('',
 			ffi.string(props.deviceName)
 			..' type='..tostring(props.deviceType)
 		)
 	end
 
-	for i=0,#physDevs-1 do
-		if self:isDeviceSuitable(physDevs.v[i], surface, deviceExtensions) then
-			self.id = physDevs.v[i]
+	for _,physDev in ipairs(physDevs) do
+		if self:isDeviceSuitable(physDev.id, surface, deviceExtensions) then
+			self.obj = physDev
 			return
 		end
 	end
@@ -173,7 +140,7 @@ end
 
 -- static method
 function VulkanPhysicalDevice:findQueueFamilies(physDev, surface)
-	physDev = physDev or self.id
+	physDev = physDev or self.obj.id
 	local indices = {}
 	local queueFamilies = vkGetVector('VkQueueFamilyProperties', nil, vk.vkGetPhysicalDeviceQueueFamilyProperties, physDev)
 	for i=0,#queueFamilies-1 do
@@ -209,7 +176,7 @@ end
 
 -- static method
 function VulkanPhysicalDevice:querySwapChainSupport(physDev, surface)
-	physDev = physDev or self.id
+	physDev = physDev or self.obj.id
 	return {
 		capabilities = vkGet('VkSurfaceCapabilitiesKHR', vkassert, vk.vkGetPhysicalDeviceSurfaceCapabilitiesKHR, physDev, surface.id),
 		formats = vkGetVector('VkSurfaceFormatKHR', vkassert, vk.vkGetPhysicalDeviceSurfaceFormatsKHR, physDev, surface.id),
@@ -217,17 +184,13 @@ function VulkanPhysicalDevice:querySwapChainSupport(physDev, surface)
 	}
 end
 
-function VulkanPhysicalDevice:getProps(physDev)
-	return vkGet('VkPhysicalDeviceProperties', nil, vk.vkGetPhysicalDeviceProperties, physDev or self.id)
-end
-
 function VulkanPhysicalDevice:getFormatProps(physDev, format)
-	physDev = physDev or self.id
+	physDev = physDev or self.obj.id
 	return vkGet('VkFormatProperties', nil, vk.vkGetPhysicalDeviceFormatProperties, physDev, format)
 end
 
 function VulkanPhysicalDevice:getMaxUsableSampleCount(...)
-	local props = self:getProps(...)
+	local props = self.obj:getProps(...)
 	local counts = bit.band(props.limits.framebufferColorSampleCounts, props.limits.framebufferDepthSampleCounts)
 	if 0 ~= bit.band(counts, vk.VK_SAMPLE_COUNT_64_BIT) then return vk.VK_SAMPLE_COUNT_64_BIT end
 	if 0 ~= bit.band(counts, vk.VK_SAMPLE_COUNT_32_BIT) then return vk.VK_SAMPLE_COUNT_32_BIT end
@@ -267,7 +230,7 @@ function VulkanPhysicalDevice:findSupportedFormat(candidates, tiling, features)
 end
 
 function VulkanPhysicalDevice:findMemoryType(mask, props)
-	local memProps = vkGet('VkPhysicalDeviceMemoryProperties', nil, vk.vkGetPhysicalDeviceMemoryProperties, self.id)
+	local memProps = vkGet('VkPhysicalDeviceMemoryProperties', nil, vk.vkGetPhysicalDeviceMemoryProperties, self.obj.id)
 	for i=0,memProps.memoryTypeCount-1 do
 		if bit.band(mask, bit.lshift(1, i)) ~= 0
 		and bit.band(memProps.memoryTypes[i].propertyFlags, props) ~= 0
@@ -1158,7 +1121,7 @@ print('msaaSamples', self.msaaSamples)
 	do
 		local indices = self.physDev:findQueueFamilies(nil, self.surface)
 		self.device = VulkanDevice(
-			self.physDev.id,
+			self.physDev.obj.id,
 			deviceExtensions,
 			enableValidationLayers,
 			indices
@@ -1190,7 +1153,7 @@ print('msaaSamples', self.msaaSamples)
 	info[0].addressModeV = vk.VK_SAMPLER_ADDRESS_MODE_REPEAT
 	info[0].addressModeW = vk.VK_SAMPLER_ADDRESS_MODE_REPEAT
 	info[0].anisotropyEnable = vk.VK_TRUE
-	info[0].maxAnisotropy = self.physDev:getProps().limits.maxSamplerAnisotropy
+	info[0].maxAnisotropy = self.physDev.obj:getProps().limits.maxSamplerAnisotropy
 	info[0].compareEnable = vk.VK_FALSE
 	info[0].compareOp = vk.VK_COMPARE_OP_ALWAYS
 	info[0].minLod = 0
