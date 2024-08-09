@@ -1,5 +1,7 @@
 local assertindex = require 'ext.assert'.index
-local vk = require 'ffi.req' 'vulkan'
+local vk = require 'vk'
+local VKPhysDev = require 'vk.physdev'
+
 local vkassert = require 'vk.util'.vkassert
 
 local VKDevice = require 'vk.raii'{
@@ -14,6 +16,7 @@ function VKDevice:init(args)
 
 	-- can I still pass args to ffi.new?  will it ignore extra fields?  seems alright ...
 	local physDev = assertindex(args, 'physDev')
+	if VKPhysDev:isa(physDev) then physDev = physDev.id end
 
 	local info = self:initFromArgs(args)
 	vkassert(vk.vkCreateDevice, physDev, info, nil, self.gc.ptr)

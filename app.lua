@@ -4,7 +4,7 @@ local table = require 'ext.table'
 local timer = require 'ext.timer'
 local vec3f = require 'vec-ffi.vec3f'
 local math = require 'ext.math'	-- clamp
-local vk = require 'ffi.req' 'vulkan'
+local vk = require 'vk'
 local vector = require 'ffi.cpp.vector-lua'
 local asserteq = require 'ext.assert'.eq
 local matrix_ffi = require 'matrix.ffi'
@@ -39,7 +39,10 @@ local vkGetVector = require 'vk.util'.vkGetVector
 
 local VulkanInstance = class()
 
-function VulkanInstance:init(app, enableValidationLayers)
+function VulkanInstance:init(common)
+	local app = common.app
+	local enableValidationLayers = common.enableValidationLayers
+	
 	local layerProps = vkGetVector('VkLayerProperties', vkassert, vk.vkEnumerateInstanceLayerProperties)
 	print'vulkan layers:'
 	for i=0,#layerProps-1 do
@@ -63,7 +66,7 @@ function VulkanInstance:init(app, enableValidationLayers)
 		layerNames:emplace_back()[0] = 'VK_LAYER_KHRONOS_validation'
 	end
 
-	local extensions = self:getRequiredExtensions(app, enableValidationLayers)
+	local extensions = self:getRequiredExtensions(common)
 
 	self.obj = require 'vk.instance'{
 		pApplicationInfo = appInfo,
@@ -78,7 +81,10 @@ function VulkanInstance:destroy()
 	self.obj:destroy()
 end
 
-function VulkanInstance:getRequiredExtensions(app, enableValidationLayers)
+function VulkanInstance:getRequiredExtensions(common)
+	local app = common.app
+	local enableValidationLayers = common.enableValidationLayers
+	
 	local extensions = vkGetVector('char const *', sdlvksafe, sdl.SDL_Vulkan_GetInstanceExtensions, app.window)
 
 	print'vulkan extensions:'
@@ -112,7 +118,7 @@ function VulkanPhysicalDevice:init(common, deviceExtensions)
 	end
 
 	for _,physDev in ipairs(physDevs) do
-		if self:isDeviceSuitable(physDev.id, surface, deviceExtensions) then
+		if self:isDeviceSuitable(physDev, surface, deviceExtensions) then
 			self.obj = physDev
 			return
 		end
@@ -131,7 +137,7 @@ function VulkanPhysicalDevice:isDeviceSuitable(physDev, surface, deviceExtension
 		swapChainAdequate = #swapChainSupport.formats > 0 and #swapChainSupport.presentModes > 0
 	end
 
-	local features = vkGet('VkPhysicalDeviceFeatures', nil, vk.vkGetPhysicalDeviceFeatures, physDev)
+	local features = physDev:getFeatures()
 	return indices
 		and extensionsSupported
 		and swapChainAdequate
@@ -140,17 +146,16 @@ end
 
 -- static method
 function VulkanPhysicalDevice:findQueueFamilies(physDev, surface)
-	physDev = physDev or self.obj.id
+	physDev = physDev or self.obj
 	local indices = {}
-	local queueFamilies = vkGetVector('VkQueueFamilyProperties', nil, vk.vkGetPhysicalDeviceQueueFamilyProperties, physDev)
+	local queueFamilies = physDev:getQueueFamilyProperties()
 	for i=0,#queueFamilies-1 do
 		local f = queueFamilies.v[i]
 		if 0 ~= bit.band(f.queueFlags, vk.VK_QUEUE_GRAPHICS_BIT) then
 			indices.graphicsFamily = i
 		end
 
-		local supported = vkGet('VkBool32', vkassert, vk.vkGetPhysicalDeviceSurfaceSupportKHR, physDev, i, surface.id)
-		if supported ~= 0 then
+		if physDev:getSurfaceSupport(i, surface) then
 			indices.presentFamily = i
 		end
 		if indices.graphicsFamily and indices.presentFamily then
@@ -166,8 +171,7 @@ function VulkanPhysicalDevice:checkDeviceExtensionSupport(physDev, deviceExtensi
 		return true, ffi.string(v)
 	end):setmetatable(nil)
 
-	local layerName = nil	-- TODO ???
-	local physDevExts = vkGetVector('VkExtensionProperties', vkassert, vk.vkEnumerateDeviceExtensionProperties, physDev, layerName)
+	local physDevExts = physDev:getExtProps()
 	for i=0,#physDevExts-1 do
 		requiredExtensions[ffi.string(physDevExts.v[i].extensionName)] = nil
 	end
@@ -176,17 +180,12 @@ end
 
 -- static method
 function VulkanPhysicalDevice:querySwapChainSupport(physDev, surface)
-	physDev = physDev or self.obj.id
+	physDev = physDev or self.obj
 	return {
-		capabilities = vkGet('VkSurfaceCapabilitiesKHR', vkassert, vk.vkGetPhysicalDeviceSurfaceCapabilitiesKHR, physDev, surface.id),
-		formats = vkGetVector('VkSurfaceFormatKHR', vkassert, vk.vkGetPhysicalDeviceSurfaceFormatsKHR, physDev, surface.id),
-		presentModes = vkGetVector('VkPresentModeKHR', vkassert, vk.vkGetPhysicalDeviceSurfacePresentModesKHR, physDev, surface.id),
+		capabilities = physDev:getSurfaceCapabilities(surface),
+		formats = physDev:getSurfaceFormats(surface),
+		presentModes = physDev:getSurfacePresentModes(surface),
 	}
-end
-
-function VulkanPhysicalDevice:getFormatProps(physDev, format)
-	physDev = physDev or self.obj.id
-	return vkGet('VkFormatProperties', nil, vk.vkGetPhysicalDeviceFormatProperties, physDev, format)
 end
 
 function VulkanPhysicalDevice:getMaxUsableSampleCount(...)
@@ -215,7 +214,7 @@ end
 
 function VulkanPhysicalDevice:findSupportedFormat(candidates, tiling, features)
 	for _,format in ipairs(candidates) do
-		local props = self:getFormatProps(nil, format)
+		local props = self.obj:getFormatProps(format)
 		if tiling == vk.VK_IMAGE_TILING_LINEAR
 		and bit.band(props.linearTilingFeatures, features) == features
 		then
@@ -230,7 +229,7 @@ function VulkanPhysicalDevice:findSupportedFormat(candidates, tiling, features)
 end
 
 function VulkanPhysicalDevice:findMemoryType(mask, props)
-	local memProps = vkGet('VkPhysicalDeviceMemoryProperties', nil, vk.vkGetPhysicalDeviceMemoryProperties, self.obj.id)
+	local memProps = self.obj:getMemProps()
 	for i=0,memProps.memoryTypeCount-1 do
 		if bit.band(mask, bit.lshift(1, i)) ~= 0
 		and bit.band(memProps.memoryTypes[i].propertyFlags, props) ~= 0
@@ -248,10 +247,6 @@ local validationLayer = 'VK_LAYER_KHRONOS_validation'	-- TODO vector?
 local VulkanDevice = class()
 
 function VulkanDevice:init(physDev, deviceExtensions, enableValidationLayers, indices)
-	self.obj = self:createDevice(physDev, deviceExtensions, enableValidationLayers, indices)
-end
-
-function VulkanDevice:createDevice(physDev, deviceExtensions, enableValidationLayers, indices)
 	local queuePriorities = vector'float'
 	queuePriorities:emplace_back()[0] = 1
 	local queueCreateInfos = vector'VkDeviceQueueCreateInfo'
@@ -274,7 +269,7 @@ function VulkanDevice:createDevice(physDev, deviceExtensions, enableValidationLa
 		thisValidationLayers.emplace_back()[0] = validationLayer	-- TODO vector copy?
 	end
 
-	return require 'vk.device'{
+	self.obj = require 'vk.device'{
 		-- create extra args:
 		physDev = physDev,
 		-- info args:
@@ -1103,7 +1098,7 @@ function VulkanCommon:init(app)
 	self.currentFrame = 0
 
 	assert(not self.enableValidationLayers or self:checkValidationLayerSupport(), "validation layers requested, but not available!")
-	self.instance = VulkanInstance(app, self.enableValidationLayers)
+	self.instance = VulkanInstance(self)
 
 	self.surface = require 'vk.surface'{
 		window = app.window,
@@ -1121,16 +1116,16 @@ print('msaaSamples', self.msaaSamples)
 	do
 		local indices = self.physDev:findQueueFamilies(nil, self.surface)
 		self.device = VulkanDevice(
-			self.physDev.obj.id,
+			self.physDev.obj,
 			deviceExtensions,
-			enableValidationLayers,
+			self.enableValidationLayers,
 			indices
 		)
 		self.graphicsQueue = require 'vk.queue'{device=self.device.obj, family=indices.graphicsFamily}
 		self.presentQueue = require 'vk.queue'{device=self.device.obj, family=indices.presentFamily}
 	end
 
-	self.swapchain = self:createSwapchain()
+	self:createSwapchain()
 
 	self.graphicsPipeline = VulkanGraphicsPipeline(self.physDev, self.device.obj.id, self.swapchain.renderPass, self.msaaSamples)
 
@@ -1236,7 +1231,7 @@ end
 
 function VulkanCommon:createSwapchain()
 	local app = self.app
-	return VulkanSwapchain(
+	self.swapchain = VulkanSwapchain(
 		app.width,
 		app.height,
 		self.physDev,
@@ -1278,7 +1273,7 @@ function VulkanCommon:createTextureImage()
 end
 
 function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, mipLevels)
-	local formatProperties = self.physDev:getFormatProps(nil, imageFormat)
+	local formatProperties = self.physDev.obj:getFormatProps(imageFormat)
 
 	if 0 == bit.band(formatProperties.optimalTilingFeatures, vk.VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) then
 		error "texture image format does not support linear blitting!"
@@ -1662,7 +1657,7 @@ function VulkanCommon:recreateSwapchain()
 
 	self.device.obj:waitIdle()
 
-	self.swapchain = self:createSwapchain()
+	self:createSwapchain()
 end
 
 function VulkanCommon:exit()

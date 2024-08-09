@@ -1,7 +1,7 @@
 local ffi = require 'ffi'
 local class = require 'ext.class'
 local assertindex = require 'ext.assert'.index
-local vk = require 'ffi.req' 'vulkan'
+local vk = require 'vk'
 local vkassert = require 'vk.util'.vkassert
 local VKDevice = require 'vk.device'
 

@@ -1,6 +1,7 @@
 local ffi = require 'ffi'
 local asserteq = require 'ext.assert'.eq
-local vk = require 'ffi.req' 'vulkan'
+local assertindex = require 'ext.assert'.index
+local vk = require 'vk'
 local sdl = require 'sdl'
 local vector = require 'ffi.cpp.vector-lua'
 
@@ -50,9 +51,40 @@ local function vkGetVector(ctype, check, f, ...)
 	return vec
 end
 
+-- expects cl to have .createType and optional .sType
+local function addInitFromArgs(cl)
+	local createType = assertindex(cl, 'createType')
+	--[[ require manually specifying sType
+	local sType = assertindex(cl, 'sType')
+	--]]
+	-- [[ override with automatic deduction (since vulkan has such a clean API)
+	local sType = cl.sType
+	if not sType and createType then
+		sType = assertindex(vk, 'VK_STRUCTURE_TYPE'..createType:match'^Vk(.*)$':gsub('.', function(ch)
+			if ch:match'[A-Z]' then
+				return '_'..ch
+			else
+				return ch:upper()
+			end
+		end))
+	end
+	--]]
+
+	function cl:initFromArgs(args)
+		if type(args) == 'cdata' then
+			return args
+		else
+			local info = ffi.new(createType..'[1]', {args})	
+			info[0].sType = sType
+			return info
+		end
+	end
+end
+
 return {
 	vkassert = vkassert,
 	sdlvksafe = sdlvksafe,
 	vkGet = vkGet,
 	vkGetVector = vkGetVector,
+	addInitFromArgs = addInitFromArgs,
 }
