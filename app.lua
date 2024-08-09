@@ -1662,10 +1662,10 @@ function VulkanCommon:recreateSwapchain()
 end
 
 function VulkanCommon:exit()
-	self.swapchain.obj:destroy()
 	self.device.obj:waitIdle()
+	self.swapchain.obj:destroy()
 	self.device.obj:destroy()
-	vk.vkDestroySurfaceKHR(self.instance.obj.id, self.surface.id, nil)
+	self.surface:destroy()
 	self.instance:destroy()
 end
 --]]

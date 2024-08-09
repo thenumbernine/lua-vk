@@ -2,7 +2,6 @@
 -- but it does use the info ctor
 local ffi = require 'ffi'
 local GCWrapper = require 'ffi.gcwrapper.gcwrapper'
-local class = require 'ext.class'
 local assertindex = require 'ext.assert'.index
 local assertne = require 'ext.assert'.ne
 local vk = require 'vk'
@@ -21,7 +20,7 @@ local createType = 'VkSwapchainCreateInfoKHR'	-- for vk create
 -- and sometimes dtors need extra info in addition to their pointer
 -- and in those cases the dtor info needs to be a struct ...
 local dtortype = 'autorelease_VkSwapchainKHR_dtor_t'
-local dtormt = require 'struct'{
+require 'struct'{
 	name = dtortype,
 	fields = {
 		{name='swapchain', type='VkSwapchainKHR[1]'},
@@ -53,9 +52,7 @@ function VKSwapchain:init(args)
 	local info = self:initFromArgs(args)
 	vkassert(vk.vkCreateSwapchainKHR, device, info, nil, dtorinit.swapchain)
 
-print('dtorinit before', dtorinit)
 	VKSwapchain.super.init(self, dtorinit)
-print('dtorinit after', self.gc.ptr[0])
 	
 	self.id = self.gc.ptr[0].swapchain[0]
 end

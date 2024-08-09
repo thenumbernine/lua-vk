@@ -1,8 +1,11 @@
 local ffi = require 'ffi'
-local assertindex = require 'ext.assert'.index
-local sdl = require 'sdl'
 local GCWrapper = require 'ffi.gcwrapper.gcwrapper'
+local assertindex = require 'ext.assert'.index
+local assertne = require 'ext.assert'.ne
+local sdl = require 'sdl'
+local vk = require 'vk'
 local VKInstance = require 'vk.instance'
+
 local sdlvksafe = require 'vk.util'.sdlvksafe
 
 -- TODO put these in SDL2 ... they don't immediately #include
@@ -13,17 +16,28 @@ SDL_bool SDL_Vulkan_CreateSurface(
 	VkSurfaceKHR* surface);
 ]]
 
---[[ here's another atypical destroy ... so I can't use vk.raii
-local VKSurface = GCWrapper{
-	gctype = 'autorelease_VkSurfaceKHR_ptr_t',
-	ctype = 'VkSurfaceKHR',
-	release = function(ptr)
-		vk.vkDestroySurfaceKHR(ptr[0].instance, ptr[0].surface)
-	end,
+local ctype = 'VkSurfaceKHR'
+
+-- same kind of dtor gc as swapchain
+local dtortype = 'autorelease_VkSurfaceKHR_dtor_t'
+require 'struct'{
+	name = dtortype,
+	fields = {
+		{name='surface', type='VkSurfaceKHR[1]'},
+		{name='instance', type='VkInstance'},
+	},
 }
---]]
--- but in fact neither vulkan_raii nor the demo calls vkDestroySurface ...
-local VKSurface = require 'ext.class'()
+
+local VKSurface = GCWrapper{
+	gctype = 'autorelease_'..ctype..'_ptr_t',
+	ctype = dtortype,
+	release = function(ptr)
+		if ptr[0].instance == nil and ptr[0].surface[0] == nil then return end
+		assertne(ptr[0].instance, nil)
+		assertne(ptr[0].surface[0], nil)
+		vk.vkDestroySurfaceKHR(ptr[0].instance, ptr[0].surface[0], nil)
+	end,
+}:subclass()
 
 function VKSurface:init(args)
 	local window = assertindex(args, 'window')
@@ -31,13 +45,20 @@ function VKSurface:init(args)
 	local instance = assertindex(args, 'instance')
 	if VKInstance:isa(instance) then instance = instance.id end
 	
-	-- for dtor convenience, capture the VkInstance cdata
-	-- for oop convenience until then, capture the obj ...
-	--self.instance = instance
+	local dtorinit = ffi.new(dtortype)
+	dtorinit.instance = instance
 
-	self.gc = ffi.new'VkSurfaceKHR[1]'
-	sdlvksafe(sdl.SDL_Vulkan_CreateSurface, window, instance, self.gc)
-	self.id = self.gc[0]
+	sdlvksafe(sdl.SDL_Vulkan_CreateSurface, window, instance, dtorinit.surface)
+	
+	VKSurface.super.init(self, dtorinit)
+
+	self.id = self.gc.ptr[0].surface[0]
+end
+
+function VKSurface:destroy()
+	vk.vkDestroySurfaceKHR(self.gc.ptr[0].instance, self.gc.ptr[0].surface[0], nil)
+	self.gc.ptr[0].surface[0] = nil
+	self.gc.ptr[0].instance = nil
 end
 
 return VKSurface
