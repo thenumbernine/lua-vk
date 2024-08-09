@@ -60,13 +60,24 @@ local function addInitFromArgs(cl)
 	-- [[ override with automatic deduction (since vulkan has such a clean API)
 	local sType = cl.sType
 	if not sType and createType then
-		sType = assertindex(vk, 'VK_STRUCTURE_TYPE'..createType:match'^Vk(.*)$':gsub('.', function(ch)
-			if ch:match'[A-Z]' then
-				return '_'..ch
-			else
-				return ch:upper()
+		local structBaseName = createType:match'^Vk(.*)$'
+		local enumName = ''
+		local lastWasUpper
+		for i=1,#structBaseName do
+			local ch = structBaseName:sub(i,i)
+			local uch = ch:upper()
+			local isUpper = ch == uch
+			if isUpper
+			and not lastWasUpper
+			then
+				enumName = enumName .. '_'
 			end
-		end))
+			enumName = enumName .. uch
+			lastWasUpper = isUpper
+		end
+		
+		enumName = 'VK_STRUCTURE_TYPE' .. enumName
+		sType = assertindex(vk, enumName)
 	end
 	--]]
 

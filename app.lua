@@ -412,19 +412,19 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 
 	local surfaceFormat = self:chooseSwapSurfaceFormat(swapChainSupport.formats)
 	local presentMode = self:chooseSwapPresentMode(swapChainSupport.presentModes)
-	local info = ffi.new'VkSwapchainCreateInfoKHR[1]'
-	info[0].sType = vk.VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR
-	info[0].surface = surface.id
-	info[0].minImageCount = imageCount
-	info[0].imageFormat = surfaceFormat.format
-	info[0].imageColorSpace = surfaceFormat.colorSpace
-	info[0].imageExtent = self.extent
-	info[0].imageArrayLayers = 1
-	info[0].imageUsage = vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
-	info[0].preTransform = swapChainSupport.capabilities.currentTransform
-	info[0].compositeAlpha = vk.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR
-	info[0].presentMode = presentMode
-	info[0].clipped = vk.VK_TRUE
+	
+	local info = {}
+	info.surface = surface.id
+	info.minImageCount = imageCount
+	info.imageFormat = surfaceFormat.format
+	info.imageColorSpace = surfaceFormat.colorSpace
+	info.imageExtent = self.extent
+	info.imageArrayLayers = 1
+	info.imageUsage = vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+	info.preTransform = swapChainSupport.capabilities.currentTransform
+	info.compositeAlpha = vk.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR
+	info.presentMode = presentMode
+	info.clipped = vk.VK_TRUE
 	local indices = physDev:findQueueFamilies(nil, surface)
 	local queueFamilyIndices = vector'uint32_t'
 	for index in pairs{
@@ -434,16 +434,14 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 		queueFamilyIndices:emplace_back()[0] = index
 	end
 	if indices.graphicsFamily ~= indices.presentFamily then
-		info[0].imageSharingMode = vk.VK_SHARING_MODE_CONCURRENT
-		info[0].queueFamilyIndexCount = #queueFamilyIndices
-		info[0].pQueueFamilyIndices = queueFamilyIndices.v
+		info.imageSharingMode = vk.VK_SHARING_MODE_CONCURRENT
+		info.queueFamilyIndexCount = #queueFamilyIndices
+		info.pQueueFamilyIndices = queueFamilyIndices.v
 	else
-		info[0].imageSharingMode = vk.VK_SHARING_MODE_EXCLUSIVE
+		info.imageSharingMode = vk.VK_SHARING_MODE_EXCLUSIVE
 	end
-
-	self.obj = require 'vk.swapchain'{
-		device = device,
-	}
+	info.device = device
+	self.obj = require 'vk.swapchain'(info)
 
 	self.images = vkGetVector('VkImage', vkassert, vk.vkGetSwapchainImagesKHR, device, self.obj.id)
 
