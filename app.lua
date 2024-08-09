@@ -42,7 +42,7 @@ local VulkanInstance = class()
 function VulkanInstance:init(common)
 	local app = common.app
 	local enableValidationLayers = common.enableValidationLayers
-	
+
 	local layerProps = vkGetVector('VkLayerProperties', vkassert, vk.vkEnumerateInstanceLayerProperties)
 	print'vulkan layers:'
 	for i=0,#layerProps-1 do
@@ -77,14 +77,10 @@ function VulkanInstance:init(common)
 	}
 end
 
-function VulkanInstance:destroy()
-	self.obj:destroy()
-end
-
 function VulkanInstance:getRequiredExtensions(common)
 	local app = common.app
 	local enableValidationLayers = common.enableValidationLayers
-	
+
 	local extensions = vkGetVector('char const *', sdlvksafe, sdl.SDL_Vulkan_GetInstanceExtensions, app.window)
 
 	print'vulkan extensions:'
@@ -287,28 +283,31 @@ end
 local VulkanDeviceMemoryFromStagingBuffer = class()
 
 function VulkanDeviceMemoryFromStagingBuffer:create(physDev, device, srcData, bufferSize)
-	local info = ffi.new'VkBufferCreateInfo[1]'
-	info[0].sType = vk.VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO
-	info[0].size = bufferSize
-	info[0].usage = vk.VK_BUFFER_USAGE_TRANSFER_SRC_BIT
-	info[0].sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE
-	local buffer = vkGet('VkBuffer', vkassert, vk.vkCreateBuffer, device, info, nil)
+	local buffer = require 'vk.buffer'{
+		device = device,
+		size = bufferSize,
+		usage = vk.VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE,
+	}
 
-	local memReq = vkGet('VkMemoryRequirements', nil, vk.vkGetBufferMemoryRequirements, device, buffer)
+	local memReq = vkGet('VkMemoryRequirements', nil, vk.vkGetBufferMemoryRequirements, device, buffer.id)
 
 	local info = ffi.new'VkMemoryAllocateInfo[1]'
 	info[0].allocationSize = memReq.size
 	info[0].memoryTypeIndex = physDev:findMemoryType(memReq.memoryTypeBits, bit.bor(vk.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
 	local memory = vkGet('VkDeviceMemory', vkassert, vk.vkAllocateMemory, device, info, nil)
 
-	vkassert(vk.vkBindBufferMemory, device, buffer, memory, 0)
+	vkassert(vk.vkBindBufferMemory, device, buffer.id, memory, 0)
 
 	local dstData = vkGet('void*', vkassert, vk.vkMapMemory, device, memory, 0, bufferSize, 0)
 	ffi.copy(dstData, srcData, bufferSize)
 
 	vk.vkUnmapMemory(device, memory)
 
-	return {buffer=buffer, memory=memory}
+	return {
+		buffer = buffer,
+		memory = memory,
+	}
 end
 
 
@@ -364,7 +363,13 @@ function VulkanDeviceMemoryImage:makeTextureFromStaged(
 	texHeight,
 	mipLevels
 )
-	local stagingBufferAndMemory = VulkanDeviceMemoryFromStagingBuffer:create(physDev, device, srcData, bufferSize)
+	local stagingBufferAndMemory = VulkanDeviceMemoryFromStagingBuffer:create(
+		physDev,
+		device,
+		srcData,
+		bufferSize
+	)
+
 	local imageAndMemory = self:createImage(physDev,
 		device,
 		texWidth,
@@ -393,6 +398,8 @@ function VulkanDeviceMemoryImage:makeTextureFromStaged(
 		texHeight
 	)
 
+	stagingBufferAndMemory.buffer:destroy()
+
 	return imageAndMemory
 end
 
@@ -412,7 +419,7 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 
 	local surfaceFormat = self:chooseSwapSurfaceFormat(swapChainSupport.formats)
 	local presentMode = self:chooseSwapPresentMode(swapChainSupport.presentModes)
-	
+
 	local info = {}
 	info.surface = surface.id
 	info.minImageCount = imageCount
@@ -441,7 +448,7 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 		info.imageSharingMode = vk.VK_SHARING_MODE_EXCLUSIVE
 	end
 	info.device = device
-print('info.device.id', info.device.id)	
+print('info.device.id', info.device.id)
 	self.obj = require 'vk.swapchain'(info)
 
 	self.images = self.obj:getImages(device)
@@ -957,8 +964,8 @@ function VulkanCommandPool:copyBuffer(srcBuffer, dstBuffer, size)
 		regions[0].size = size
 		vk.vkCmdCopyBuffer(
 			commandBuffer,
-			srcBuffer,
-			dstBuffer,
+			srcBuffer.id,
+			dstBuffer.id,
 			1,
 			regions
 		)
@@ -976,7 +983,7 @@ function VulkanCommandPool:copyBufferToImage(buffer, image, width, height)
 		regions[0].imageExtent.depth = 1
 		vk.vkCmdCopyBufferToImage(
 			commandBuffer,
-			buffer,
+			buffer.id,
 			image,
 			vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			1,
@@ -989,22 +996,21 @@ end
 local VulkanDeviceMemoryBuffer = class()
 
 function VulkanDeviceMemoryBuffer:init(physDev, device, size, usage, properties)
-	local info = ffi.new'VkBufferCreateInfo[1]'
-	info[0].sType = vk.VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO
-	info[0].flags = 0
-	info[0].size = size
-	info[0].usage = usage
-	info[0].sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE
-	local buffer = vkGet('VkBuffer', vkassert, vk.vkCreateBuffer, device, info, nil)
+	local buffer = require 'vk.buffer'{
+		device = device,
+		size = size,
+		usage = usage,
+		sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE,
+	}
 
-	local memReq = vkGet('VkMemoryRequirements', nil, vk.vkGetBufferMemoryRequirements, device, buffer)
+	local memReq = vkGet('VkMemoryRequirements', nil, vk.vkGetBufferMemoryRequirements, device, buffer.id)
 
 	local info = ffi.new'VkMemoryAllocateInfo[1]'
 	info[0].allocationSize = memReq.size
 	info[0].memoryTypeIndex = physDev:findMemoryType(memReq.memoryTypeBits, properties)
 	local memory = vkGet('VkDeviceMemory', vkassert, vk.vkAllocateMemory, device, info, nil)
 
-	vkassert(vk.vkBindBufferMemory, device, buffer, memory, 0)
+	vkassert(vk.vkBindBufferMemory, device, buffer.id, memory, 0)
 
 	self.buffer = buffer
 	self.memory = memory
@@ -1033,6 +1039,8 @@ function VulkanDeviceMemoryBuffer:makeBufferFromStaged(physDev, device, commandP
 		bufferAndMemory.buffer,
 		bufferSize
 	)
+
+	stagingBufferAndMemory.buffer:destroy()
 
 	return bufferAndMemory
 end
@@ -1065,7 +1073,7 @@ function VulkanMesh:init(physDev, device, commandPool)
 		dstv.color:set(1, 1, 1)	-- do our objects have normal properties?  nope, just v vt vn ... why doesn't the demo use normals? does it bake lighting?
 	end
 
-	local vertexBufferAndMemory = VulkanDeviceMemoryBuffer:makeBufferFromStaged(
+	self.vertexBufferAndMemory = VulkanDeviceMemoryBuffer:makeBufferFromStaged(
 		physDev,
 		device.obj.id,
 		commandPool,
@@ -1073,18 +1081,14 @@ function VulkanMesh:init(physDev, device, commandPool)
 		#vertices * ffi.sizeof(vertices.type)
 	)
 
-	local numIndices = #indices
-	local indexBufferAndMemory = VulkanDeviceMemoryBuffer:makeBufferFromStaged(
+	self.numIndices = #indices
+	self.indexBufferAndMemory = VulkanDeviceMemoryBuffer:makeBufferFromStaged(
 		physDev,
 		device.obj.id,
 		commandPool,
 		indices.v,
 		#indices * ffi.sizeof(indices.type)
 	)
-
-	self.vertexBufferAndMemory = vertexBufferAndMemory
-	self.indexBufferAndMemory = indexBufferAndMemory
-	self.numIndices = numIndices
 end
 
 
@@ -1159,7 +1163,6 @@ print('msaaSamples', self.msaaSamples)
 	self.textureSampler = vkGet('VkSampler', vkassert, vk.vkCreateSampler, self.device.obj.id, info, nil)
 
 	self.mesh = VulkanMesh(self.physDev, self.device, self.commandPool)
-
 	self.uniformBuffers = range(self.maxFramesInFlight):mapi(function(i)
 		local size = ffi.sizeof'UniformBufferObject'
 		local bm = VulkanDeviceMemoryBuffer(
@@ -1614,14 +1617,14 @@ function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 	vk.vkCmdSetScissor(commandBuffer, 0, 1, scissors)
 
 	local vertexBuffers = ffi.new'VkBuffer[1]'
-	vertexBuffers[0] = assert(self.mesh.vertexBufferAndMemory.buffer)
+	vertexBuffers[0] = assert(self.mesh.vertexBufferAndMemory.buffer.id)
 	local vertexOffsets = ffi.new'VkDeviceSize[1]'
 	asserteq(vertexOffsets[0], 0)
 	vk.vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, vertexOffsets)
 
 	vk.vkCmdBindIndexBuffer(
 		commandBuffer,
-		assert(self.mesh.indexBufferAndMemory.buffer),
+		assert(self.mesh.indexBufferAndMemory.buffer.id),
 		0,
 		vk.VK_INDEX_TYPE_UINT32
 	)
@@ -1663,10 +1666,19 @@ end
 
 function VulkanCommon:exit()
 	self.device.obj:waitIdle()
+
+	-- hmm raii isnt so fun when order matters but the scripting language gc doesn't care ...
+	-- gc'd pointers would fix this ...
+	for _,ub in ipairs(self.uniformBuffers) do
+		ub.bm.buffer:destroy()
+	end
+	self.mesh.vertexBufferAndMemory.buffer:destroy()
+	self.mesh.indexBufferAndMemory.buffer:destroy()
+
 	self.swapchain.obj:destroy()
 	self.device.obj:destroy()
 	self.surface:destroy()
-	self.instance:destroy()
+	self.instance.obj:destroy()
 end
 --]]
 

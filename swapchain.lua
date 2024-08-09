@@ -11,19 +11,18 @@ local vkassert = require 'vk.util'.vkassert
 local vkGetVector = require 'vk.util'.vkGetVector
 
 local ctype = 'VkSwapchainKHR'
-local createType = 'VkSwapchainCreateInfoKHR'	-- for vk create 
 
--- for autorelease ptr 
+-- for autorelease ptr
 -- NOTICE this highlights how the GCWrapper is nice for primitives only!
 -- due to me making it to hand off the gcwrap'd ptr through ctor , and compare it with nullptr-compare
 -- it is not very cohesive with using a struct
 -- and sometimes dtors need extra info in addition to their pointer
 -- and in those cases the dtor info needs to be a struct ...
-local dtortype = 'autorelease_VkSwapchainKHR_dtor_t'
+local dtortype = 'autorelease_'..ctype..'_dtor_t'
 require 'struct'{
 	name = dtortype,
 	fields = {
-		{name='swapchain', type='VkSwapchainKHR[1]'},
+		{name='swapchain', type=ctype..'[1]'},
 		{name='device', type='VkDevice'},
 	},
 }
@@ -39,13 +38,13 @@ local VKSwapchain = GCWrapper{
 	end,
 }:subclass()
 
-VKSwapchain.createType = createType 
+VKSwapchain.createType = 'VkSwapchainCreateInfoKHR'	-- for vk create
 require 'vk.util'.addInitFromArgs(VKSwapchain)
 
 function VKSwapchain:init(args)
 	local device = assertindex(args, 'device')
 	if VKDevice:isa(device) then device = device.id end
-	
+
 	local dtorinit = ffi.new(dtortype)
 	dtorinit.device = device
 
@@ -53,7 +52,7 @@ function VKSwapchain:init(args)
 	vkassert(vk.vkCreateSwapchainKHR, device, info, nil, dtorinit.swapchain)
 
 	VKSwapchain.super.init(self, dtorinit)
-	
+
 	self.id = self.gc.ptr[0].swapchain[0]
 end
 
@@ -63,9 +62,13 @@ function VKSwapchain:getImages(device)
 end
 
 function VKSwapchain:destroy()
-	vk.vkDestroySwapchainKHR(self.gc.ptr[0].device, self.gc.ptr[0].swapchain[0], nil)
-	self.gc.ptr[0].swapchain[0] = nil
-	self.gc.ptr[0].device = nil
+	local ptr = self.gc.ptr
+	if ptr[0].device == nil and ptr[0].swapchain[0] == nil then return end
+	assertne(ptr[0].device, nil)
+	assertne(ptr[0].swapchain[0], nil)
+	vk.vkDestroySwapchainKHR(ptr[0].device, ptr[0].swapchain[0], nil)
+	ptr[0].swapchain[0] = nil
+	ptr[0].device = nil
 end
 
 return VKSwapchain

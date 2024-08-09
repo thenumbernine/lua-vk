@@ -19,11 +19,11 @@ SDL_bool SDL_Vulkan_CreateSurface(
 local ctype = 'VkSurfaceKHR'
 
 -- same kind of dtor gc as swapchain
-local dtortype = 'autorelease_VkSurfaceKHR_dtor_t'
+local dtortype = 'autorelease_'..ctype..'_dtor_t'
 require 'struct'{
 	name = dtortype,
 	fields = {
-		{name='surface', type='VkSurfaceKHR[1]'},
+		{name='surface', type=ctype..'[1]'},
 		{name='instance', type='VkInstance'},
 	},
 }
@@ -56,9 +56,13 @@ function VKSurface:init(args)
 end
 
 function VKSurface:destroy()
-	vk.vkDestroySurfaceKHR(self.gc.ptr[0].instance, self.gc.ptr[0].surface[0], nil)
-	self.gc.ptr[0].surface[0] = nil
-	self.gc.ptr[0].instance = nil
+	local ptr = self.gc.ptr
+	if ptr[0].instance == nil and ptr[0].surface[0] == nil then return end
+	assertne(ptr[0].instance, nil)
+	assertne(ptr[0].surface[0], nil)
+	vk.vkDestroySurfaceKHR(ptr[0].instance, ptr[0].surface[0], nil)
+	ptr[0].surface[0] = nil
+	ptr[0].instance = nil
 end
 
 return VKSurface
