@@ -41,7 +41,7 @@ local VK_API_VERISON_1_0 = VK_MAKE_API_VERSION(0, 1, 0, 0)
 -- [[ vulkan namespace / class wrappers / idk
 local class = require 'ext.class'
 
-local vkassert = require 'vulkan.util'.vkassert
+local vkassert = require 'vk.util'.vkassert
 
 local function addlast(last, ...)
 	if select('#', ...) == 0 then
@@ -106,7 +106,7 @@ function VulkanInstance:init(app, enableValidationLayers)
 
 	local extensions = self:getRequiredExtensions(app, enableValidationLayers)
 
-	self.obj = require 'vulkan.instance'{
+	self.obj = require 'vk.instance'{
 		pApplicationInfo = appInfo,
 		enabledLayerCount = #layerNames,
 		ppEnabledLayerNames = layerNames.v,
@@ -116,7 +116,7 @@ function VulkanInstance:init(app, enableValidationLayers)
 end
 
 function VulkanInstance:destroy()
-	vk.vkDestroyInstance(self.id, nil)
+	self.obj:destroy()
 end
 
 function VulkanInstance:getRequiredExtensions(app, enableValidationLayers)
@@ -289,9 +289,7 @@ local validationLayer = 'VK_LAYER_KHRONOS_validation'	-- TODO vector?
 local VulkanDevice = class()
 
 function VulkanDevice:init(physDev, deviceExtensions, enableValidationLayers, indices)
-	self.id = self:createDevice(physDev, deviceExtensions, enableValidationLayers, indices)
-	self.graphicsQueue = vkGet('VkQueue', nil, vk.vkGetDeviceQueue, self.id, indices.graphicsFamily, 0)
-	self.presentQueue = vkGet('VkQueue', nil, vk.vkGetDeviceQueue, self.id, indices.presentFamily, 0)
+	self.obj = self:createDevice(physDev, deviceExtensions, enableValidationLayers, indices)
 end
 
 function VulkanDevice:createDevice(physDev, deviceExtensions, enableValidationLayers, indices)
@@ -317,16 +315,18 @@ function VulkanDevice:createDevice(physDev, deviceExtensions, enableValidationLa
 		thisValidationLayers.emplace_back()[0] = validationLayer	-- TODO vector copy?
 	end
 
-	local info = ffi.new'VkDeviceCreateInfo[1]'
-	info[0].sType = vk.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO
-	info[0].queueCreateInfoCount = #queueCreateInfos
-	info[0].pQueueCreateInfos = queueCreateInfos.v
-	info[0].enabledLayerCount = #thisValidationLayers
-	info[0].ppEnabledLayerNames = thisValidationLayers.v
-	info[0].enabledExtensionCount = #deviceExtensions
-	info[0].ppEnabledExtensionNames = deviceExtensions.v
-	info[0].pEnabledFeatures = deviceFeatures
-	return vkGet('VkDevice', vkassert, vk.vkCreateDevice, physDev, info, nil)
+	return require 'vk.device'{
+		-- create extra args:
+		physDev = physDev,
+		-- info args:
+		queueCreateInfoCount = #queueCreateInfos,
+		pQueueCreateInfos = queueCreateInfos.v,
+		enabledLayerCount = #thisValidationLayers,
+		ppEnabledLayerNames = thisValidationLayers.v,
+		enabledExtensionCount = #deviceExtensions,
+		ppEnabledExtensionNames = deviceExtensions.v,
+		pEnabledFeatures = deviceFeatures,
+	}
 end
 
 
@@ -935,21 +935,21 @@ end
 
 local VulkanCommandPool = class()
 
-function VulkanCommandPool:init(physDev, device, surface)
+function VulkanCommandPool:init(app, physDev, device, surface)
 	local queueFamilyIndices = physDev:findQueueFamilies(nil, surface)
 
 	local info = ffi.new'VkCommandPoolCreateInfo[1]'
 	info[0].sType = vk.VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO
 	info[0].flags = vk.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT
 	info[0].queueFamilyIndex = queueFamilyIndices.graphicsFamily
-	self.id = vkGet('VkCommandPool', vkassert, vk.vkCreateCommandPool, device.id, info, nil)
+	self.id = vkGet('VkCommandPool', vkassert, vk.vkCreateCommandPool, device.obj.id, info, nil)
 
-	self.device = device.id
-	self.graphicsQueue = device.graphicsQueue
+	self.device = device.obj.id
+	self.graphicsQueue = app.graphicsQueue
 end
 
 function VulkanCommandPool:transitionImageLayout(image, oldLayout, newLayout, mipLevels)
-	VKSingleTimeCommand(self.device, self.graphicsQueue, self.id,
+	VKSingleTimeCommand(self.device, self.graphicsQueue.id, self.id,
 	function(commandBuffer)
 		local barrier = ffi.new'VkImageMemoryBarrier[1]'
 		barrier[0].oldLayout = oldLayout
@@ -996,7 +996,7 @@ function VulkanCommandPool:transitionImageLayout(image, oldLayout, newLayout, mi
 end
 
 function VulkanCommandPool:copyBuffer(srcBuffer, dstBuffer, size)
-	VKSingleTimeCommand(self.device, self.graphicsQueue, self.id,
+	VKSingleTimeCommand(self.device, self.graphicsQueue.id, self.id,
 	function(commandBuffer)
 		local regions = ffi.new'VkBufferCopy[1]'
 		regions[0].size = size
@@ -1011,7 +1011,7 @@ function VulkanCommandPool:copyBuffer(srcBuffer, dstBuffer, size)
 end
 
 function VulkanCommandPool:copyBufferToImage(buffer, image, width, height)
-	VKSingleTimeCommand(self.device, self.graphicsQueue, self.id,
+	VKSingleTimeCommand(self.device, self.graphicsQueue.id, self.id,
 	function(commandBuffer)
 		local regions = ffi.new'VkBufferImageCopy[1]'
 		regions[0].imageSubresource.aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT
@@ -1112,7 +1112,7 @@ function VulkanMesh:init(physDev, device, commandPool)
 
 	local vertexBufferAndMemory = VulkanDeviceMemoryBuffer:makeBufferFromStaged(
 		physDev,
-		device.id,
+		device.obj.id,
 		commandPool,
 		vertices.v,
 		#vertices * ffi.sizeof(vertices.type)
@@ -1121,7 +1121,7 @@ function VulkanMesh:init(physDev, device, commandPool)
 	local numIndices = #indices
 	local indexBufferAndMemory = VulkanDeviceMemoryBuffer:makeBufferFromStaged(
 		physDev,
-		device.id,
+		device.obj.id,
 		commandPool,
 		indices.v,
 		#indices * ffi.sizeof(indices.type)
@@ -1156,23 +1156,28 @@ function VulkanCommon:init(app)
 	self.msaaSamples = self.physDev:getMaxUsableSampleCount()
 print('msaaSamples', self.msaaSamples)
 
-	self.device = VulkanDevice(
-		self.physDev.id,
-		deviceExtensions,
-		enableValidationLayers,
-		self.physDev:findQueueFamilies(nil, self.surface)
-	)
+	do
+		local indices = self.physDev:findQueueFamilies(nil, self.surface)
+		self.device = VulkanDevice(
+			self.physDev.id,
+			deviceExtensions,
+			enableValidationLayers,
+			indices
+		)
+		self.graphicsQueue = require 'vk.queue'{device=self.device.obj, family=indices.graphicsFamily}
+		self.presentQueue = require 'vk.queue'{device=self.device.obj, family=indices.presentFamily}
+	end
 
 	self.swapchain = self:createSwapchain()
 
-	self.graphicsPipeline = VulkanGraphicsPipeline(self.physDev, self.device.id, self.swapchain.renderPass, self.msaaSamples)
+	self.graphicsPipeline = VulkanGraphicsPipeline(self.physDev, self.device.obj.id, self.swapchain.renderPass, self.msaaSamples)
 
-	self.commandPool = VulkanCommandPool(self.physDev, self.device, self.surface)
+	self.commandPool = VulkanCommandPool(self, self.physDev, self.device, self.surface)
 
 	self.textureImageAndMemory = self:createTextureImage()
 
 	self.textureImageView = self.swapchain:createImageView(
-		self.device.id,
+		self.device.obj.id,
 		self.textureImageAndMemory.image,
 		vk.VK_FORMAT_R8G8B8A8_SRGB,
 		vk.VK_IMAGE_ASPECT_COLOR_BIT,
@@ -1193,7 +1198,7 @@ print('msaaSamples', self.msaaSamples)
 	info[0].maxLod = self.mipLevels
 	info[0].borderColor = vk.VK_BORDER_COLOR_INT_OPAQUE_BLACK
 	info[0].unnormalizedCoordinates = vk.VK_FALSE
-	self.textureSampler = vkGet('VkSampler', vkassert, vk.vkCreateSampler, self.device.id, info, nil)
+	self.textureSampler = vkGet('VkSampler', vkassert, vk.vkCreateSampler, self.device.obj.id, info, nil)
 
 	self.mesh = VulkanMesh(self.physDev, self.device, self.commandPool)
 
@@ -1201,7 +1206,7 @@ print('msaaSamples', self.msaaSamples)
 		local size = ffi.sizeof'UniformBufferObject'
 		local bm = VulkanDeviceMemoryBuffer(
 			self.physDev,
-			self.device.id,
+			self.device.obj.id,
 			size,
 			vk.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 			bit.bor(
@@ -1209,7 +1214,7 @@ print('msaaSamples', self.msaaSamples)
 				vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 			)
 		)
-		local mapped = vkGet('void*', vkassert, vk.vkMapMemory, self.device.id, bm.memory, 0, size, 0)
+		local mapped = vkGet('void*', vkassert, vk.vkMapMemory, self.device.obj.id, bm.memory, 0, size, 0)
 		return VulkanBufferMemoryAndMapped(bm, mapped)
 	end)
 
@@ -1226,7 +1231,7 @@ print('msaaSamples', self.msaaSamples)
 	info[0].maxSets = self.maxFramesInFlight
 	info[0].poolSizeCount = #poolSizes
 	info[0].pPoolSizes = poolSizes.v
-	self.descriptorPool = vkGet('VkDescriptorPool', vkassert, vk.vkCreateDescriptorPool, self.device.id, info, nil)
+	self.descriptorPool = vkGet('VkDescriptorPool', vkassert, vk.vkCreateDescriptorPool, self.device.obj.id, info, nil)
 
 	self.descriptorSets = self:createDescriptorSets()
 
@@ -1236,26 +1241,26 @@ print('msaaSamples', self.msaaSamples)
 	info[0].level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY
 	info[0].commandBufferCount = self.maxFramesInFlight
 	--[[
-	self.commandBuffers = vkGet('VkCommandBuffer', vkassert, vk.vkAllocateCommandBuffers, self.device.id, info)
+	self.commandBuffers = vkGet('VkCommandBuffer', vkassert, vk.vkAllocateCommandBuffers, self.device.obj.id, info)
 	--]]
 	-- [[ can't use vkGet and can't use vkGetVector ...
 	self.commandBuffers = vector'VkCommandBuffer'
 	self.commandBuffers:resize(self.maxFramesInFlight)
-	vkassert(vk.vkAllocateCommandBuffers, self.device.id, info, self.commandBuffers.v)
+	vkassert(vk.vkAllocateCommandBuffers, self.device.obj.id, info, self.commandBuffers.v)
 	--]]
 
 	self.imageAvailableSemaphores = vector'VkSemaphore'
 	for i=0,self.maxFramesInFlight-1 do
 		local info = ffi.new'VkSemaphoreCreateInfo[1]'
 		info[0].sType = vk.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
-		self.imageAvailableSemaphores:push_back(vkGet('VkSemaphore', vkassert, vk.vkCreateSemaphore, self.device.id, info, nil))
+		self.imageAvailableSemaphores:push_back(vkGet('VkSemaphore', vkassert, vk.vkCreateSemaphore, self.device.obj.id, info, nil))
 	end
 
 	self.renderFinishedSemaphores = vector'VkSemaphore'
 	for i=0,self.maxFramesInFlight-1 do
 		local info = ffi.new'VkSemaphoreCreateInfo[1]'
 		info[0].sType = vk.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
-		self.renderFinishedSemaphores:push_back(vkGet('VkSemaphore', vkassert, vk.vkCreateSemaphore, self.device.id, info, nil))
+		self.renderFinishedSemaphores:push_back(vkGet('VkSemaphore', vkassert, vk.vkCreateSemaphore, self.device.obj.id, info, nil))
 	end
 
 	self.inFlightFences = vector'VkFence'
@@ -1263,7 +1268,7 @@ print('msaaSamples', self.msaaSamples)
 		local info = ffi.new'VkFenceCreateInfo[1]'
 		info[0].sType = vk.VK_STRUCTURE_TYPE_FENCE_CREATE_INFO
 		info[0].flags = vk.VK_FENCE_CREATE_SIGNALED_BIT
-		self.inFlightFences:push_back(vkGet('VkFence', vkassert, vk.vkCreateFence, self.device.id, info, nil))
+		self.inFlightFences:push_back(vkGet('VkFence', vkassert, vk.vkCreateFence, self.device.obj.id, info, nil))
 	end
 end
 
@@ -1273,7 +1278,7 @@ function VulkanCommon:createSwapchain()
 		app.width,
 		app.height,
 		self.physDev,
-		self.device.id,
+		self.device.obj.id,
 		self.surface,
 		self.msaaSamples)
 end
@@ -1290,7 +1295,7 @@ function VulkanCommon:createTextureImage()
 	self.mipLevels = math.floor(math.log(math.max(image.width, image.height), 2)) + 1
 	local textureImageAndMemory = VulkanDeviceMemoryImage:makeTextureFromStaged(
 		self.physDev,
-		self.device.id,
+		self.device.obj.id,
 		self.commandPool,
 		image.buffer,
 		bufferSize,
@@ -1317,7 +1322,7 @@ function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, m
 		error "texture image format does not support linear blitting!"
 	end
 
-	VKSingleTimeCommand(self.device.id, self.device.graphicsQueue, self.commandPool.id,
+	VKSingleTimeCommand(self.device.obj.id, self.graphicsQueue.id, self.commandPool.id,
 	function(commandBuffer)
 		local barrier = ffi.new'VkImageMemoryBarrier[1]'
 		barrier[0].srcQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED
@@ -1436,14 +1441,14 @@ function VulkanCommon:createDescriptorSets()
 	local descriptorSets = vkGet('VkDescriptorSet',
 		vkassert,
 		vk.vkAllocateDescriptorSets,
-		self.device.id,
+		self.device.obj.id,
 		info
 	)
 	--]]
 	-- [[
 	local descriptorSets = vector'VkDescriptorSet'
 	descriptorSets:resize(self.maxFramesInFlight)
-	vkassert(vk.vkAllocateDescriptorSets, self.device.id, info, descriptorSets.v)
+	vkassert(vk.vkAllocateDescriptorSets, self.device.obj.id, info, descriptorSets.v)
 	--]]
 
 	for i=0,self.maxFramesInFlight-1 do
@@ -1474,7 +1479,7 @@ function VulkanCommon:createDescriptorSets()
 		d[0].pImageInfo = imageInfo
 
 		vk.vkUpdateDescriptorSets(
-			self.device.id,
+			self.device.obj.id,
 			#descriptorWrites,
 			descriptorWrites.v,
 			0,
@@ -1491,7 +1496,7 @@ end
 function VulkanCommon:drawFrame()
 -- right here once all the first set of frames are exhausted, this stalls indefinitely
 	local result = vk.vkWaitForFences(
-		self.device.id,
+		self.device.obj.id,
 		1,
 		self.inFlightFences.v + self.currentFrame,
 		vk.VK_TRUE,
@@ -1510,7 +1515,7 @@ function VulkanCommon:drawFrame()
 	info[0].semaphore = self.imageAvailableSemaphores.v[self.currentFrame]
 	info[0].fence = nil
 	info[0].deviceMask = 0
-	local result = vk.vkAcquireNextImage2KHR(assert(self.device.id), info, imageIndex)
+	local result = vk.vkAcquireNextImage2KHR(assert(self.device.obj.id), info, imageIndex)
 	if result == vk.VK_ERROR_OUT_OF_DATE_KHR then
 		self:recreateSwapchain()
 		return
@@ -1522,7 +1527,7 @@ function VulkanCommon:drawFrame()
 
 	self:updateUniformBuffer()
 
-	vkassert(vk.vkResetFences, self.device.id, 1, self.inFlightFences.v + self.currentFrame)
+	vkassert(vk.vkResetFences, self.device.obj.id, 1, self.inFlightFences.v + self.currentFrame)
 
 	vkassert(vk.vkResetCommandBuffer, self.commandBuffers.v[self.currentFrame], 0)
 
@@ -1541,7 +1546,7 @@ function VulkanCommon:drawFrame()
 	info[0].signalSemaphoreCount = 1
 	info[0].pSignalSemaphores = self.renderFinishedSemaphores.v + self.currentFrame
 	vkassert(vk.vkQueueSubmit,
-		self.device.graphicsQueue,
+		self.graphicsQueue.id,
 		1,
 		info,
 		self.inFlightFences.v[self.currentFrame]
@@ -1560,7 +1565,7 @@ function VulkanCommon:drawFrame()
 	info[0].pImageIndices = imageIndex
 	-- TODO what's info[0].pResults vs the results returned from vkQueuePresentKHR ?
 	local result = vk.vkQueuePresentKHR(
-		self.device.presentQueue,
+		self.presentQueue.id,
 		info)
 	if result == vk.VK_ERROR_OUT_OF_DATE_KHR
 	or result == vk.VK_SUBOPTIMAL_KHR
@@ -1693,16 +1698,16 @@ function VulkanCommon:recreateSwapchain()
 		error "here"
 	end
 
-	vkassert(vk.vkDeviceWaitIdle, self.device.id)
+	self.device.obj:waitIdle()
 
 	self.swapchain = self:createSwapchain()
 end
 
 function VulkanCommon:exit()
-	vkassert(vk.vkDeviceWaitIdle, self.device.id)
+	self.device.obj:waitIdle()
+	self.device.obj:destroy()
 	vk.vkDestroySurfaceKHR(self.instance.obj.id, self.surface, nil)
 	self.instance:destroy()
-	--self.device:waitIdle()
 end
 --]]
 
