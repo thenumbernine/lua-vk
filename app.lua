@@ -441,27 +441,28 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 		info.imageSharingMode = vk.VK_SHARING_MODE_EXCLUSIVE
 	end
 	info.device = device
+print('info.device.id', info.device.id)	
 	self.obj = require 'vk.swapchain'(info)
 
-	self.images = vkGetVector('VkImage', vkassert, vk.vkGetSwapchainImagesKHR, device, self.obj.id)
+	self.images = self.obj:getImages(device)
 
 	self.imageViews = vector'VkImageView'
 	for i=0,#self.images-1 do
 		self.imageViews:emplace_back()[0] = self:createImageView(
-			device,
+			device.id,
 			self.images.v[i],
 			surfaceFormat.format,
 			vk.VK_IMAGE_ASPECT_COLOR_BIT,
 			1)
 	end
 
-	self.renderPass = self:createRenderPass(physDev, device, surfaceFormat.format, msaaSamples)
+	self.renderPass = self:createRenderPass(physDev, device.id, surfaceFormat.format, msaaSamples)
 
 	local colorFormat = surfaceFormat.format
 
 	self.colorImageAndMemory = VulkanDeviceMemoryImage:createImage(
 		physDev,
-		device,
+		device.id,
 		width,
 		height,
 		1,
@@ -473,7 +474,7 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 	)
 
 	self.colorImageView = self:createImageView(
-		device,
+		device.id,
 		self.colorImageAndMemory.image,
 		colorFormat,
 		vk.VK_IMAGE_ASPECT_COLOR_BIT,
@@ -484,7 +485,7 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 
 	self.depthImageAndMemory = VulkanDeviceMemoryImage:createImage(
 		physDev,
-		device,
+		device.id,
 		width,
 		height,
 		1,
@@ -495,7 +496,7 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 		vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	)
 	self.depthImageView = self:createImageView(
-		device,
+		device.id,
 		self.depthImageAndMemory.image,
 		depthFormat,
 		vk.VK_IMAGE_ASPECT_DEPTH_BIT,
@@ -516,7 +517,7 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 		info[0].width = width
 		info[0].height = height
 		info[0].layers = 1
-		self.framebuffers:push_back(vkGet('VkFramebuffer', vkassert, vk.vkCreateFramebuffer, device, info, nil))
+		self.framebuffers:push_back(vkGet('VkFramebuffer', vkassert, vk.vkCreateFramebuffer, device.id, info, nil))
 	end
 end
 
@@ -1235,7 +1236,7 @@ function VulkanCommon:createSwapchain()
 		app.width,
 		app.height,
 		self.physDev,
-		self.device.obj.id,
+		self.device.obj,
 		self.surface,
 		self.msaaSamples)
 end
@@ -1661,6 +1662,7 @@ function VulkanCommon:recreateSwapchain()
 end
 
 function VulkanCommon:exit()
+	self.swapchain.obj:destroy()
 	self.device.obj:waitIdle()
 	self.device.obj:destroy()
 	vk.vkDestroySurfaceKHR(self.instance.obj.id, self.surface.id, nil)

@@ -6,6 +6,14 @@ local GCWrapper = require 'ffi.gcwrapper.gcwrapper'
 
 local vkassert = require 'vk.util'.vkassert
 
+--[[
+args:
+	ctype = ctype of vk handle
+	destroy = called to deallocate upon gc
+	create = (optional) create function
+	createType = (optional) struct for create 
+	sType = (optional) signature of create struct
+--]]
 return function(args)
 	local ctype = assertindex(args, 'ctype')
 	
