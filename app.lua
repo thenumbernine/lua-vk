@@ -454,7 +454,7 @@ local VKSwapchain = class()
 function VKSwapchain:init(width, height, physDev, device, surface, msaaSamples)
 	self.width = width
 	self.height = height
-	
+
 	local swapChainSupport = physDev:querySwapChainSupport(nil, surface)
 	self.extent = self:chooseSwapExtent(width, height, swapChainSupport.capabilities)
 
@@ -1427,7 +1427,7 @@ end
 
 function VKCommon:createDescriptorSets()
 	local layouts = vector'VkDescriptorSetLayout'
-	for i=1,self.maxFramesInFlight do
+	for i=0,self.maxFramesInFlight-1 do
 		layouts:push_back(self.graphicsPipeline.descriptorSetLayout)
 	end
 
@@ -1473,6 +1473,7 @@ function VKCommon:createDescriptorSets()
 		d[0].pBufferInfo = bufferInfo
 
 		local d = descriptorWrites:emplace_back()
+		d[0].sType = vk.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET
 		d[0].dstSet = descriptorSets.v[i]
 		d[0].dstBinding = 1
 		d[0].descriptorCount = 1
@@ -1495,6 +1496,8 @@ function VKCommon:setFramebufferResized()
 end
 
 function VKCommon:drawFrame()
+print('VKCommon:drawFrame', self.currentFrame)
+-- right here once all the first set of frames are exhausted, this stalls indefinitely
 	local result = vk.vkWaitForFences(
 		self.device.id,
 		1,
@@ -1502,6 +1505,7 @@ function VKCommon:drawFrame()
 		vk.VK_TRUE,
 		ffi.cast('uint64_t', -1)	-- UINT64_MAX
 	)
+print('vkWaitForFences result', result)
 	if result ~= vk.VK_SUCCESS then
 		error("vkWaitForRences failed: "..tostring(result))
 	end
@@ -1509,10 +1513,14 @@ function VKCommon:drawFrame()
 	local imageIndex = ffi.new'uint32_t[1]'
 	local info = ffi.new'VkAcquireNextImageInfoKHR[1]'
 	info[0].sType = vk.VK_STRUCTURE_TYPE_ACQUIRE_NEXT_IMAGE_INFO_KHR
+	info[0].pNext = nil
 	info[0].swapchain = self.swapchain.id
 	info[0].timeout = ffi.cast('uint64_t', -1)
 	info[0].semaphore = self.imageAvailableSemaphores.v[self.currentFrame]
-	local result = vk.vkAcquireNextImage2KHR(self.device.id, info, imageIndex)
+	info[0].fence = nil
+	info[0].deviceMask = 0
+	local result = vk.vkAcquireNextImage2KHR(assert(self.device.id), info, imageIndex)
+print('vkAcquireNextImage2KHR result', result, 'imageIndex', imageIndex[0])
 	if result == vk.VK_ERROR_OUT_OF_DATE_KHR then
 		self:recreateSwapchain()
 		return
@@ -1522,16 +1530,17 @@ function VKCommon:drawFrame()
 		error("vkAcquireNextImage2KHR failed: "..tostring(result))
 	end
 
-	self:updateUniformBuffer(self.currentFrame)
+	self:updateUniformBuffer()
 
 	vkassert(vk.vkResetFences, self.device.id, 1, self.inFlightFences.v + self.currentFrame)
 
 	vkassert(vk.vkResetCommandBuffer, self.commandBuffers.v[self.currentFrame], 0)
+
 	self:recordCommandBuffer(self.commandBuffers.v[self.currentFrame], imageIndex[0])
 
 	local waitStages = ffi.new'VkPipelineStageFlags[1]'
 	waitStages[0] = vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-	
+
 	local info = ffi.new'VkSubmitInfo[1]'
 	info[0].sType = vk.VK_STRUCTURE_TYPE_SUBMIT_INFO
 	info[0].waitSemaphoreCount = 1
@@ -1545,7 +1554,7 @@ function VKCommon:drawFrame()
 		self.device.graphicsQueue,
 		1,
 		info,
-		self.inFlightFences[currentFrame]
+		self.inFlightFences.v[self.currentFrame]
 	)
 
 	-- TODO reason to keep the gc'd ptr around
@@ -1588,8 +1597,9 @@ function VKCommon:updateUniformBuffer()
 	local app = self.app
 	local currentTime = timer.getTime()
 	local time = currentTime - self.startTime
-		
-	local ar = tonumber(self.swapchain.extent.width) / tonumber(self.swapchain.extent.height)
+
+-- don't need this unless I start doing the matrix calculations here
+--	local ar = tonumber(self.swapchain.extent.width) / tonumber(self.swapchain.extent.height)
 
 	local ubo = UniformBufferObject()
 	ffi.copy(ubo.model, app.view.mvMat.ptr, 4 * 4 * ffi.sizeof'float')
@@ -1601,6 +1611,7 @@ function VKCommon:updateUniformBuffer()
 end
 
 function VKCommon:recordCommandBuffer(commandBuffer, imageIndex)
+print('VKCommon:recordCommandBuffer', commandBuffer, imageIndex)
 	-- TODO per vulkan api, if we just have null info, can we pass null?
 	local info = ffi.new'VkCommandBufferBeginInfo[1]'
 	info[0].sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO
@@ -1642,13 +1653,14 @@ function VKCommon:recordCommandBuffer(commandBuffer, imageIndex)
 	vk.vkCmdSetScissor(commandBuffer, 0, 1, scissors)
 
 	local vertexBuffers = ffi.new'VkBuffer[1]'
-	vertexBuffers[0] = self.mesh.vertexBufferAndMemory.buffer
+	vertexBuffers[0] = assert(self.mesh.vertexBufferAndMemory.buffer)
 	local vertexOffsets = ffi.new'VkDeviceSize[1]'
+	asserteq(vertexOffsets[0], 0)
 	vk.vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, vertexOffsets)
 
 	vk.vkCmdBindIndexBuffer(
 		commandBuffer,
-		self.mesh.indexBufferAndMemory.buffer,
+		assert(self.mesh.indexBufferAndMemory.buffer),
 		0,
 		vk.VK_INDEX_TYPE_UINT32
 	)
@@ -1666,7 +1678,7 @@ function VKCommon:recordCommandBuffer(commandBuffer, imageIndex)
 
 	vk.vkCmdDrawIndexed(
 		commandBuffer,
-		self.mesh.numIndices,
+		assert(self.mesh.numIndices),
 		1,
 		0,
 		0,
@@ -1680,7 +1692,7 @@ end
 function VKCommon:recreateSwapchain()
 	local app = self.app
 	if app.width == 0 or app.height == 0 then
-		error "herE"
+		error "here"
 	end
 
 	vkassert(vk.vkDeviceWaitIdle, self.device.id)
@@ -1689,6 +1701,7 @@ function VKCommon:recreateSwapchain()
 end
 
 function VKCommon:exit()
+	vkassert(vk.vkDeviceWaitIdle, self.device.id)
 	vk.vkDestroySurfaceKHR(self.instance.id, self.surface, nil)
 	self.instance:destroy()
 	--self.device:waitIdle()
@@ -1696,7 +1709,7 @@ end
 --]]
 
 -- [[ VulkanApp
-local SDLApp = require 'sdl.app'	-- TODO sdl.app ?  and gl.app and imgui.app ?
+local SDLApp = require 'sdl.app'	-- TODO rename gl.app and imgui.app ?
 SDLApp.viewUseBuiltinMatrixMath = true
 
 -- TODO move view and orbit out of glapp ... but to where ...
