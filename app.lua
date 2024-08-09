@@ -9,22 +9,14 @@ local vector = require 'ffi.cpp.vector-lua'
 local asserteq = require 'ext.assert'.eq
 local matrix_ffi = require 'matrix.ffi'
 
--- TODO put these in SDL2 ... they don't immediately #include
 local sdl = require 'sdl'
 ffi.cdef[[
 SDL_bool SDL_Vulkan_GetInstanceExtensions(
 	SDL_Window *window,
 	unsigned int *pCount,
 	const char **pNames);
-
-SDL_bool SDL_Vulkan_CreateSurface(
-	SDL_Window *window,
-	VkInstance instance,
-	VkSurfaceKHR* surface);
 ]]
-local function sdlvksafe(f, ...)
-	asserteq(sdl.SDL_TRUE, f(...))
-end
+local sdlvksafe = require 'vk.util'.sdlvksafe
 
 -- TODO move these to vk:
 local VK_EXT_DEBUG_UTILS_EXTENSION_NAME = "VK_EXT_debug_utils"
@@ -137,8 +129,12 @@ end
 
 local VulkanPhysicalDevice = class()
 
-function VulkanPhysicalDevice:init(instance, surface, deviceExtensions)
-	local physDevs = vkGetVector('VkPhysicalDevice', vkassert, vk.vkEnumeratePhysicalDevices, instance)
+function VulkanPhysicalDevice:init(common, deviceExtensions)
+	self.common = common
+	local instance = common.instance
+	local surface = common.surface
+
+	local physDevs = vkGetVector('VkPhysicalDevice', vkassert, vk.vkEnumeratePhysicalDevices, instance.obj.id)
 	print'devices:'
 	for i=0,#physDevs-1 do
 		local props = VulkanPhysicalDevice:getProps(physDevs.v[i])
@@ -186,7 +182,7 @@ function VulkanPhysicalDevice:findQueueFamilies(physDev, surface)
 			indices.graphicsFamily = i
 		end
 
-		local supported = vkGet('VkBool32', vkassert, vk.vkGetPhysicalDeviceSurfaceSupportKHR, physDev, i, surface)
+		local supported = vkGet('VkBool32', vkassert, vk.vkGetPhysicalDeviceSurfaceSupportKHR, physDev, i, surface.id)
 		if supported ~= 0 then
 			indices.presentFamily = i
 		end
@@ -215,9 +211,9 @@ end
 function VulkanPhysicalDevice:querySwapChainSupport(physDev, surface)
 	physDev = physDev or self.id
 	return {
-		capabilities = vkGet('VkSurfaceCapabilitiesKHR', vkassert, vk.vkGetPhysicalDeviceSurfaceCapabilitiesKHR, physDev, surface),
-		formats = vkGetVector('VkSurfaceFormatKHR', vkassert, vk.vkGetPhysicalDeviceSurfaceFormatsKHR, physDev, surface),
-		presentModes = vkGetVector('VkPresentModeKHR', vkassert, vk.vkGetPhysicalDeviceSurfacePresentModesKHR, physDev, surface),
+		capabilities = vkGet('VkSurfaceCapabilitiesKHR', vkassert, vk.vkGetPhysicalDeviceSurfaceCapabilitiesKHR, physDev, surface.id),
+		formats = vkGetVector('VkSurfaceFormatKHR', vkassert, vk.vkGetPhysicalDeviceSurfaceFormatsKHR, physDev, surface.id),
+		presentModes = vkGetVector('VkPresentModeKHR', vkassert, vk.vkGetPhysicalDeviceSurfacePresentModesKHR, physDev, surface.id),
 	}
 end
 
@@ -460,7 +456,7 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 	local presentMode = self:chooseSwapPresentMode(swapChainSupport.presentModes)
 	local info = ffi.new'VkSwapchainCreateInfoKHR[1]'
 	info[0].sType = vk.VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR
-	info[0].surface = surface
+	info[0].surface = surface.id
 	info[0].minImageCount = imageCount
 	info[0].imageFormat = surfaceFormat.format
 	info[0].imageColorSpace = surfaceFormat.colorSpace
@@ -935,7 +931,7 @@ end
 
 local VulkanCommandPool = class()
 
-function VulkanCommandPool:init(app, physDev, device, surface)
+function VulkanCommandPool:init(common, physDev, device, surface)
 	local queueFamilyIndices = physDev:findQueueFamilies(nil, surface)
 
 	local info = ffi.new'VkCommandPoolCreateInfo[1]'
@@ -945,7 +941,7 @@ function VulkanCommandPool:init(app, physDev, device, surface)
 	self.id = vkGet('VkCommandPool', vkassert, vk.vkCreateCommandPool, device.obj.id, info, nil)
 
 	self.device = device.obj.id
-	self.graphicsQueue = app.graphicsQueue
+	self.graphicsQueue = common.graphicsQueue
 end
 
 function VulkanCommandPool:transitionImageLayout(image, oldLayout, newLayout, mipLevels)
@@ -1146,12 +1142,15 @@ function VulkanCommon:init(app)
 	assert(not self.enableValidationLayers or self:checkValidationLayerSupport(), "validation layers requested, but not available!")
 	self.instance = VulkanInstance(app, self.enableValidationLayers)
 
-	self.surface = vkGet('VkSurfaceKHR', sdlvksafe, sdl.SDL_Vulkan_CreateSurface, app.window, self.instance.obj.id)
+	self.surface = require 'vk.surface'{
+		window = app.window,
+		instance = self.instance.obj,
+	}
 
 	local deviceExtensions = vector'char const *'
 	deviceExtensions:emplace_back()[0] = VK_KHR_SWAPCHAIN_EXTENSION_NAME
 
-	self.physDev = VulkanPhysicalDevice(self.instance.obj.id, self.surface, deviceExtensions)
+	self.physDev = VulkanPhysicalDevice(self, deviceExtensions)
 
 	self.msaaSamples = self.physDev:getMaxUsableSampleCount()
 print('msaaSamples', self.msaaSamples)
@@ -1706,7 +1705,7 @@ end
 function VulkanCommon:exit()
 	self.device.obj:waitIdle()
 	self.device.obj:destroy()
-	vk.vkDestroySurfaceKHR(self.instance.obj.id, self.surface, nil)
+	vk.vkDestroySurfaceKHR(self.instance.obj.id, self.surface.id, nil)
 	self.instance:destroy()
 end
 --]]
