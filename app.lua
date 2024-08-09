@@ -441,9 +441,11 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 		info[0].imageSharingMode = vk.VK_SHARING_MODE_EXCLUSIVE
 	end
 
-	self.id = vkGet('VkSwapchainKHR', vkassert, vk.vkCreateSwapchainKHR, device, info, nil)
+	self.obj = require 'vk.swapchain'{
+		device = device,
+	}
 
-	self.images = vkGetVector('VkImage', vkassert, vk.vkGetSwapchainImagesKHR, device, self.id)
+	self.images = vkGetVector('VkImage', vkassert, vk.vkGetSwapchainImagesKHR, device, self.obj.id)
 
 	self.imageViews = vector'VkImageView'
 	for i=0,#self.images-1 do
@@ -1467,7 +1469,7 @@ function VulkanCommon:drawFrame()
 	local info = ffi.new'VkAcquireNextImageInfoKHR[1]'
 	info[0].sType = vk.VK_STRUCTURE_TYPE_ACQUIRE_NEXT_IMAGE_INFO_KHR
 	info[0].pNext = nil
-	info[0].swapchain = self.swapchain.id
+	info[0].swapchain = self.swapchain.obj.id
 	info[0].timeout = ffi.cast('uint64_t', -1)
 	info[0].semaphore = self.imageAvailableSemaphores.v[self.currentFrame]
 	info[0].fence = nil
@@ -1511,7 +1513,7 @@ function VulkanCommon:drawFrame()
 
 	-- TODO reason to keep the gc'd ptr around
 	local swapchains = ffi.new'VkSwapchainKHR[1]'
-	swapchains[0] = self.swapchain.id
+	swapchains[0] = self.swapchain.obj.id
 
 	local info = ffi.new'VkPresentInfoKHR[1]'
 	info[0].sType = vk.VK_STRUCTURE_TYPE_PRESENT_INFO_KHR
