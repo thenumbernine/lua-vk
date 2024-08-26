@@ -1684,7 +1684,6 @@ end
 
 -- [[ VulkanApp
 local SDLApp = require 'sdl.app'	-- TODO rename gl.app and imgui.app ?
-SDLApp.viewUseBuiltinMatrixMath = true
 
 -- TODO move view and orbit out of glapp ... but to where ...
 -- seems like we're going to need a geometry library soon ...
