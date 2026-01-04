@@ -1,1 +1,1 @@
-return require 'ffi.req' 'vulkan'
+return require 'vk.ffi.vulkan'
