@@ -1,20 +1,17 @@
 local ffi = require 'ffi'
 local range = require 'ext.range'
 local table = require 'ext.table'
+local assert = require 'ext.assert'
 local timer = require 'ext.timer'
 local vec3f = require 'vec-ffi.vec3f'
 local math = require 'ext.math'	-- clamp
 local vk = require 'vk'
 local vector = require 'ffi.cpp.vector-lua'
-local asserteq = require 'ext.assert'.eq
 local matrix_ffi = require 'matrix.ffi'
 
 local sdl = require 'sdl'
 ffi.cdef[[
-SDL_bool SDL_Vulkan_GetInstanceExtensions(
-	SDL_Window *window,
-	unsigned int *pCount,
-	const char **pNames);
+char const * const * SDL_Vulkan_GetInstanceExtensions(uint32_t * count);
 ]]
 local sdlvksafe = require 'vk.util'.sdlvksafe
 
@@ -81,7 +78,19 @@ function VulkanInstance:getRequiredExtensions(common)
 	local app = common.app
 	local enableValidationLayers = common.enableValidationLayers
 
+	--[[ SDL2?
 	local extensions = vkGetVector('char const *', sdlvksafe, sdl.SDL_Vulkan_GetInstanceExtensions, app.window)
+	--]]
+	-- [[ SDL3
+	local extensions = vector'char const *'
+	do
+		local count = ffi.new'uint32_t[1]'
+		local extstrs = assert.ne(sdl.SDL_Vulkan_GetInstanceExtensions(count), ffi.null)
+		for i=1,count[0]-1 do
+			extensions:push_back(extstrs[i])
+		end
+	end
+	--]]
 
 	print'vulkan extensions:'
 	for i=0,#extensions-1 do
@@ -721,7 +730,7 @@ local UniformBufferObject = struct{
 		{name = 'proj', type = 'float[16]'},
 	},
 }
-asserteq(ffi.sizeof'UniformBufferObject', 4 * 4 * ffi.sizeof'float' * 3)
+assert.eq(ffi.sizeof'UniformBufferObject', 4 * 4 * ffi.sizeof'float' * 3)
 
 local VulkanGraphicsPipeline = class()
 
@@ -1061,7 +1070,7 @@ function VulkanMesh:init(physDev, device, commandPool)
 	local mesh = ObjLoader():load"viking_room.obj";
 
 	local indices = mesh.triIndexes	-- vector'int32_t'
-	asserteq(indices.type, 'int32_t') 	-- well, uint, but whatever
+	assert.eq(indices.type, 'int32_t') 	-- well, uint, but whatever
 	-- copy from MeshVertex_t to Vertex ... TODO why bother ...
 	local vertices = vector'Vertex'
 	vertices:resize(#mesh.vtxs)
@@ -1619,7 +1628,7 @@ function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 	local vertexBuffers = ffi.new'VkBuffer[1]'
 	vertexBuffers[0] = assert(self.mesh.vertexBufferAndMemory.buffer.id)
 	local vertexOffsets = ffi.new'VkDeviceSize[1]'
-	asserteq(vertexOffsets[0], 0)
+	assert.eq(vertexOffsets[0], 0)
 	vk.vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, vertexOffsets)
 
 	vk.vkCmdBindIndexBuffer(
