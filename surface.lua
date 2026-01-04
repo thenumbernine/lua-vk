@@ -26,11 +26,11 @@ function VKSurface:init(args)
 	local window = assertindex(args, 'window')
 
 	local instance = assertindex(args, 'instance')
-	if VKInstance:isa(instance) then instance = instance.id end
+	if VKInstance:isa(instance) then instance = assertindex(instance, 'id') end
 	self.instance = instance
 	
 	local ptr = ffi.new(VkSurfaceKHR_1)
-	assert(sdl.SDL_Vulkan_CreateSurface(window, nil, ptr))
+	assert(sdl.SDL_Vulkan_CreateSurface(window, nil, ptr), 'SDL_Vulkan_CreateSurface failed')
 	self.id = ptr[0]
 end
 

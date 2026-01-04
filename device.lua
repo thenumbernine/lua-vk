@@ -1,3 +1,4 @@
+local ffi = require 'ffi'
 local assertindex = require 'ext.assert'.index
 local vk = require 'vk'
 local VKPhysDev = require 'vk.physdev'

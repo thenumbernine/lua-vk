@@ -29,10 +29,106 @@ local VK_API_VERISON_1_0 = VK_MAKE_API_VERSION(0, 1, 0, 0)
 
 -- [[ vulkan namespace / class wrappers / idk
 local class = require 'ext.class'
+local path = require 'ext.path'
+local struct = require 'struct'
 
 local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
 local vkGetVector = require 'vk.util'.vkGetVector
+
+-- how to distinguish between oop classes and ffi types?
+local VkInstance = require 'vk.instance'
+local VkDevice = require 'vk.device'
+local VkBuffer = require 'vk.buffer'
+local VKSwapchain = require 'vk.swapchain'
+local VkSurface = require 'vk.surface'
+local VkQueue = require 'vk.queue'
+
+
+local VkAcquireNextImageInfoKHR_1 = ffi.typeof'VkAcquireNextImageInfoKHR[1]'
+local VkApplicationInfo_1 = ffi.typeof'VkApplicationInfo[1]'
+local VkAttachmentDescription = ffi.typeof'VkAttachmentDescription'
+local VkAttachmentReference_1 = ffi.typeof'VkAttachmentReference[1]'
+local VkBufferCopy_1 = ffi.typeof'VkBufferCopy[1]'
+local VkBufferImageCopy_1 = ffi.typeof'VkBufferImageCopy[1]'
+local VkBuffer_1 = ffi.typeof'VkBuffer[1]'
+local VkClearValue = ffi.typeof'VkClearValue'
+local VkCommandBuffer = ffi.typeof'VkCommandBuffer'
+local VkCommandBufferAllocateInfo_1 = ffi.typeof'VkCommandBufferAllocateInfo[1]'
+local VkCommandBufferBeginInfo_1 = ffi.typeof'VkCommandBufferBeginInfo[1]'
+local VkCommandBuffer_1 = ffi.typeof'VkCommandBuffer[1]'
+local VkCommandPool = ffi.typeof'VkCommandPool'
+local VkCommandPoolCreateInfo_1 = ffi.typeof'VkCommandPoolCreateInfo[1]'
+local VkDescriptorBufferInfo_1 = ffi.typeof'VkDescriptorBufferInfo[1]'
+local VkDescriptorImageInfo_1 = ffi.typeof'VkDescriptorImageInfo[1]'
+local VkDescriptorPool = ffi.typeof'VkDescriptorPool'
+local VkDescriptorPoolCreateInfo_1 = ffi.typeof'VkDescriptorPoolCreateInfo[1]'
+local VkDescriptorPoolSize = ffi.typeof'VkDescriptorPoolSize'
+local VkDescriptorSet = ffi.typeof'VkDescriptorSet'
+local VkDescriptorSetAllocateInfo_1 = ffi.typeof'VkDescriptorSetAllocateInfo[1]'
+local VkDescriptorSetLayout = ffi.typeof'VkDescriptorSetLayout'
+local VkDescriptorSetLayoutBinding = ffi.typeof'VkDescriptorSetLayoutBinding'
+local VkDescriptorSetLayoutCreateInfo_1 = ffi.typeof'VkDescriptorSetLayoutCreateInfo[1]'
+local VkDeviceMemory = ffi.typeof'VkDeviceMemory'
+local VkDeviceQueueCreateInfo = ffi.typeof'VkDeviceQueueCreateInfo'
+local VkDeviceSize_1 = ffi.typeof'VkDeviceSize[1]'
+local VkDynamicState = ffi.typeof'VkDynamicState'
+local VkExtent2D = ffi.typeof'VkExtent2D'
+local VkFence = ffi.typeof'VkFence'
+local VkFenceCreateInfo_1 = ffi.typeof'VkFenceCreateInfo[1]'
+local VkFramebuffer = ffi.typeof'VkFramebuffer'
+local VkFramebufferCreateInfo_1 = ffi.typeof'VkFramebufferCreateInfo[1]'
+local VkGraphicsPipelineCreateInfo_1 = ffi.typeof'VkGraphicsPipelineCreateInfo[1]'
+local VkImage = ffi.typeof'VkImage'
+local VkImageBlit_1 = ffi.typeof'VkImageBlit[1]'
+local VkImageCreateInfo_1 = ffi.typeof'VkImageCreateInfo[1]'
+local VkImageMemoryBarrier_1 = ffi.typeof'VkImageMemoryBarrier[1]'
+local VkImageView = ffi.typeof'VkImageView'
+local VkImageViewCreateInfo_1 = ffi.typeof'VkImageViewCreateInfo[1]'
+local VkLayerProperties = ffi.typeof'VkLayerProperties'
+local VkMemoryAllocateInfo_1 = ffi.typeof'VkMemoryAllocateInfo[1]'
+local VkMemoryRequirements = ffi.typeof'VkMemoryRequirements'
+local VkPhysicalDeviceFeatures_1 = ffi.typeof'VkPhysicalDeviceFeatures[1]'
+local VkPipeline = ffi.typeof'VkPipeline'
+local VkPipelineColorBlendAttachmentState_1 = ffi.typeof'VkPipelineColorBlendAttachmentState[1]'
+local VkPipelineColorBlendStateCreateInfo_1 = ffi.typeof'VkPipelineColorBlendStateCreateInfo[1]'
+local VkPipelineDepthStencilStateCreateInfo_1 = ffi.typeof'VkPipelineDepthStencilStateCreateInfo[1]'
+local VkPipelineDynamicStateCreateInfo_1 = ffi.typeof'VkPipelineDynamicStateCreateInfo[1]'
+local VkPipelineInputAssemblyStateCreateInfo_1 = ffi.typeof'VkPipelineInputAssemblyStateCreateInfo[1]'
+local VkPipelineLayout = ffi.typeof'VkPipelineLayout'
+local VkPipelineLayoutCreateInfo_1 = ffi.typeof'VkPipelineLayoutCreateInfo[1]'
+local VkPipelineMultisampleStateCreateInfo_1 = ffi.typeof'VkPipelineMultisampleStateCreateInfo[1]'
+local VkPipelineRasterizationStateCreateInfo_1 = ffi.typeof'VkPipelineRasterizationStateCreateInfo[1]'
+local VkPipelineShaderStageCreateInfo = ffi.typeof'VkPipelineShaderStageCreateInfo'
+local VkPipelineStageFlags_1 = ffi.typeof'VkPipelineStageFlags[1]'
+local VkPipelineVertexInputStateCreateInfo_1 = ffi.typeof'VkPipelineVertexInputStateCreateInfo[1]'
+local VkPipelineViewportStateCreateInfo_1 = ffi.typeof'VkPipelineViewportStateCreateInfo[1]'
+local VkPresentInfoKHR_1 = ffi.typeof'VkPresentInfoKHR[1]'
+local VkRect2D_1 = ffi.typeof'VkRect2D[1]'
+local VkRenderPass = ffi.typeof'VkRenderPass'
+local VkRenderPassBeginInfo_1 = ffi.typeof'VkRenderPassBeginInfo[1]'
+local VkRenderPassCreateInfo_1 = ffi.typeof'VkRenderPassCreateInfo[1]'
+local VkSampler = ffi.typeof'VkSampler'
+local VkSamplerCreateInfo_1 = ffi.typeof'VkSamplerCreateInfo[1]'
+local VkSemaphore = ffi.typeof'VkSemaphore'
+local VkSemaphoreCreateInfo_1 = ffi.typeof'VkSemaphoreCreateInfo[1]'
+local VkShaderModule = ffi.typeof'VkShaderModule'
+local VkShaderModuleCreateInfo_1 = ffi.typeof'VkShaderModuleCreateInfo[1]'
+local VkSubmitInfo_1 = ffi.typeof'VkSubmitInfo[1]'
+local VkSubpassDependency = ffi.typeof'VkSubpassDependency'
+local VkSubpassDescription = ffi.typeof'VkSubpassDescription'
+local VkSwapchainKHR_1 = ffi.typeof'VkSwapchainKHR[1]'
+local VkVertexInputAttributeDescription = ffi.typeof'VkVertexInputAttributeDescription'
+local VkVertexInputBindingDescription = ffi.typeof'VkVertexInputBindingDescription'
+local VkViewport_1 = ffi.typeof'VkViewport[1]'
+local VkWriteDescriptorSet = ffi.typeof'VkWriteDescriptorSet'
+local char_const_ptr = ffi.typeof'char const *'
+local float = ffi.typeof'float'
+local uint32_t = ffi.typeof'uint32_t'
+local uint32_t_1 = ffi.typeof'uint32_t[1]'
+local uint32_t_ptr = ffi.typeof'uint32_t*'
+local uint64_t = ffi.typeof'uint64_t'
+
 
 local VulkanInstance = class()
 
@@ -40,7 +136,7 @@ function VulkanInstance:init(common)
 	local app = common.app
 	local enableValidationLayers = common.enableValidationLayers
 
-	local layerProps = vkGetVector('VkLayerProperties', vkassert, vk.vkEnumerateInstanceLayerProperties)
+	local layerProps = vkGetVector(VkLayerProperties, vkassert, vk.vkEnumerateInstanceLayerProperties)
 	print'vulkan layers:'
 	for i=0,#layerProps-1 do
 		print('',
@@ -49,7 +145,7 @@ function VulkanInstance:init(common)
 		)
 	end
 
-	local appInfo = ffi.new('VkApplicationInfo[1]', {{
+	local appInfo = ffi.new(VkApplicationInfo_1, {{
 		sType = vk.VK_STRUCTURE_TYPE_APPLICATION_INFO,
 		pApplicationName = app.title,
 		applicationVersion = VK_MAKE_API_VERSION(0, 1, 0, 0),
@@ -58,14 +154,14 @@ function VulkanInstance:init(common)
 		apiVersion = VK_API_VERISON_1_0,
 	}})
 
-	local layerNames = vector'char const *'
+	local layerNames = vector(char_const_ptr)
 	if enableValidationLayers then
 		layerNames:emplace_back()[0] = 'VK_LAYER_KHRONOS_validation'
 	end
 
 	local extensions = self:getRequiredExtensions(common)
 
-	self.obj = require 'vk.instance'{
+	self.obj = VkInstance{
 		pApplicationInfo = appInfo,
 		enabledLayerCount = #layerNames,
 		ppEnabledLayerNames = layerNames.v,
@@ -83,9 +179,9 @@ function VulkanInstance:getRequiredExtensions(common)
 	local extensions = vkGetVector('char const *', sdlvksafe, sdl.SDL_Vulkan_GetInstanceExtensions, app.window)
 	--]]
 	-- [[ SDL3
-	local extensions = vector'char const *'
+	local extensions = vector(char_const_ptr)
 	do
-		local count = ffi.new'uint32_t[1]'
+		local count = ffi.new(uint32_t_1)
 		local extstrs = assertne(sdl.SDL_Vulkan_GetInstanceExtensions(count), ffi.null)
 		for i=1,count[0]-1 do
 			extensions:push_back(extstrs[i])
@@ -253,9 +349,9 @@ local validationLayer = 'VK_LAYER_KHRONOS_validation'	-- TODO vector?
 local VulkanDevice = class()
 
 function VulkanDevice:init(physDev, deviceExtensions, enableValidationLayers, indices)
-	local queuePriorities = vector'float'
+	local queuePriorities = vector(float)
 	queuePriorities:emplace_back()[0] = 1
-	local queueCreateInfos = vector'VkDeviceQueueCreateInfo'
+	local queueCreateInfos = vector(VkDeviceQueueCreateInfo)
 	for queueFamily in pairs{
 		[indices.graphicsFamily] = true,
 		[indices.presentFamily] = true,
@@ -267,15 +363,15 @@ function VulkanDevice:init(physDev, deviceExtensions, enableValidationLayers, in
 		info[0].pQueuePriorities = queuePriorities.v
 	end
 
-	local deviceFeatures = ffi.new'VkPhysicalDeviceFeatures[1]'
+	local deviceFeatures = ffi.new(VkPhysicalDeviceFeatures_1)
 	deviceFeatures[0].samplerAnisotropy = vk.VK_TRUE
 
-	local thisValidationLayers = vector'char const *'
+	local thisValidationLayers = vector(char_const_ptr)
 	if enableValidationLayers then
 		thisValidationLayers.emplace_back()[0] = validationLayer	-- TODO vector copy?
 	end
 
-	self.obj = require 'vk.device'{
+	self.obj = VkDevice{
 		-- create extra args:
 		physDev = physDev,
 		-- info args:
@@ -293,19 +389,19 @@ end
 local VulkanDeviceMemoryFromStagingBuffer = class()
 
 function VulkanDeviceMemoryFromStagingBuffer:create(physDev, device, srcData, bufferSize)
-	local buffer = require 'vk.buffer'{
+	local buffer = VkBuffer{
 		device = device,
 		size = bufferSize,
 		usage = vk.VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 		sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE,
 	}
 
-	local memReq = vkGet('VkMemoryRequirements', nil, vk.vkGetBufferMemoryRequirements, device, buffer.id)
+	local memReq = vkGet(VkMemoryRequirements, nil, vk.vkGetBufferMemoryRequirements, device, buffer.id)
 
-	local info = ffi.new'VkMemoryAllocateInfo[1]'
+	local info = ffi.new(VkMemoryAllocateInfo_1)
 	info[0].allocationSize = memReq.size
 	info[0].memoryTypeIndex = physDev:findMemoryType(memReq.memoryTypeBits, bit.bor(vk.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
-	local memory = vkGet('VkDeviceMemory', vkassert, vk.vkAllocateMemory, device, info, nil)
+	local memory = vkGet(VkDeviceMemory, vkassert, vk.vkAllocateMemory, device, info, nil)
 
 	vkassert(vk.vkBindBufferMemory, device, buffer.id, memory, 0)
 
@@ -335,7 +431,7 @@ function VulkanDeviceMemoryImage:createImage(
 	usage,
 	properties
 )
-	local info = ffi.new'VkImageCreateInfo[1]'
+	local info = ffi.new(VkImageCreateInfo_1)
 	info[0].sType = vk.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO
 	info[0].imageType = vk.VK_IMAGE_TYPE_2D
 	info[0].format = format
@@ -349,15 +445,15 @@ function VulkanDeviceMemoryImage:createImage(
 	info[0].usage = usage
 	info[0].sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE
 	info[0].initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED
-	local image = vkGet('VkImage', vkassert, vk.vkCreateImage, device, info, nil)
+	local image = vkGet(VkImage, vkassert, vk.vkCreateImage, device, info, nil)
 
-	local memReq = vkGet('VkMemoryRequirements', nil, vk.vkGetImageMemoryRequirements, device, image)
+	local memReq = vkGet(VkMemoryRequirements, nil, vk.vkGetImageMemoryRequirements, device, image)
 
-	local info = ffi.new'VkMemoryAllocateInfo[1]'
+	local info = ffi.new(VkMemoryAllocateInfo_1)
 	info[0].sType = vk.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO
 	info[0].allocationSize = memReq.size
 	info[0].memoryTypeIndex = physDev:findMemoryType(memReq.memoryTypeBits, properties)
-	local imageMemory = vkGet('VkDeviceMemory', vkassert, vk.vkAllocateMemory, device, info, nil)
+	local imageMemory = vkGet(VkDeviceMemory, vkassert, vk.vkAllocateMemory, device, info, nil)
 	vkassert(vk.vkBindImageMemory, device, image, imageMemory, 0)
 
 	return {image=image, imageMemory=imageMemory}
@@ -443,7 +539,7 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 	info.presentMode = presentMode
 	info.clipped = vk.VK_TRUE
 	local indices = physDev:findQueueFamilies(nil, surface)
-	local queueFamilyIndices = vector'uint32_t'
+	local queueFamilyIndices = vector(uint32_t)
 	for index in pairs{
 		[indices.graphicsFamily] = true,
 		[indices.presentFamily] = true,
@@ -459,11 +555,11 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 	end
 	info.device = device
 print('info.device.id', info.device.id)
-	self.obj = require 'vk.swapchain'(info)
+	self.obj = VKSwapchain(info)
 
 	self.images = self.obj:getImages(device)
 
-	self.imageViews = vector'VkImageView'
+	self.imageViews = vector(VkImageView)
 	for i=0,#self.images-1 do
 		self.imageViews:emplace_back()[0] = self:createImageView(
 			device.id,
@@ -520,13 +616,13 @@ print('info.device.id', info.device.id)
 		1
 	)
 
-	self.framebuffers = vector'VkFramebuffer'
+	self.framebuffers = vector(VkFramebuffer)
 	for i=0,#self.imageViews-1 do
-		local attachments = vector'VkImageView'
+		local attachments = vector(VkImageView)
 		attachments:push_back(self.colorImageView)
 		attachments:push_back(self.depthImageView)
 		attachments:push_back(self.imageViews.v[i])
-		local info = ffi.new'VkFramebufferCreateInfo[1]'
+		local info = ffi.new(VkFramebufferCreateInfo_1)
 		info[0].sType = vk.VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO
 		info[0].renderPass = self.renderPass
 		info[0].attachmentCount = #attachments
@@ -534,15 +630,15 @@ print('info.device.id', info.device.id)
 		info[0].width = width
 		info[0].height = height
 		info[0].layers = 1
-		self.framebuffers:push_back(vkGet('VkFramebuffer', vkassert, vk.vkCreateFramebuffer, device.id, info, nil))
+		self.framebuffers:push_back(vkGet(VkFramebuffer, vkassert, vk.vkCreateFramebuffer, device.id, info, nil))
 	end
 end
 
 function VulkanSwapchain:chooseSwapExtent(width, height, capabilities)
 	if capabilities.currentExtent.width ~= -1 then
-		return ffi.new('VkExtent2D', capabilities.currentExtent)
+		return ffi.new(VkExtent2D, capabilities.currentExtent)
 	else
-		local actualExtent = ffi.new('VkExtent2D', width, height)
+		local actualExtent = ffi.new(VkExtent2D, width, height)
 		actualExtent.width = math.clamp(actualExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width)
 		actualExtent.height = math.clamp(actualExtent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height)
 		return actualExtent
@@ -573,7 +669,7 @@ function VulkanSwapchain:chooseSwapPresentMode(availablePresentModes)
 end
 
 function VulkanSwapchain:createImageView(device, image, format, aspectFlags, mipLevels)
-	local info = ffi.new'VkImageViewCreateInfo[1]'
+	local info = ffi.new(VkImageViewCreateInfo_1)
 	info[0].sType = vk.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO
 	info[0].image = image
 	info[0].viewType = vk.VK_IMAGE_VIEW_TYPE_2D
@@ -581,11 +677,11 @@ function VulkanSwapchain:createImageView(device, image, format, aspectFlags, mip
 	info[0].subresourceRange.aspectMask = aspectFlags
 	info[0].subresourceRange.levelCount = mipLevels
 	info[0].subresourceRange.layerCount = 1
-	return vkGet('VkImageView', vkassert, vk.vkCreateImageView, device, info, nil)
+	return vkGet(VkImageView, vkassert, vk.vkCreateImageView, device, info, nil)
 end
 
 function VulkanSwapchain:createRenderPass(physDev, device, swapChainImageFormat, msaaSamples)
-	local attachments = vector'VkAttachmentDescription'
+	local attachments = vector(VkAttachmentDescription)
 	-- colorAttachment
 	local a = attachments:emplace_back()
 	a[0].format = swapChainImageFormat
@@ -617,17 +713,17 @@ function VulkanSwapchain:createRenderPass(physDev, device, swapChainImageFormat,
 	a[0].initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED
 	a[0].finalLayout = vk.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
 
-	local colorAttachmentRef = ffi.new'VkAttachmentReference[1]'
+	local colorAttachmentRef = ffi.new(VkAttachmentReference_1)
 	colorAttachmentRef[0].attachment = 0
 	colorAttachmentRef[0].layout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-	local depthAttachmentRef = ffi.new'VkAttachmentReference[1]'
+	local depthAttachmentRef = ffi.new(VkAttachmentReference_1)
 	depthAttachmentRef[0].attachment = 1
 	depthAttachmentRef[0].layout = vk.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-	local colorAttachmentResolveRef = ffi.new'VkAttachmentReference[1]'
+	local colorAttachmentResolveRef = ffi.new(VkAttachmentReference_1)
 	colorAttachmentResolveRef[0].attachment = 2
 	colorAttachmentResolveRef[0].layout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
 
-	local subpasses = vector'VkSubpassDescription'
+	local subpasses = vector(VkSubpassDescription)
 	local s = subpasses:emplace_back()
 	s[0].pipelineBindPoint = vk.VK_PIPELINE_BIND_POINT_GRAPHICS
 	s[0].colorAttachmentCount = 1
@@ -635,7 +731,7 @@ function VulkanSwapchain:createRenderPass(physDev, device, swapChainImageFormat,
 	s[0].pResolveAttachments = colorAttachmentResolveRef
 	s[0].pDepthStencilAttachment = depthAttachmentRef
 
-	local dependencies = vector'VkSubpassDependency'
+	local dependencies = vector(VkSubpassDependency)
 	local d = dependencies:emplace_back()
 	d[0].srcSubpass = vk.VK_SUBPASS_EXTERNAL
 	d[0].dstSubpass = 0
@@ -653,7 +749,7 @@ function VulkanSwapchain:createRenderPass(physDev, device, swapChainImageFormat,
 		vk.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT
 	)
 
-	local info = ffi.new'VkRenderPassCreateInfo[1]'
+	local info = ffi.new(VkRenderPassCreateInfo_1)
 	info[0].sType = vk.VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO
 	info[0].attachmentCount = #attachments
 	info[0].pAttachments = attachments.v
@@ -661,7 +757,7 @@ function VulkanSwapchain:createRenderPass(physDev, device, swapChainImageFormat,
 	info[0].pSubpasses = subpasses.v
 	info[0].dependencyCount = #dependencies
 	info[0].pDependencies = dependencies.v
-	return vkGet('VkRenderPass', vkassert, vk.vkCreateRenderPass, device, info, nil)
+	return vkGet(VkRenderPass, vkassert, vk.vkCreateRenderPass, device, info, nil)
 end
 
 
@@ -671,16 +767,14 @@ local VulkanShaderModule = class()
 -- glslangValidator -V shader.vert -o shader-vert.spv
 -- glslangValidator -V shader.frag -o shader-frag.spv
 function VulkanShaderModule:fromFile(device, filename)
-	local path = require 'ext.path'
 	local code = assert(path(filename):read())
-	local info = ffi.new'VkShaderModuleCreateInfo[1]'
+	local info = ffi.new(VkShaderModuleCreateInfo_1)
 	info[0].sType = vk.VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO
 	info[0].codeSize = #code
-	info[0].pCode = ffi.cast('uint32_t*', ffi.cast('char const *', code))
-	return vkGet('VkShaderModule', vkassert, vk.vkCreateShaderModule, device, info, nil)
+	info[0].pCode = ffi.cast(uint32_t_ptr, ffi.cast(char_const_ptr, code))
+	return vkGet(VkShaderModule, vkassert, vk.vkCreateShaderModule, device, info, nil)
 end
 
-local struct = require 'struct'
 local Vertex = struct{
 	name = 'Vertex',
 	fields = {
@@ -690,7 +784,7 @@ local Vertex = struct{
 	},
 	metatable = function(mt)
 		mt.getBindingDescription = function()
-			local d = ffi.new'VkVertexInputBindingDescription'
+			local d = ffi.new(VkVertexInputBindingDescription)
 			d.binding = 0
 			d.stride = ffi.sizeof'Vertex'
 			d.inputRate = vk.VK_VERTEX_INPUT_RATE_VERTEX
@@ -698,7 +792,7 @@ local Vertex = struct{
 		end
 
 		mt.getAttributeDescriptions = function()
-			local ar = vector'VkVertexInputAttributeDescription'
+			local ar = vector(VkVertexInputAttributeDescription)
 
 			local a = ar:emplace_back()
 			a[0].location = 0
@@ -737,7 +831,7 @@ local VulkanGraphicsPipeline = class()
 
 function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 	-- descriptorSetLayout is only used by graphicsPipeline
-	local bindings = vector'VkDescriptorSetLayoutBinding'
+	local bindings = vector(VkDescriptorSetLayoutBinding)
 
 	--uboLayoutBinding
 	local b = bindings:emplace_back()
@@ -753,35 +847,35 @@ function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 	b[0].descriptorCount = 1
 	b[0].stageFlags = vk.VK_SHADER_STAGE_FRAGMENT_BIT
 
-	local info = ffi.new'VkDescriptorSetLayoutCreateInfo[1]'
+	local info = ffi.new(VkDescriptorSetLayoutCreateInfo_1)
 	info[0].sType = vk.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO
 	info[0].bindingCount = #bindings
 	info[0].pBindings = bindings.v
-	self.descriptorSetLayout = vkGet('VkDescriptorSetLayout', nil, vk.vkCreateDescriptorSetLayout, device, info, nil)
+	self.descriptorSetLayout = vkGet(VkDescriptorSetLayout, nil, vk.vkCreateDescriptorSetLayout, device, info, nil)
 
 	local vertShaderModule = VulkanShaderModule:fromFile(device, "shader-vert.spv")
 	local fragShaderModule = VulkanShaderModule:fromFile(device, "shader-frag.spv")
 
-	local bindingDescriptions = vector'VkVertexInputBindingDescription'
+	local bindingDescriptions = vector(VkVertexInputBindingDescription)
 	bindingDescriptions:push_back(Vertex:getBindingDescription())
 
 	local attributeDescriptions = Vertex:getAttributeDescriptions();
-	local vertexInputInfo = ffi.new'VkPipelineVertexInputStateCreateInfo[1]'
+	local vertexInputInfo = ffi.new(VkPipelineVertexInputStateCreateInfo_1)
 	vertexInputInfo[0].sType = vk.VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO
 	vertexInputInfo[0].vertexBindingDescriptionCount = #bindingDescriptions
 	vertexInputInfo[0].pVertexBindingDescriptions = bindingDescriptions.v
 	vertexInputInfo[0].vertexAttributeDescriptionCount = #attributeDescriptions
 	vertexInputInfo[0].pVertexAttributeDescriptions = attributeDescriptions.v
 
-	local inputAssembly = ffi.new'VkPipelineInputAssemblyStateCreateInfo[1]'
+	local inputAssembly = ffi.new(VkPipelineInputAssemblyStateCreateInfo_1)
 	inputAssembly[0].topology = vk.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST
 	inputAssembly[0].primitiveRestartEnable = vk.VK_FALSE
 
-	local viewportState = ffi.new'VkPipelineViewportStateCreateInfo[1]'
+	local viewportState = ffi.new(VkPipelineViewportStateCreateInfo_1)
 	viewportState[0].viewportCount = 1
 	viewportState[0].scissorCount = 1
 
-	local rasterizer = ffi.new'VkPipelineRasterizationStateCreateInfo[1]'
+	local rasterizer = ffi.new(VkPipelineRasterizationStateCreateInfo_1)
 	rasterizer[0].depthClampEnable = vk.VK_FALSE
 	rasterizer[0].rasterizerDiscardEnable = vk.VK_FALSE
 	rasterizer[0].polygonMode = vk.VK_POLYGON_MODE_FILL
@@ -791,18 +885,18 @@ function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 	rasterizer[0].depthBiasEnable = vk.VK_FALSE
 	rasterizer[0].lineWidth = 1
 
-	local multisampling = ffi.new'VkPipelineMultisampleStateCreateInfo[1]'
+	local multisampling = ffi.new(VkPipelineMultisampleStateCreateInfo_1)
 	multisampling[0].rasterizationSamples = msaaSamples
 	multisampling[0].sampleShadingEnable = vk.VK_FALSE
 
-	local depthStencil = ffi.new'VkPipelineDepthStencilStateCreateInfo[1]'
+	local depthStencil = ffi.new(VkPipelineDepthStencilStateCreateInfo_1)
 	depthStencil[0].depthTestEnable = vk.VK_TRUE
 	depthStencil[0].depthWriteEnable = vk.VK_TRUE
 	depthStencil[0].depthCompareOp = vk.VK_COMPARE_OP_LESS
 	depthStencil[0].depthBoundsTestEnable = vk.VK_FALSE
 	depthStencil[0].stencilTestEnable = vk.VK_FALSE
 
-	local colorBlendAttachment = ffi.new'VkPipelineColorBlendAttachmentState[1]'
+	local colorBlendAttachment = ffi.new(VkPipelineColorBlendAttachmentState_1)
 	colorBlendAttachment[0].blendEnable = vk.VK_FALSE
 	colorBlendAttachment[0].colorWriteMask = bit.bor(
 		vk.VK_COLOR_COMPONENT_R_BIT,
@@ -811,7 +905,7 @@ function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 		vk.VK_COLOR_COMPONENT_A_BIT
 	)
 
-	local colorBlending = ffi.new'VkPipelineColorBlendStateCreateInfo[1]'
+	local colorBlending = ffi.new(VkPipelineColorBlendStateCreateInfo_1)
 	colorBlending[0].logicOpEnable = vk.VK_FALSE
 	colorBlending[0].logicOp = vk.VK_LOGIC_OP_COPY
 	colorBlending[0].attachmentCount = 1
@@ -821,24 +915,24 @@ function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 	colorBlending[0].blendConstants[2] = 0
 	colorBlending[0].blendConstants[3] = 0
 
-	local dynamicStates = vector'VkDynamicState'
+	local dynamicStates = vector(VkDynamicState)
 	dynamicStates:push_back(vk.VK_DYNAMIC_STATE_VIEWPORT)
 	dynamicStates:push_back(vk.VK_DYNAMIC_STATE_SCISSOR)
 
-	local dynamicState = ffi.new'VkPipelineDynamicStateCreateInfo[1]'
+	local dynamicState = ffi.new(VkPipelineDynamicStateCreateInfo_1)
 	dynamicState[0].dynamicStateCount = #dynamicStates
 	dynamicState[0].pDynamicStates = dynamicStates.v
 
-	local descriptorSetLayouts = vector'VkDescriptorSetLayout'
+	local descriptorSetLayouts = vector(VkDescriptorSetLayout)
 	descriptorSetLayouts:push_back(self.descriptorSetLayout)
 
-	local info = ffi.new'VkPipelineLayoutCreateInfo[1]'
+	local info = ffi.new(VkPipelineLayoutCreateInfo_1)
 	info[0].sType = vk.VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO
 	info[0].setLayoutCount = #descriptorSetLayouts
 	info[0].pSetLayouts = descriptorSetLayouts.v
-	local pipelineLayout = vkGet('VkPipelineLayout', vkassert, vk.vkCreatePipelineLayout, device, info, nil)
+	local pipelineLayout = vkGet(VkPipelineLayout, vkassert, vk.vkCreatePipelineLayout, device, info, nil)
 
-	local shaderStages = vector'VkPipelineShaderStageCreateInfo'
+	local shaderStages = vector(VkPipelineShaderStageCreateInfo)
 
 	local s = shaderStages:emplace_back()
 	s[0].sType = vk.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO
@@ -852,7 +946,7 @@ function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 	s[0].module = fragShaderModule
 	s[0].pName = 'main'	--'frag'
 
-	local info = ffi.new'VkGraphicsPipelineCreateInfo[1]'
+	local info = ffi.new(VkGraphicsPipelineCreateInfo_1)
 	info[0].sType = vk.VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO
 	info[0].stageCount = #shaderStages
 	info[0].pStages = shaderStages.v
@@ -869,25 +963,25 @@ function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 	info[0].subpass = 0
 
 	--info[0].basePipelineHandle = {}
-	self.id = vkGet('VkPipeline', vkassert, vk.vkCreateGraphicsPipelines, device, nil, 1, info, nil)
+	self.id = vkGet(VkPipeline, vkassert, vk.vkCreateGraphicsPipelines, device, nil, 1, info, nil)
 end
 
 
 function VKSingleTimeCommand(device, queue, commandPool, callback)
-	local info = ffi.new'VkCommandBufferAllocateInfo[1]'
+	local info = ffi.new(VkCommandBufferAllocateInfo_1)
 	info[0].sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO
 	info[0].commandPool = commandPool
 	info[0].level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY
 	info[0].commandBufferCount = 1
 	--[[
-	local cmds = vkGet('VkCommandBuffer', vkassert, vk.vkAllocateCommandBuffers, device, info)
+	local cmds = vkGet(VkCommandBuffer, vkassert, vk.vkAllocateCommandBuffers, device, info)
 	--]]
 	-- [[ I want to keep the pointer so ...
-	local cmds = ffi.new'VkCommandBuffer[1]'
+	local cmds = ffi.new(VkCommandBuffer_1)
 	vkassert(vk.vkAllocateCommandBuffers, device, info, cmds)
 	--]]
 
-	local info = ffi.new'VkCommandBufferBeginInfo[1]'
+	local info = ffi.new(VkCommandBufferBeginInfo_1)
 	info[0].sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO
 	info[0].flags = vk.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
 	vkassert(vk.vkBeginCommandBuffer, cmds[0], info)
@@ -896,7 +990,7 @@ function VKSingleTimeCommand(device, queue, commandPool, callback)
 
 	vkassert(vk.vkEndCommandBuffer, cmds[0])
 
-	local submits = ffi.new'VkSubmitInfo[1]'
+	local submits = ffi.new(VkSubmitInfo_1)
 	submits[0].sType = vk.VK_STRUCTURE_TYPE_SUBMIT_INFO
 	submits[0].commandBufferCount = 1
 	submits[0].pCommandBuffers = cmds
@@ -910,11 +1004,11 @@ local VulkanCommandPool = class()
 function VulkanCommandPool:init(common, physDev, device, surface)
 	local queueFamilyIndices = physDev:findQueueFamilies(nil, surface)
 
-	local info = ffi.new'VkCommandPoolCreateInfo[1]'
+	local info = ffi.new(VkCommandPoolCreateInfo_1)
 	info[0].sType = vk.VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO
 	info[0].flags = vk.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT
 	info[0].queueFamilyIndex = queueFamilyIndices.graphicsFamily
-	self.id = vkGet('VkCommandPool', vkassert, vk.vkCreateCommandPool, device.obj.id, info, nil)
+	self.id = vkGet(VkCommandPool, vkassert, vk.vkCreateCommandPool, device.obj.id, info, nil)
 
 	self.device = device.obj.id
 	self.graphicsQueue = common.graphicsQueue
@@ -923,7 +1017,7 @@ end
 function VulkanCommandPool:transitionImageLayout(image, oldLayout, newLayout, mipLevels)
 	VKSingleTimeCommand(self.device, self.graphicsQueue.id, self.id,
 	function(commandBuffer)
-		local barrier = ffi.new'VkImageMemoryBarrier[1]'
+		local barrier = ffi.new(VkImageMemoryBarrier_1)
 		barrier[0].oldLayout = oldLayout
 		barrier[0].newLayout = newLayout
 		barrier[0].srcQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED
@@ -970,7 +1064,7 @@ end
 function VulkanCommandPool:copyBuffer(srcBuffer, dstBuffer, size)
 	VKSingleTimeCommand(self.device, self.graphicsQueue.id, self.id,
 	function(commandBuffer)
-		local regions = ffi.new'VkBufferCopy[1]'
+		local regions = ffi.new(VkBufferCopy_1)
 		regions[0].size = size
 		vk.vkCmdCopyBuffer(
 			commandBuffer,
@@ -985,7 +1079,7 @@ end
 function VulkanCommandPool:copyBufferToImage(buffer, image, width, height)
 	VKSingleTimeCommand(self.device, self.graphicsQueue.id, self.id,
 	function(commandBuffer)
-		local regions = ffi.new'VkBufferImageCopy[1]'
+		local regions = ffi.new(VkBufferImageCopy_1)
 		regions[0].imageSubresource.aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT
 		regions[0].imageSubresource.layerCount = 1
 		regions[0].imageExtent.width = width
@@ -1006,19 +1100,19 @@ end
 local VulkanDeviceMemoryBuffer = class()
 
 function VulkanDeviceMemoryBuffer:init(physDev, device, size, usage, properties)
-	local buffer = require 'vk.buffer'{
+	local buffer = VkBuffer{
 		device = device,
 		size = size,
 		usage = usage,
 		sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE,
 	}
 
-	local memReq = vkGet('VkMemoryRequirements', nil, vk.vkGetBufferMemoryRequirements, device, buffer.id)
+	local memReq = vkGet(VkMemoryRequirements, nil, vk.vkGetBufferMemoryRequirements, device, buffer.id)
 
-	local info = ffi.new'VkMemoryAllocateInfo[1]'
+	local info = ffi.new(VkMemoryAllocateInfo_1)
 	info[0].allocationSize = memReq.size
 	info[0].memoryTypeIndex = physDev:findMemoryType(memReq.memoryTypeBits, properties)
-	local memory = vkGet('VkDeviceMemory', vkassert, vk.vkAllocateMemory, device, info, nil)
+	local memory = vkGet(VkDeviceMemory, vkassert, vk.vkAllocateMemory, device, info, nil)
 
 	vkassert(vk.vkBindBufferMemory, device, buffer.id, memory, 0)
 
@@ -1115,7 +1209,7 @@ function VulkanCommon:init(app)
 	assert(not self.enableValidationLayers or self:checkValidationLayerSupport(), "validation layers requested, but not available!")
 	self.instance = VulkanInstance(self)
 
-	self.surface = require 'vk.surface'{
+	self.surface = VkSurface{
 		window = app.window,
 		instance = self.instance.obj,
 	}
@@ -1136,8 +1230,8 @@ print('msaaSamples', self.msaaSamples)
 			self.enableValidationLayers,
 			indices
 		)
-		self.graphicsQueue = require 'vk.queue'{device=self.device.obj, family=indices.graphicsFamily}
-		self.presentQueue = require 'vk.queue'{device=self.device.obj, family=indices.presentFamily}
+		self.graphicsQueue = VkQueue{device=self.device.obj, family=indices.graphicsFamily}
+		self.presentQueue = VkQueue{device=self.device.obj, family=indices.presentFamily}
 	end
 
 	self:createSwapchain()
@@ -1155,7 +1249,7 @@ print('msaaSamples', self.msaaSamples)
 		vk.VK_IMAGE_ASPECT_COLOR_BIT,
 		self.mipLevels)
 
-	local info = ffi.new'VkSamplerCreateInfo[1]'
+	local info = ffi.new(VkSamplerCreateInfo_1)
 	info[0].magFilter = vk.VK_FILTER_LINEAR
 	info[0].minFilter = vk.VK_FILTER_LINEAR
 	info[0].mipmapMode = vk.VK_SAMPLER_MIPMAP_MODE_LINEAR
@@ -1170,7 +1264,7 @@ print('msaaSamples', self.msaaSamples)
 	info[0].maxLod = self.mipLevels
 	info[0].borderColor = vk.VK_BORDER_COLOR_INT_OPAQUE_BLACK
 	info[0].unnormalizedCoordinates = vk.VK_FALSE
-	self.textureSampler = vkGet('VkSampler', vkassert, vk.vkCreateSampler, self.device.obj.id, info, nil)
+	self.textureSampler = vkGet(VkSampler, vkassert, vk.vkCreateSampler, self.device.obj.id, info, nil)
 
 	self.mesh = VulkanMesh(self.physDev, self.device, self.commandPool)
 	self.uniformBuffers = range(self.maxFramesInFlight):mapi(function(i)
@@ -1189,7 +1283,7 @@ print('msaaSamples', self.msaaSamples)
 		return VulkanBufferMemoryAndMapped(bm, mapped)
 	end)
 
-	local poolSizes = vector'VkDescriptorPoolSize'
+	local poolSizes = vector(VkDescriptorPoolSize)
 	local p = poolSizes:emplace_back()
 	p[0].type = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
 	p[0].descriptorCount = self.maxFramesInFlight
@@ -1197,49 +1291,49 @@ print('msaaSamples', self.msaaSamples)
 	p[0].type = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
 	p[0].descriptorCount = self.maxFramesInFlight
 
-	local info = ffi.new'VkDescriptorPoolCreateInfo[1]'
+	local info = ffi.new(VkDescriptorPoolCreateInfo_1)
 	info[0].sType = vk.VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO
 	info[0].maxSets = self.maxFramesInFlight
 	info[0].poolSizeCount = #poolSizes
 	info[0].pPoolSizes = poolSizes.v
-	self.descriptorPool = vkGet('VkDescriptorPool', vkassert, vk.vkCreateDescriptorPool, self.device.obj.id, info, nil)
+	self.descriptorPool = vkGet(VkDescriptorPool, vkassert, vk.vkCreateDescriptorPool, self.device.obj.id, info, nil)
 
 	self.descriptorSets = self:createDescriptorSets()
 
-	local info = ffi.new'VkCommandBufferAllocateInfo[1]'
+	local info = ffi.new(VkCommandBufferAllocateInfo_1)
 	info[0].sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO
 	info[0].commandPool = self.commandPool.id
 	info[0].level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY
 	info[0].commandBufferCount = self.maxFramesInFlight
 	--[[
-	self.commandBuffers = vkGet('VkCommandBuffer', vkassert, vk.vkAllocateCommandBuffers, self.device.obj.id, info)
+	self.commandBuffers = vkGet(VkCommandBuffer, vkassert, vk.vkAllocateCommandBuffers, self.device.obj.id, info)
 	--]]
 	-- [[ can't use vkGet and can't use vkGetVector ...
-	self.commandBuffers = vector'VkCommandBuffer'
+	self.commandBuffers = vector(VkCommandBuffer)
 	self.commandBuffers:resize(self.maxFramesInFlight)
 	vkassert(vk.vkAllocateCommandBuffers, self.device.obj.id, info, self.commandBuffers.v)
 	--]]
 
-	self.imageAvailableSemaphores = vector'VkSemaphore'
+	self.imageAvailableSemaphores = vector(VkSemaphore)
 	for i=0,self.maxFramesInFlight-1 do
-		local info = ffi.new'VkSemaphoreCreateInfo[1]'
+		local info = ffi.new(VkSemaphoreCreateInfo_1)
 		info[0].sType = vk.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
-		self.imageAvailableSemaphores:push_back(vkGet('VkSemaphore', vkassert, vk.vkCreateSemaphore, self.device.obj.id, info, nil))
+		self.imageAvailableSemaphores:push_back(vkGet(VkSemaphore, vkassert, vk.vkCreateSemaphore, self.device.obj.id, info, nil))
 	end
 
-	self.renderFinishedSemaphores = vector'VkSemaphore'
+	self.renderFinishedSemaphores = vector(VkSemaphore)
 	for i=0,self.maxFramesInFlight-1 do
-		local info = ffi.new'VkSemaphoreCreateInfo[1]'
+		local info = ffi.new(VkSemaphoreCreateInfo_1)
 		info[0].sType = vk.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
-		self.renderFinishedSemaphores:push_back(vkGet('VkSemaphore', vkassert, vk.vkCreateSemaphore, self.device.obj.id, info, nil))
+		self.renderFinishedSemaphores:push_back(vkGet(VkSemaphore, vkassert, vk.vkCreateSemaphore, self.device.obj.id, info, nil))
 	end
 
-	self.inFlightFences = vector'VkFence'
+	self.inFlightFences = vector(VkFence)
 	for i=0,self.maxFramesInFlight-1 do
-		local info = ffi.new'VkFenceCreateInfo[1]'
+		local info = ffi.new(VkFenceCreateInfo_1)
 		info[0].sType = vk.VK_STRUCTURE_TYPE_FENCE_CREATE_INFO
 		info[0].flags = vk.VK_FENCE_CREATE_SIGNALED_BIT
-		self.inFlightFences:push_back(vkGet('VkFence', vkassert, vk.vkCreateFence, self.device.obj.id, info, nil))
+		self.inFlightFences:push_back(vkGet(VkFence, vkassert, vk.vkCreateFence, self.device.obj.id, info, nil))
 	end
 end
 
@@ -1295,7 +1389,7 @@ function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, m
 
 	VKSingleTimeCommand(self.device.obj.id, self.graphicsQueue.id, self.commandPool.id,
 	function(commandBuffer)
-		local barrier = ffi.new'VkImageMemoryBarrier[1]'
+		local barrier = ffi.new(VkImageMemoryBarrier_1)
 		barrier[0].srcQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED
 		barrier[0].dstQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED
 		barrier[0].image = image
@@ -1326,7 +1420,7 @@ function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, m
 				barrier								-- pImageMemoryBarriers
 			)
 
-			local blit = ffi.new'VkImageBlit[1]'
+			local blit = ffi.new(VkImageBlit_1)
 			blit[0].srcSubresource.aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT
 			blit[0].srcSubresource.mipLevel = i-1
 			blit[0].srcSubresource.layerCount = 1
@@ -1395,12 +1489,12 @@ function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, m
 end
 
 function VulkanCommon:createDescriptorSets()
-	local layouts = vector'VkDescriptorSetLayout'
+	local layouts = vector(VkDescriptorSetLayout)
 	for i=0,self.maxFramesInFlight-1 do
 		layouts:push_back(self.graphicsPipeline.descriptorSetLayout)
 	end
 
-	local info = ffi.new'VkDescriptorSetAllocateInfo[1]'
+	local info = ffi.new(VkDescriptorSetAllocateInfo_1)
 	info[0].sType = vk.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO
 	info[0].descriptorPool = self.descriptorPool
 	info[0].descriptorSetCount = #layouts -- self.maxFramesInFlight
@@ -1409,7 +1503,7 @@ function VulkanCommon:createDescriptorSets()
 	--[[ vkGet just allocates one
 	-- vkGetVector expects a 'count' field to determine size
 	-- ... we have to statically allocate for this function ...
-	local descriptorSets = vkGet('VkDescriptorSet',
+	local descriptorSets = vkGet(VkDescriptorSet,
 		vkassert,
 		vk.vkAllocateDescriptorSets,
 		self.device.obj.id,
@@ -1417,22 +1511,22 @@ function VulkanCommon:createDescriptorSets()
 	)
 	--]]
 	-- [[
-	local descriptorSets = vector'VkDescriptorSet'
+	local descriptorSets = vector(VkDescriptorSet)
 	descriptorSets:resize(self.maxFramesInFlight)
 	vkassert(vk.vkAllocateDescriptorSets, self.device.obj.id, info, descriptorSets.v)
 	--]]
 
 	for i=0,self.maxFramesInFlight-1 do
-		local bufferInfo = ffi.new'VkDescriptorBufferInfo[1]'
+		local bufferInfo = ffi.new(VkDescriptorBufferInfo_1)
 		bufferInfo[0].buffer = self.uniformBuffers[i+1].buffer
 		bufferInfo[0].range = ffi.sizeof'UniformBufferObject'
 
-		local imageInfo = ffi.new'VkDescriptorImageInfo[1]'
+		local imageInfo = ffi.new(VkDescriptorImageInfo_1)
 		imageInfo[0].sampler = self.textureSampler
 		imageInfo[0].imageView = self.textureImageView
 		imageInfo[0].imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 
-		local descriptorWrites = vector'VkWriteDescriptorSet'
+		local descriptorWrites = vector(VkWriteDescriptorSet)
 		local d = descriptorWrites:emplace_back()
 		d[0].sType = vk.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET
 		d[0].dstSet = descriptorSets.v[i]
@@ -1471,18 +1565,18 @@ function VulkanCommon:drawFrame()
 		1,
 		self.inFlightFences.v + self.currentFrame,
 		vk.VK_TRUE,
-		ffi.cast('uint64_t', -1)	-- UINT64_MAX
+		ffi.cast(uint64_t, -1)	-- UINT64_MAX
 	)
 	if result ~= vk.VK_SUCCESS then
 		error("vkWaitForRences failed: "..tostring(result))
 	end
 
-	local imageIndex = ffi.new'uint32_t[1]'
-	local info = ffi.new'VkAcquireNextImageInfoKHR[1]'
+	local imageIndex = ffi.new(uint32_t_1)
+	local info = ffi.new(VkAcquireNextImageInfoKHR_1)
 	info[0].sType = vk.VK_STRUCTURE_TYPE_ACQUIRE_NEXT_IMAGE_INFO_KHR
 	info[0].pNext = nil
 	info[0].swapchain = self.swapchain.obj.id
-	info[0].timeout = ffi.cast('uint64_t', -1)
+	info[0].timeout = ffi.cast(uint64_t, -1)
 	info[0].semaphore = self.imageAvailableSemaphores.v[self.currentFrame]
 	info[0].fence = nil
 	info[0].deviceMask = 0
@@ -1504,10 +1598,10 @@ function VulkanCommon:drawFrame()
 
 	self:recordCommandBuffer(self.commandBuffers.v[self.currentFrame], imageIndex[0])
 
-	local waitStages = ffi.new'VkPipelineStageFlags[1]'
+	local waitStages = ffi.new(VkPipelineStageFlags_1)
 	waitStages[0] = vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
 
-	local info = ffi.new'VkSubmitInfo[1]'
+	local info = ffi.new(VkSubmitInfo_1)
 	info[0].sType = vk.VK_STRUCTURE_TYPE_SUBMIT_INFO
 	info[0].waitSemaphoreCount = 1
 	info[0].pWaitSemaphores = self.imageAvailableSemaphores.v + self.currentFrame
@@ -1524,10 +1618,10 @@ function VulkanCommon:drawFrame()
 	)
 
 	-- TODO reason to keep the gc'd ptr around
-	local swapchains = ffi.new'VkSwapchainKHR[1]'
+	local swapchains = ffi.new(VkSwapchainKHR_1)
 	swapchains[0] = self.swapchain.obj.id
 
-	local info = ffi.new'VkPresentInfoKHR[1]'
+	local info = ffi.new(VkPresentInfoKHR_1)
 	info[0].sType = vk.VK_STRUCTURE_TYPE_PRESENT_INFO_KHR
 	info[0].waitSemaphoreCount = 1
 	info[0].pWaitSemaphores = self.renderFinishedSemaphores.v + self.currentFrame
@@ -1587,11 +1681,11 @@ end
 
 function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 	-- TODO per vulkan api, if we just have null info, can we pass null?
-	local info = ffi.new'VkCommandBufferBeginInfo[1]'
+	local info = ffi.new(VkCommandBufferBeginInfo_1)
 	info[0].sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO
 	vkassert(vk.vkBeginCommandBuffer, commandBuffer, info)
 
-	local clearValues = vector'VkClearValue'
+	local clearValues = vector(VkClearValue)
 	local c = clearValues:emplace_back()
 	c[0].color.float32[0] = 0
 	c[0].color.float32[1] = 0
@@ -1601,7 +1695,7 @@ function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 	c[0].depthStencil.depth = 1
 	c[0].depthStencil.stencil = 0
 
-	local info = ffi.new'VkRenderPassBeginInfo[1]'
+	local info = ffi.new(VkRenderPassBeginInfo_1)
 	info[0].sType = vk.VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO
 	info[0].renderPass = self.swapchain.renderPass
 	info[0].framebuffer = self.swapchain.framebuffers.v[imageIndex]
@@ -1614,21 +1708,21 @@ function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 
 	vk.vkCmdBindPipeline(commandBuffer, vk.VK_PIPELINE_BIND_POINT_GRAPHICS, self.graphicsPipeline.id)
 
-	local viewports = ffi.new'VkViewport[1]'
+	local viewports = ffi.new(VkViewport_1)
 	viewports[0].width = self.swapchain.extent.width
 	viewports[0].height = self.swapchain.extent.height
 	viewports[0].minDepth = 0
 	viewports[0].maxDepth = 1
 	vk.vkCmdSetViewport(commandBuffer, 0, 1, viewports)
 
-	local scissors = ffi.new'VkRect2D[1]'
+	local scissors = ffi.new(VkRect2D_1)
 	scissors[0].extent.width = self.swapchain.extent.width
 	scissors[0].extent.height = self.swapchain.extent.height
 	vk.vkCmdSetScissor(commandBuffer, 0, 1, scissors)
 
-	local vertexBuffers = ffi.new'VkBuffer[1]'
+	local vertexBuffers = ffi.new(VkBuffer_1)
 	vertexBuffers[0] = assert(self.mesh.vertexBufferAndMemory.buffer.id)
-	local vertexOffsets = ffi.new'VkDeviceSize[1]'
+	local vertexOffsets = ffi.new(VkDeviceSize_1)
 	asserteq(vertexOffsets[0], 0)
 	vk.vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, vertexOffsets)
 
