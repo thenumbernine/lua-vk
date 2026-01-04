@@ -17,6 +17,7 @@ args:
 --]]
 return function(args)
 	local ctype = assertindex(args, 'ctype')
+	ctype = ffi.typeof(ctype)
 	local ctype_1 = ffi.typeof('$[1]', ctype)
 	
 	-- create might ask for extra arguments.
@@ -37,8 +38,6 @@ return function(args)
 	if create then
 		assert(cl.createType)
 		function cl:init(args)
-			cl.super.init(self)
-
 			local info = self:initFromArgs(args)
 			local ptr = ffi.new(ctype_1)
 			vkassert(create, info, nil, ptr)
