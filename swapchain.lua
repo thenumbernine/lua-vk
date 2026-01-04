@@ -1,7 +1,8 @@
 -- another one that doesn't use raii for anything
 -- but it does use the info ctor
+require 'ext.gc'	-- make sure luajit can __gc lua-tables
 local ffi = require 'ffi'
-local GCWrapper = require 'ffi.gcwrapper.gcwrapper'
+local class = require 'ext.class'
 local assertindex = require 'ext.assert'.index
 local assertne = require 'ext.assert'.ne
 local vk = require 'vk'
@@ -10,33 +11,11 @@ local VKDevice = require 'vk.device'
 local vkassert = require 'vk.util'.vkassert
 local vkGetVector = require 'vk.util'.vkGetVector
 
-local ctype = 'VkSwapchainKHR'
 
--- for autorelease ptr
--- NOTICE this highlights how the GCWrapper is nice for primitives only!
--- due to me making it to hand off the gcwrap'd ptr through ctor , and compare it with nullptr-compare
--- it is not very cohesive with using a struct
--- and sometimes dtors need extra info in addition to their pointer
--- and in those cases the dtor info needs to be a struct ...
-local dtortype = 'autorelease_'..ctype..'_dtor_t'
-require 'struct'{
-	name = dtortype,
-	fields = {
-		{name='swapchain', type=ctype..'[1]'},
-		{name='device', type='VkDevice'},
-	},
-}
+local VkSwapchainKHR_1 = ffi.typeof'VkSwapchainKHR[1]'
 
-local VKSwapchain = GCWrapper{
-	gctype = 'autorelease_'..ctype..'_ptr_t',
-	ctype = dtortype,
-	release = function(ptr)
-		if ptr[0].device == nil and ptr[0].swapchain[0] == nil then return end
-		assertne(ptr[0].device, nil)
-		assertne(ptr[0].swapchain[0], nil)
-		vk.vkDestroySwapchainKHR(ptr[0].device, ptr[0].swapchain[0], nil)
-	end,
-}:subclass()
+
+local VKSwapchain = class()
 
 VKSwapchain.createType = 'VkSwapchainCreateInfoKHR'	-- for vk create
 require 'vk.util'.addInitFromArgs(VKSwapchain)
@@ -44,16 +23,13 @@ require 'vk.util'.addInitFromArgs(VKSwapchain)
 function VKSwapchain:init(args)
 	local device = assertindex(args, 'device')
 	if VKDevice:isa(device) then device = device.id end
-
-	local dtorinit = ffi.new(dtortype)
-	dtorinit.device = device
+	self.device = device
 
 	local info = self:initFromArgs(args)
-	vkassert(vk.vkCreateSwapchainKHR, device, info, nil, dtorinit.swapchain)
 
-	VKSwapchain.super.init(self, dtorinit)
-
-	self.id = self.gc.ptr[0].swapchain[0]
+	local ptr = ffi.new(VkSwapchainKHR_1)
+	vkassert(vk.vkCreateSwapchainKHR, device, info, nil, ptr)
+	self.id = ptr[0]
 end
 
 function VKSwapchain:getImages(device)
@@ -62,13 +38,14 @@ function VKSwapchain:getImages(device)
 end
 
 function VKSwapchain:destroy()
-	local ptr = self.gc.ptr
-	if ptr[0].device == nil and ptr[0].swapchain[0] == nil then return end
-	assertne(ptr[0].device, nil)
-	assertne(ptr[0].swapchain[0], nil)
-	vk.vkDestroySwapchainKHR(ptr[0].device, ptr[0].swapchain[0], nil)
-	ptr[0].swapchain[0] = nil
-	ptr[0].device = nil
+	if self.device == nil and self.id == nil then return end
+	assertne(self.device, nil)
+	assertne(self.id, nil)
+	vk.vkDestroySwapchainKHR(self.device, self.id, nil)
+	self.id = nil
+	self.device = nil
 end
+
+VKSwapchain.__gc = VKSwapchain.destroy
 
 return VKSwapchain

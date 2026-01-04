@@ -1,8 +1,9 @@
 local ffi = require 'ffi'
 local range = require 'ext.range'
 local table = require 'ext.table'
-local assert = require 'ext.assert'
 local timer = require 'ext.timer'
+local assertne = require 'ext.assert'.ne
+local asserteq = require 'ext.assert'.eq
 local vec3f = require 'vec-ffi.vec3f'
 local math = require 'ext.math'	-- clamp
 local vk = require 'vk'
@@ -13,7 +14,6 @@ local sdl = require 'sdl'
 ffi.cdef[[
 char const * const * SDL_Vulkan_GetInstanceExtensions(uint32_t * count);
 ]]
-local sdlvksafe = require 'vk.util'.sdlvksafe
 
 -- TODO move these to vk:
 local VK_EXT_DEBUG_UTILS_EXTENSION_NAME = "VK_EXT_debug_utils"
@@ -79,13 +79,14 @@ function VulkanInstance:getRequiredExtensions(common)
 	local enableValidationLayers = common.enableValidationLayers
 
 	--[[ SDL2?
+	local sdlvksafe = require 'vk.util'.sdlvksafe
 	local extensions = vkGetVector('char const *', sdlvksafe, sdl.SDL_Vulkan_GetInstanceExtensions, app.window)
 	--]]
 	-- [[ SDL3
 	local extensions = vector'char const *'
 	do
 		local count = ffi.new'uint32_t[1]'
-		local extstrs = assert.ne(sdl.SDL_Vulkan_GetInstanceExtensions(count), ffi.null)
+		local extstrs = assertne(sdl.SDL_Vulkan_GetInstanceExtensions(count), ffi.null)
 		for i=1,count[0]-1 do
 			extensions:push_back(extstrs[i])
 		end
@@ -730,7 +731,7 @@ local UniformBufferObject = struct{
 		{name = 'proj', type = 'float[16]'},
 	},
 }
-assert.eq(ffi.sizeof'UniformBufferObject', 4 * 4 * ffi.sizeof'float' * 3)
+asserteq(ffi.sizeof'UniformBufferObject', 4 * 4 * ffi.sizeof'float' * 3)
 
 local VulkanGraphicsPipeline = class()
 
@@ -1070,7 +1071,7 @@ function VulkanMesh:init(physDev, device, commandPool)
 	local mesh = ObjLoader():load"viking_room.obj";
 
 	local indices = mesh.triIndexes	-- vector'int32_t'
-	assert.eq(indices.type, 'int32_t') 	-- well, uint, but whatever
+	asserteq(indices.type, 'int32_t') 	-- well, uint, but whatever
 	-- copy from MeshVertex_t to Vertex ... TODO why bother ...
 	local vertices = vector'Vertex'
 	vertices:resize(#mesh.vtxs)
@@ -1628,7 +1629,7 @@ function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 	local vertexBuffers = ffi.new'VkBuffer[1]'
 	vertexBuffers[0] = assert(self.mesh.vertexBufferAndMemory.buffer.id)
 	local vertexOffsets = ffi.new'VkDeviceSize[1]'
-	assert.eq(vertexOffsets[0], 0)
+	asserteq(vertexOffsets[0], 0)
 	vk.vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, vertexOffsets)
 
 	vk.vkCmdBindIndexBuffer(
@@ -1692,7 +1693,7 @@ end
 --]]
 
 -- [[ VulkanApp
-local SDLApp = require 'sdl.app'	-- TODO rename gl.app and imgui.app ?
+local SDLApp = require 'sdl.app'
 
 -- TODO move view and orbit out of glapp ... but to where ...
 -- seems like we're going to need a geometry library soon ...

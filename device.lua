@@ -4,6 +4,10 @@ local VKPhysDev = require 'vk.physdev'
 
 local vkassert = require 'vk.util'.vkassert
 
+
+local VkDevice_1 = ffi.typeof'VkDevice[1]'
+
+
 local VKDevice = require 'vk.raii'{
 	ctype = 'VkDevice',
 	createType = 'VkDeviceCreateInfo',
@@ -19,8 +23,9 @@ function VKDevice:init(args)
 	if VKPhysDev:isa(physDev) then physDev = physDev.id end
 
 	local info = self:initFromArgs(args)
-	vkassert(vk.vkCreateDevice, physDev, info, nil, self.gc.ptr)
-	self.id = self.gc.ptr[0]
+	local ptr = ffi.new(VkDevice_1)
+	vkassert(vk.vkCreateDevice, physDev, info, nil, ptr)
+	self.id = ptr[0]
 end
 
 function VKDevice:waitIdle()
