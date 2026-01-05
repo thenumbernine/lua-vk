@@ -32,7 +32,6 @@ end
 
 function VulkanApp:exit()
 	if self.vkCommon then self.vkCommon:exit() end
-
 	VulkanApp.super.exit(self)
 end
 
