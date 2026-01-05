@@ -19,9 +19,7 @@ for _,fn in ipairs(fns) do
 		end,
 	}
 end
---targets:run(fns:mapi(function(fn) return fn.dst end):unpack())
-targets:run'shader-vert.spv'
-targets:run'shader-frag.spv'
+targets:run(fns:mapi(function(fn) return fn.dst end):unpack())
 --]]
 
 
