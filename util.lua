@@ -5,6 +5,10 @@ local vk = require 'vk'
 local sdl = require 'sdl'
 local vector = require 'ffi.cpp.vector-lua'
 
+
+local uint32_t_1 = ffi.typeof'uint32_t[1]'
+
+
 local function vkassert(f, ...)
 	local res = f(...)
 	if res ~= vk.VK_SUCCESS then
@@ -21,7 +25,9 @@ local function addlast(last, ...)
 end
 
 local function vkGet(ctype, check, f, ...)
-	local result = ffi.new(ctype..'[1]')
+	ctype = ffi.typeof(ctype)
+	local resultType = ffi.typeof('$[1]', ctype)
+	local result = ffi.new(resultType)
 	if check then
 		check(f, addlast(result, ...))
 	else
@@ -31,7 +37,7 @@ local function vkGet(ctype, check, f, ...)
 end
 
 local function vkGetVector(ctype, check, f, ...)
-	local count = ffi.new'uint32_t[1]'
+	local count = ffi.new(uint32_t_1)
 	if check then
 		check(f, addlast(nil, addlast(count, ...)))
 	else
@@ -50,13 +56,18 @@ end
 -- expects cl to have .createType and optional .sType
 local function addInitFromArgs(cl)
 	local createType = assertindex(cl, 'createType')
+	createType = ffi.typeof(createType)
+
 	--[[ require manually specifying sType
 	local sType = assertindex(cl, 'sType')
 	--]]
 	-- [[ override with automatic deduction (since vulkan has such a clean API)
 	local sType = cl.sType
-	if not sType and createType then
-		local structBaseName = createType:match'^Vk(.*)$'
+	if not sType then
+		local createTypeStr = tostring(createType)
+		local createTypeName = createTypeStr:match'^ctype<(.*)>$'
+		createTypeName = createTypeName:match'^struct (.*)$' or createTypeName -- work around typedefs
+		local structBaseName = createTypeName:match'^Vk(.*)$' or error("couldn't find Vk(.*) in "..tostring(createTypeName))
 		local enumName = ''
 		local lastWasUpper
 		for i=1,#structBaseName do
@@ -77,11 +88,12 @@ local function addInitFromArgs(cl)
 	end
 	--]]
 
+	local infoType = ffi.typeof('$[1]', createType)
 	function cl:initFromArgs(args)
 		if type(args) == 'cdata' then
 			return args
 		else
-			local info = ffi.new(createType..'[1]', {args})	
+			local info = ffi.new(infoType, {args})
 			info[0].sType = sType
 			return info
 		end

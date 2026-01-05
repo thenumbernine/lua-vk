@@ -15,15 +15,20 @@ ffi.cdef[[
 char const * const * SDL_Vulkan_GetInstanceExtensions(uint32_t * count);
 ]]
 
--- TODO move these to vk:
-local VK_EXT_DEBUG_UTILS_EXTENSION_NAME = "VK_EXT_debug_utils"
-local VK_KHR_SWAPCHAIN_EXTENSION_NAME = "VK_KHR_swapchain"
+
+vk.VK_EXT_DEBUG_UTILS_EXTENSION_NAME = "VK_EXT_debug_utils"
+vk.VK_KHR_SWAPCHAIN_EXTENSION_NAME = "VK_KHR_swapchain"
+vk.VK_KHR_XLIB_SURFACE_EXTENSION_NAME = 'VK_KHR_xlib_surface'
+
+-- TODO move to vk?
+
 local function VK_MAKE_VERSION(major, minor, patch)
 	return bit.bor(bit.lshift(major, 22), bit.lshift(minor, 12), patch)
 end
 local function VK_MAKE_API_VERSION(variant, major, minor, patch)
 	return bit.bor(bit.lshift(variant, 29), bit.lshift(major, 22), bit.lshift(minor, 12), patch)
 end
+
 local VK_API_VERISON_1_0 = VK_MAKE_API_VERSION(0, 1, 0, 0)
 -- but why not just use bitfields? meh
 
@@ -197,7 +202,7 @@ function VulkanInstance:getRequiredExtensions(common)
 	end
 
 	if enableValidationLayers then
-		extensions:emplace_back()[0] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME
+		extensions:emplace_back()[0] = vk.VK_EXT_DEBUG_UTILS_EXTENSION_NAME
 	end
 
 	return extensions
@@ -253,15 +258,21 @@ function VulkanPhysicalDevice:findQueueFamilies(physDev, surface)
 	physDev = physDev or self.obj
 	local indices = {}
 	local queueFamilies = physDev:getQueueFamilyProperties()
+print('queueFamilies queueFlags', require 'ext.tolua'(queueFamilies:totable():mapi(function(f) return f.queueFlags end)))
 	for i=0,#queueFamilies-1 do
 		local f = queueFamilies.v[i]
 		if 0 ~= bit.band(f.queueFlags, vk.VK_QUEUE_GRAPHICS_BIT) then
+print('index',i,'has VK_QUEUE_GRAPHICS_BIT')
 			indices.graphicsFamily = i
 		end
 
 		if physDev:getSurfaceSupport(i, surface) then
+print('index', i, 'has surface support')
 			indices.presentFamily = i
+		else
+print('index', i, 'does not have surface support')
 		end
+
 		if indices.graphicsFamily and indices.presentFamily then
 			return indices
 		end
@@ -1217,7 +1228,7 @@ function VulkanCommon:init(app)
 	}
 
 	local deviceExtensions = vector'char const *'
-	deviceExtensions:emplace_back()[0] = VK_KHR_SWAPCHAIN_EXTENSION_NAME
+	deviceExtensions:emplace_back()[0] = vk.VK_KHR_SWAPCHAIN_EXTENSION_NAME
 
 	self.physDev = VulkanPhysicalDevice(self, deviceExtensions)
 
@@ -1797,7 +1808,11 @@ local SDLApp = require 'sdl.app'
 local VulkanApp = require 'glapp.view'.apply(SDLApp):subclass()
 
 VulkanApp.title = 'Vulkan test'
-VulkanApp.sdlCreateWindowFlags = bit.bor(VulkanApp.sdlCreateWindowFlags, sdl.SDL_WINDOW_VULKAN)
+VulkanApp.sdlCreateWindowFlags = bit.bor(
+	VulkanApp.sdlCreateWindowFlags,
+	--sdl.SDL_WINDOW_HIDDEN, -- added in hopes to fix my sdl init problem...
+	sdl.SDL_WINDOW_VULKAN
+)
 
 function VulkanApp:initWindow()
 	VulkanApp.super.initWindow(self)

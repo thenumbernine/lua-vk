@@ -4,6 +4,7 @@ local class = require 'ext.class'
 local assertindex = require 'ext.assert'.index
 local assertne = require 'ext.assert'.ne
 local sdl = require 'sdl'
+local sdlAssert = require 'sdl.assert'.assert
 local vk = require 'vk'
 local VKInstance = require 'vk.instance'
 
@@ -24,13 +25,12 @@ local VKSurface = class()
 
 function VKSurface:init(args)
 	local window = assertindex(args, 'window')
-
 	local instance = assertindex(args, 'instance')
 	if VKInstance:isa(instance) then instance = assertindex(instance, 'id') end
 	self.instance = instance
 	
 	local ptr = ffi.new(VkSurfaceKHR_1)
-	assert(sdl.SDL_Vulkan_CreateSurface(window, instance, nil, ptr), 'SDL_Vulkan_CreateSurface failed')
+	sdlAssert(sdl.SDL_Vulkan_CreateSurface(window, instance, nil, ptr), 'SDL_Vulkan_CreateSurface')
 	self.id = ptr[0]
 end
 
@@ -39,6 +39,7 @@ function VKSurface:destroy()
 	assertne(self.instance, nil)
 	assertne(self.id, nil)
 	vk.vkDestroySurfaceKHR(self.instance, self.id, nil)
+	-- what about SDL_Vulkan_DestroySurface?  same? both?
 	self.id = nil
 	self.instance = nil
 end
