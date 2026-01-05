@@ -175,7 +175,9 @@ function VulkanInstance:getRequiredExtensions(common)
 	local enableValidationLayers = common.enableValidationLayers
 
 	--[[ SDL2?
-	local sdlvksafe = require 'vk.util'.sdlvksafe
+	local function sdlvksafe(f, ...)
+		asserteq(sdl.SDL_TRUE, f(...))
+	end
 	local extensions = vkGetVector('char const *', sdlvksafe, sdl.SDL_Vulkan_GetInstanceExtensions, app.window)
 	--]]
 	-- [[ SDL3

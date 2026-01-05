@@ -7,13 +7,13 @@ local sdl = require 'sdl'
 local vk = require 'vk'
 local VKInstance = require 'vk.instance'
 
-local sdlvksafe = require 'vk.util'.sdlvksafe
-
+-- TODO put this in sdl/ffi/sdl3.lua ...
 ffi.cdef[[
 bool SDL_Vulkan_CreateSurface(
-	SDL_Window * window,
-	const struct VkAllocationCallbacks * allocator,
-	VkSurfaceKHR * surface);
+	SDL_Window *window,
+	VkInstance instance,
+	const struct VkAllocationCallbacks *allocator,
+	VkSurfaceKHR *surface);
 ]]
 
 
@@ -30,7 +30,7 @@ function VKSurface:init(args)
 	self.instance = instance
 	
 	local ptr = ffi.new(VkSurfaceKHR_1)
-	assert(sdl.SDL_Vulkan_CreateSurface(window, nil, ptr), 'SDL_Vulkan_CreateSurface failed')
+	assert(sdl.SDL_Vulkan_CreateSurface(window, instance, nil, ptr), 'SDL_Vulkan_CreateSurface failed')
 	self.id = ptr[0]
 end
 

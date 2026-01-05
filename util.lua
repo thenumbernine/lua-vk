@@ -12,10 +12,6 @@ local function vkassert(f, ...)
 	end
 end
 
-local function sdlvksafe(f, ...)
-	asserteq(sdl.SDL_TRUE, f(...))
-end
-
 local function addlast(last, ...)
 	if select('#', ...) == 0 then
 		return last
@@ -94,7 +90,6 @@ end
 
 return {
 	vkassert = vkassert,
-	sdlvksafe = sdlvksafe,
 	vkGet = vkGet,
 	vkGetVector = vkGetVector,
 	addInitFromArgs = addInitFromArgs,
