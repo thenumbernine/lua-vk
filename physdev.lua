@@ -52,7 +52,15 @@ end
 
 function VKPhysDev:getSurfaceSupport(index, surface)
 	if VKSurface:isa(surface) then surface = surface.id end
+	-- [[
 	return 0 ~= vkGet(VkBool32, vkassert, vk.vkGetPhysicalDeviceSurfaceSupportKHR, self.id, index, surface)
+	--]]
+	--[[ debugging
+	local result = ffi.new'VkBool32[1]'
+	vk.vkGetPhysicalDeviceSurfaceSupportKHR(self.id, index, surface, result)
+	print('vkGetPhysicalDeviceSurfaceSupportKHR(', self.id, index, surface,') result', result[0])
+	return result[0] ~= 0
+	--]]
 end
 
 function VKPhysDev:getSurfaceCapabilities(surface)

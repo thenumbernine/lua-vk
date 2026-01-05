@@ -19,6 +19,7 @@ char const * const * SDL_Vulkan_GetInstanceExtensions(uint32_t * count);
 vk.VK_EXT_DEBUG_UTILS_EXTENSION_NAME = "VK_EXT_debug_utils"
 vk.VK_KHR_SWAPCHAIN_EXTENSION_NAME = "VK_KHR_swapchain"
 vk.VK_KHR_XLIB_SURFACE_EXTENSION_NAME = 'VK_KHR_xlib_surface'
+vk.VK_KHR_SURFACE_EXTENSION_NAME = 'VK_KHR_surface'
 
 -- TODO move to vk?
 
@@ -205,6 +206,9 @@ function VulkanInstance:getRequiredExtensions(common)
 		extensions:emplace_back()[0] = vk.VK_EXT_DEBUG_UTILS_EXTENSION_NAME
 	end
 
+-- TODO why do I have to manually insert this here?
+extensions:emplace_back()[0] = vk.VK_KHR_SURFACE_EXTENSION_NAME 
+
 	return extensions
 end
 
@@ -256,21 +260,22 @@ end
 -- static method
 function VulkanPhysicalDevice:findQueueFamilies(physDev, surface)
 	physDev = physDev or self.obj
+	assert(physDev, "you must either call this as a member method or as a static method while passing a physDev")
 	local indices = {}
 	local queueFamilies = physDev:getQueueFamilyProperties()
-print('queueFamilies queueFlags', require 'ext.tolua'(queueFamilies:totable():mapi(function(f) return f.queueFlags end)))
+--print('queueFamilies queueFlags', require 'ext.tolua'(queueFamilies:totable():mapi(function(f) return f.queueFlags end)))
 	for i=0,#queueFamilies-1 do
 		local f = queueFamilies.v[i]
 		if 0 ~= bit.band(f.queueFlags, vk.VK_QUEUE_GRAPHICS_BIT) then
-print('index',i,'has VK_QUEUE_GRAPHICS_BIT')
+--print('index',i,'has VK_QUEUE_GRAPHICS_BIT')
 			indices.graphicsFamily = i
 		end
 
 		if physDev:getSurfaceSupport(i, surface) then
-print('index', i, 'has surface support')
+--print('index', i, 'has surface support')
 			indices.presentFamily = i
-		else
-print('index', i, 'does not have surface support')
+--		else
+--print('index', i, 'does not have surface support')
 		end
 
 		if indices.graphicsFamily and indices.presentFamily then
