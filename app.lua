@@ -1183,7 +1183,7 @@ function VulkanMesh:init(physDev, device, commandPool)
 	local mesh = ObjLoader():load"viking_room.obj";
 
 	local indices = mesh.triIndexes	-- vector'int32_t'
-	asserteq(indices.type, 'int32_t') 	-- well, uint, but whatever
+	asserteq(indices.type, ffi.typeof'int32_t') 	-- well, uint, but whatever
 	-- copy from MeshVertex_t to Vertex ... TODO why bother ...
 	local vertices = vector'Vertex'
 	vertices:resize(#mesh.vtxs)
