@@ -2,214 +2,178 @@
 local ffi = require 'ffi'
 local class = require 'ext.class'
 local vector = require 'ffi.cpp.vector-lua'
-local vec3f = require 'vec-ffi.vec3f'
-local struct = require 'struct'
 local vk = require 'vk'
 local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
 local VulkanShaderModule = require 'vk.vulkanshadermodule'
+local Vertex = require 'vk.vulkanmesh'.Vertex
 
 
-local VkPipelineShaderStageCreateInfo = ffi.typeof'VkPipelineShaderStageCreateInfo'
-local VkDynamicState = ffi.typeof'VkDynamicState'
-local VkVertexInputBindingDescription = ffi.typeof'VkVertexInputBindingDescription'
 local VkDescriptorSetLayout = ffi.typeof'VkDescriptorSetLayout'
-local VkPipelineLayout = ffi.typeof'VkPipelineLayout'
-local VkPipeline = ffi.typeof'VkPipeline'
 local VkDescriptorSetLayoutBinding = ffi.typeof'VkDescriptorSetLayoutBinding'
 local VkDescriptorSetLayoutCreateInfo_1 = ffi.typeof'VkDescriptorSetLayoutCreateInfo[1]'
-local VkPipelineVertexInputStateCreateInfo_1 = ffi.typeof'VkPipelineVertexInputStateCreateInfo[1]'
-local VkPipelineInputAssemblyStateCreateInfo_1 = ffi.typeof'VkPipelineInputAssemblyStateCreateInfo[1]'
-local VkPipelineViewportStateCreateInfo_1 = ffi.typeof'VkPipelineViewportStateCreateInfo[1]'
-local VkPipelineRasterizationStateCreateInfo_1 = ffi.typeof'VkPipelineRasterizationStateCreateInfo[1]'
-local VkPipelineMultisampleStateCreateInfo_1 = ffi.typeof'VkPipelineMultisampleStateCreateInfo[1]'
-local VkPipelineDepthStencilStateCreateInfo_1 = ffi.typeof'VkPipelineDepthStencilStateCreateInfo[1]'
+local VkDynamicState = ffi.typeof'VkDynamicState'
+local VkGraphicsPipelineCreateInfo_1 = ffi.typeof'VkGraphicsPipelineCreateInfo[1]'
+local VkPipeline = ffi.typeof'VkPipeline'
 local VkPipelineColorBlendAttachmentState_1 = ffi.typeof'VkPipelineColorBlendAttachmentState[1]'
 local VkPipelineColorBlendStateCreateInfo_1 = ffi.typeof'VkPipelineColorBlendStateCreateInfo[1]'
+local VkPipelineDepthStencilStateCreateInfo_1 = ffi.typeof'VkPipelineDepthStencilStateCreateInfo[1]'
 local VkPipelineDynamicStateCreateInfo_1 = ffi.typeof'VkPipelineDynamicStateCreateInfo[1]'
+local VkPipelineInputAssemblyStateCreateInfo_1 = ffi.typeof'VkPipelineInputAssemblyStateCreateInfo[1]'
+local VkPipelineLayout = ffi.typeof'VkPipelineLayout'
 local VkPipelineLayoutCreateInfo_1 = ffi.typeof'VkPipelineLayoutCreateInfo[1]'
-local VkGraphicsPipelineCreateInfo_1 = ffi.typeof'VkGraphicsPipelineCreateInfo[1]'
-local VkVertexInputAttributeDescription = ffi.typeof'VkVertexInputAttributeDescription'
-
-
-local Vertex = struct{
-	name = 'Vertex',
-	fields = {
-		{name = 'pos', type = 'vec3f_t'},
-		{name = 'color', type = 'vec3f_t'},
-		{name = 'texCoord', type = 'vec3f_t'},
-	},
-	metatable = function(mt)
-		mt.getBindingDescription = function()
-			local d = ffi.new(VkVertexInputBindingDescription)
-			d.binding = 0
-			d.stride = ffi.sizeof'Vertex'
-			d.inputRate = vk.VK_VERTEX_INPUT_RATE_VERTEX
-			return d
-		end
-
-		mt.getAttributeDescriptions = function()
-			local ar = vector(VkVertexInputAttributeDescription)
-
-			local a = ar:emplace_back()
-			a[0].location = 0
-			a[0].binding = 0
-			a[0].format = vk.VK_FORMAT_R32G32B32_SFLOAT
-			a[0].offset = ffi.offsetof('Vertex', 'pos')
-
-			local a = ar:emplace_back()
-			a[0].location = 1
-			a[0].binding = 0
-			a[0].format = vk.VK_FORMAT_R32G32B32_SFLOAT
-			a[0].offset = ffi.offsetof('Vertex', 'color')
-
-			local a = ar:emplace_back()
-			a[0].location = 2
-			a[0].binding = 0
-			a[0].format = vk.VK_FORMAT_R32G32B32_SFLOAT
-			a[0].offset = ffi.offsetof('Vertex', 'texCoord')
-
-			return ar
-		end
-	end,
-}
-
+local VkPipelineMultisampleStateCreateInfo_1 = ffi.typeof'VkPipelineMultisampleStateCreateInfo[1]'
+local VkPipelineRasterizationStateCreateInfo_1 = ffi.typeof'VkPipelineRasterizationStateCreateInfo[1]'
+local VkPipelineShaderStageCreateInfo = ffi.typeof'VkPipelineShaderStageCreateInfo'
+local VkPipelineVertexInputStateCreateInfo_1 = ffi.typeof'VkPipelineVertexInputStateCreateInfo[1]'
+local VkPipelineViewportStateCreateInfo_1 = ffi.typeof'VkPipelineViewportStateCreateInfo[1]'
+local VkVertexInputBindingDescription = ffi.typeof'VkVertexInputBindingDescription'
 
 
 local VulkanGraphicsPipeline = class()
 
 function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 	-- descriptorSetLayout is only used by graphicsPipeline
-	local bindings = vector(VkDescriptorSetLayoutBinding)
+_G.bindings = vector(VkDescriptorSetLayoutBinding, {
+		{ --uboLayoutBinding
+			binding = 0,
+			descriptorType = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			descriptorCount = 1,
+			stageFlags = vk.VK_SHADER_STAGE_VERTEX_BIT,
+		},
+		{--samplerLayoutBinding
+			binding = 1,
+			descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			descriptorCount = 1,
+			stageFlags = vk.VK_SHADER_STAGE_FRAGMENT_BIT,
+		},
+	})
 
-	--uboLayoutBinding
-	local b = bindings:emplace_back()
-	b[0].binding = 0
-	b[0].descriptorType = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
-	b[0].descriptorCount = 1
-	b[0].stageFlags = vk.VK_SHADER_STAGE_VERTEX_BIT
-
-	--samplerLayoutBinding
-	local b = bindings:emplace_back()
-	b[0].binding = 1
-	b[0].descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
-	b[0].descriptorCount = 1
-	b[0].stageFlags = vk.VK_SHADER_STAGE_FRAGMENT_BIT
-
-	local info = ffi.new(VkDescriptorSetLayoutCreateInfo_1)
-	info[0].sType = vk.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO
-	info[0].bindingCount = #bindings
-	info[0].pBindings = bindings.v
+_G.info = ffi.new(VkDescriptorSetLayoutCreateInfo_1, {{
+		sType = vk.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+		bindingCount = #bindings,
+		pBindings = bindings.v,
+	}})
 	self.descriptorSetLayout = vkGet(VkDescriptorSetLayout, nil, vk.vkCreateDescriptorSetLayout, device, info, nil)
 
-	local vertShaderModule = VulkanShaderModule:fromFile(device, "shader-vert.spv")
-	local fragShaderModule = VulkanShaderModule:fromFile(device, "shader-frag.spv")
+_G.bindingDescription = Vertex:getBindingDescription()
+_G.bindingDescriptions = vector(VkVertexInputBindingDescription, {
+		bindingDescription,
+	})
 
-	local bindingDescriptions = vector(VkVertexInputBindingDescription)
-	bindingDescriptions:push_back(Vertex:getBindingDescription())
+_G.attributeDescriptions = Vertex:getAttributeDescriptions()
+_G.vertexInputInfo = ffi.new(VkPipelineVertexInputStateCreateInfo_1, {{
+		sType = vk.VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+		vertexBindingDescriptionCount = #bindingDescriptions,
+		pVertexBindingDescriptions = bindingDescriptions.v,
+		vertexAttributeDescriptionCount = #attributeDescriptions,
+		pVertexAttributeDescriptions = attributeDescriptions.v,
+	}})
 
-	local attributeDescriptions = Vertex:getAttributeDescriptions();
-	local vertexInputInfo = ffi.new(VkPipelineVertexInputStateCreateInfo_1)
-	vertexInputInfo[0].sType = vk.VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO
-	vertexInputInfo[0].vertexBindingDescriptionCount = #bindingDescriptions
-	vertexInputInfo[0].pVertexBindingDescriptions = bindingDescriptions.v
-	vertexInputInfo[0].vertexAttributeDescriptionCount = #attributeDescriptions
-	vertexInputInfo[0].pVertexAttributeDescriptions = attributeDescriptions.v
+_G.inputAssembly = ffi.new(VkPipelineInputAssemblyStateCreateInfo_1, {{
+		topology = vk.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+		primitiveRestartEnable = vk.VK_FALSE,
+	}})
 
-	local inputAssembly = ffi.new(VkPipelineInputAssemblyStateCreateInfo_1)
-	inputAssembly[0].topology = vk.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST
-	inputAssembly[0].primitiveRestartEnable = vk.VK_FALSE
+_G.viewportState = ffi.new(VkPipelineViewportStateCreateInfo_1, {{
+		viewportCount = 1,
+		scissorCount = 1,
+	}})
 
-	local viewportState = ffi.new(VkPipelineViewportStateCreateInfo_1)
-	viewportState[0].viewportCount = 1
-	viewportState[0].scissorCount = 1
+_G.rasterizer = ffi.new(VkPipelineRasterizationStateCreateInfo_1, {{
+		depthClampEnable = vk.VK_FALSE,
+		rasterizerDiscardEnable = vk.VK_FALSE,
+		polygonMode = vk.VK_POLYGON_MODE_FILL,
+		--cullMode = vk::CullModeFlagBits::eBack,,
+		--frontFace = vk::FrontFace::eClockwise,,
+		--frontFace = vk::FrontFace::eCounterClockwise,,
+		depthBiasEnable = vk.VK_FALSE,
+		lineWidth = 1,
+	}})
 
-	local rasterizer = ffi.new(VkPipelineRasterizationStateCreateInfo_1)
-	rasterizer[0].depthClampEnable = vk.VK_FALSE
-	rasterizer[0].rasterizerDiscardEnable = vk.VK_FALSE
-	rasterizer[0].polygonMode = vk.VK_POLYGON_MODE_FILL
-	--rasterizer[0].cullMode = vk::CullModeFlagBits::eBack,
-	--rasterizer[0].frontFace = vk::FrontFace::eClockwise,
-	--rasterizer[0].frontFace = vk::FrontFace::eCounterClockwise,
-	rasterizer[0].depthBiasEnable = vk.VK_FALSE
-	rasterizer[0].lineWidth = 1
+_G.multisampling = ffi.new(VkPipelineMultisampleStateCreateInfo_1, {{
+		rasterizationSamples = msaaSamples,
+		sampleShadingEnable = vk.VK_FALSE,
+	}})
 
-	local multisampling = ffi.new(VkPipelineMultisampleStateCreateInfo_1)
-	multisampling[0].rasterizationSamples = msaaSamples
-	multisampling[0].sampleShadingEnable = vk.VK_FALSE
+_G.depthStencil = ffi.new(VkPipelineDepthStencilStateCreateInfo_1, {{
+		depthTestEnable = vk.VK_TRUE,
+		depthWriteEnable = vk.VK_TRUE,
+		depthCompareOp = vk.VK_COMPARE_OP_LESS,
+		depthBoundsTestEnable = vk.VK_FALSE,
+		stencilTestEnable = vk.VK_FALSE,
+	}})
 
-	local depthStencil = ffi.new(VkPipelineDepthStencilStateCreateInfo_1)
-	depthStencil[0].depthTestEnable = vk.VK_TRUE
-	depthStencil[0].depthWriteEnable = vk.VK_TRUE
-	depthStencil[0].depthCompareOp = vk.VK_COMPARE_OP_LESS
-	depthStencil[0].depthBoundsTestEnable = vk.VK_FALSE
-	depthStencil[0].stencilTestEnable = vk.VK_FALSE
+_G.colorBlendAttachment = ffi.new(VkPipelineColorBlendAttachmentState_1, {{
+		blendEnable = vk.VK_FALSE,
+		colorWriteMask = bit.bor(
+			vk.VK_COLOR_COMPONENT_R_BIT,
+			vk.VK_COLOR_COMPONENT_G_BIT,
+			vk.VK_COLOR_COMPONENT_B_BIT,
+			vk.VK_COLOR_COMPONENT_A_BIT
+		),
+	}})
 
-	local colorBlendAttachment = ffi.new(VkPipelineColorBlendAttachmentState_1)
-	colorBlendAttachment[0].blendEnable = vk.VK_FALSE
-	colorBlendAttachment[0].colorWriteMask = bit.bor(
-		vk.VK_COLOR_COMPONENT_R_BIT,
-		vk.VK_COLOR_COMPONENT_G_BIT,
-		vk.VK_COLOR_COMPONENT_B_BIT,
-		vk.VK_COLOR_COMPONENT_A_BIT
-	)
+_G.colorBlending = ffi.new(VkPipelineColorBlendStateCreateInfo_1, {{
+		logicOpEnable = vk.VK_FALSE,
+		logicOp = vk.VK_LOGIC_OP_COPY,
+		attachmentCount = 1,
+		pAttachments = colorBlendAttachment,
+		blendConstants = {0, 0, 0, 0},
+	}})
 
-	local colorBlending = ffi.new(VkPipelineColorBlendStateCreateInfo_1)
-	colorBlending[0].logicOpEnable = vk.VK_FALSE
-	colorBlending[0].logicOp = vk.VK_LOGIC_OP_COPY
-	colorBlending[0].attachmentCount = 1
-	colorBlending[0].pAttachments = colorBlendAttachment
-	colorBlending[0].blendConstants[0] = 0
-	colorBlending[0].blendConstants[1] = 0
-	colorBlending[0].blendConstants[2] = 0
-	colorBlending[0].blendConstants[3] = 0
+_G.dynamicStates = vector(VkDynamicState, {
+		vk.VK_DYNAMIC_STATE_VIEWPORT,
+		vk.VK_DYNAMIC_STATE_SCISSOR,
+	})
+_G.dynamicState = ffi.new(VkPipelineDynamicStateCreateInfo_1, {{
+		dynamicStateCount = #dynamicStates,
+		pDynamicStates = dynamicStates.v,
+	}})
 
-	local dynamicStates = vector(VkDynamicState)
-	dynamicStates:push_back(vk.VK_DYNAMIC_STATE_VIEWPORT)
-	dynamicStates:push_back(vk.VK_DYNAMIC_STATE_SCISSOR)
+_G.descriptorSetLayouts = vector(VkDescriptorSetLayout, {
+		self.descriptorSetLayout,
+	})
+_G.info = ffi.new(VkPipelineLayoutCreateInfo_1, {{
+		sType = vk.VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+		setLayoutCount = #descriptorSetLayouts,
+		pSetLayouts = descriptorSetLayouts.v,
+	}})
+_G.pipelineLayout = vkGet(VkPipelineLayout, vkassert, vk.vkCreatePipelineLayout, device, info, nil)
 
-	local dynamicState = ffi.new(VkPipelineDynamicStateCreateInfo_1)
-	dynamicState[0].dynamicStateCount = #dynamicStates
-	dynamicState[0].pDynamicStates = dynamicStates.v
+_G.vertShaderModule = VulkanShaderModule:fromFile(device, "shader-vert.spv")
+_G.fragShaderModule = VulkanShaderModule:fromFile(device, "shader-frag.spv")
+_G.shaderStages = vector(VkPipelineShaderStageCreateInfo, {
+		{
+			sType = vk.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			stage = vk.VK_SHADER_STAGE_VERTEX_BIT,
+			module = vertShaderModule,
+			pName = 'main',	--'vert'	--GLSL uses 'main', but clspv doesn't allow 'main', so ...
+		},
+		{
+			sType = vk.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			stage = vk.VK_SHADER_STAGE_FRAGMENT_BIT,
+			module = fragShaderModule,
+			pName = 'main',	--'frag'
+		},
+	})
 
-	local descriptorSetLayouts = vector(VkDescriptorSetLayout)
-	descriptorSetLayouts:push_back(self.descriptorSetLayout)
-
-	local info = ffi.new(VkPipelineLayoutCreateInfo_1)
-	info[0].sType = vk.VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO
-	info[0].setLayoutCount = #descriptorSetLayouts
-	info[0].pSetLayouts = descriptorSetLayouts.v
-	local pipelineLayout = vkGet(VkPipelineLayout, vkassert, vk.vkCreatePipelineLayout, device, info, nil)
-
-	local shaderStages = vector(VkPipelineShaderStageCreateInfo)
-
-	local s = shaderStages:emplace_back()
-	s[0].sType = vk.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO
-	s[0].stage = vk.VK_SHADER_STAGE_VERTEX_BIT
-	s[0].module = vertShaderModule
-	s[0].pName = 'main'	--'vert'	--GLSL uses 'main', but clspv doesn't allow 'main', so ...
-
-	local s = shaderStages:emplace_back()
-	s[0].sType = vk.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO
-	s[0].stage = vk.VK_SHADER_STAGE_FRAGMENT_BIT
-	s[0].module = fragShaderModule
-	s[0].pName = 'main'	--'frag'
-
-	local info = ffi.new(VkGraphicsPipelineCreateInfo_1)
-	info[0].sType = vk.VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO
-	info[0].stageCount = #shaderStages
-	info[0].pStages = shaderStages.v
-	info[0].pVertexInputState = vertexInputInfo	--why it need to be a pointer?
-	info[0].pInputAssemblyState = inputAssembly
-	info[0].pViewportState = viewportState
-	info[0].pRasterizationState = rasterizer
-	info[0].pMultisampleState = multisampling
-	info[0].pDepthStencilState = depthStencil
-	info[0].pColorBlendState = colorBlending
-	info[0].pDynamicState = dynamicState
-	info[0].layout = pipelineLayout
-	info[0].renderPass = renderPass
-	info[0].subpass = 0
+_G.info = ffi.new(VkGraphicsPipelineCreateInfo_1, {{
+		sType = vk.VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+		stageCount = #shaderStages,
+		pStages = shaderStages.v,
+		pVertexInputState = vertexInputInfo,	--why it need to be a pointer?
+		pInputAssemblyState = inputAssembly,
+		pViewportState = viewportState,
+		pRasterizationState = rasterizer,
+		pMultisampleState = multisampling,
+		pDepthStencilState = depthStencil,
+		pColorBlendState = colorBlending,
+		pDynamicState = dynamicState,
+		layout = pipelineLayout,
+		renderPass = renderPass,
+		subpass = 0,
+	}})
 
 	--info[0].basePipelineHandle = {}
 	self.id = vkGet(VkPipeline, vkassert, vk.vkCreateGraphicsPipelines, device, nil, 1, info, nil)

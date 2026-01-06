@@ -7,12 +7,13 @@ local assertindex = require 'ext.assert'.index
 local assertne = require 'ext.assert'.ne
 local vk = require 'vk'
 local VKDevice = require 'vk.device'
-
 local vkassert = require 'vk.util'.vkassert
+local vkGet = require 'vk.util'.vkGet
 local vkGetVector = require 'vk.util'.vkGetVector
 
 
-local VkSwapchainKHR_1 = ffi.typeof'VkSwapchainKHR[1]'
+local VkImage = ffi.typeof'VkImage'
+local VkSwapchainKHR = ffi.typeof'VkSwapchainKHR'
 
 
 local VKSwapchain = class()
@@ -24,17 +25,19 @@ function VKSwapchain:init(args)
 	local device = assertindex(args, 'device')
 	if VKDevice:isa(device) then device = device.id end
 	self.device = device
-
-	local info = self:initFromArgs(args)
-
-	local ptr = ffi.new(VkSwapchainKHR_1)
-	vkassert(vk.vkCreateSwapchainKHR, device, info, nil, ptr)
-	self.id = ptr[0]
+	self.id = vkGet(
+		VkSwapchainKHR,
+		vkassert,
+		vk.vkCreateSwapchainKHR,
+		device,
+		self:initFromArgs(args),
+		nil
+	)
 end
 
 function VKSwapchain:getImages(device)
 	if VKDevice:isa(device) then device = device.id end
-	return vkGetVector('VkImage', vkassert, vk.vkGetSwapchainImagesKHR, device, self.id)
+	return vkGetVector(VkImage, vkassert, vk.vkGetSwapchainImagesKHR, device, self.id)
 end
 
 function VKSwapchain:destroy()

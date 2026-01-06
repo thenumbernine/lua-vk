@@ -28,32 +28,57 @@ function VulkanDeviceMemoryImage:createImage(
 	usage,
 	properties
 )
-	local info = ffi.new(VkImageCreateInfo_1)
-	info[0].sType = vk.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO
-	info[0].imageType = vk.VK_IMAGE_TYPE_2D
-	info[0].format = format
-	info[0].extent.width = width
-	info[0].extent.height = height
-	info[0].extent.depth = 1
-	info[0].mipLevels = mipLevels
-	info[0].arrayLayers = 1
-	info[0].samples = numSamples
-	info[0].tiling = tiling
-	info[0].usage = usage
-	info[0].sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE
-	info[0].initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED
-	local image = vkGet(VkImage, vkassert, vk.vkCreateImage, device, info, nil)
+	local image = vkGet(
+		VkImage,
+		vkassert,
+		vk.vkCreateImage,
+		device,
+		ffi.new(VkImageCreateInfo_1, {{
+			sType = vk.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+			imageType = vk.VK_IMAGE_TYPE_2D,
+			format = format,
+			extent = {
+				width = width,
+				height = height,
+				depth = 1,
+			},
+			mipLevels = mipLevels,
+			arrayLayers = 1,
+			samples = numSamples,
+			tiling = tiling,
+			usage = usage,
+			sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE,
+			initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED,
+		}}),
+		nil
+	)
 
-	local memReq = vkGet(VkMemoryRequirements, nil, vk.vkGetImageMemoryRequirements, device, image)
+	local memReq = vkGet(
+		VkMemoryRequirements,
+		nil,
+		vk.vkGetImageMemoryRequirements,
+		device,
+		image
+	)
 
-	local info = ffi.new(VkMemoryAllocateInfo_1)
-	info[0].sType = vk.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO
-	info[0].allocationSize = memReq.size
-	info[0].memoryTypeIndex = physDev:findMemoryType(memReq.memoryTypeBits, properties)
-	local imageMemory = vkGet(VkDeviceMemory, vkassert, vk.vkAllocateMemory, device, info, nil)
+	local imageMemory = vkGet(
+		VkDeviceMemory,
+		vkassert,
+		vk.vkAllocateMemory,
+		device,
+		ffi.new(VkMemoryAllocateInfo_1, {{
+			sType = vk.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+			allocationSize = memReq.size,
+			memoryTypeIndex = physDev:findMemoryType(memReq.memoryTypeBits, properties),
+		}}),
+		nil
+	)
 	vkassert(vk.vkBindImageMemory, device, image, imageMemory, 0)
 
-	return {image=image, imageMemory=imageMemory}
+	return {
+		image = image,
+		imageMemory = imageMemory,
+	}
 end
 
 function VulkanDeviceMemoryImage:makeTextureFromStaged(

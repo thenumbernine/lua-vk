@@ -11,7 +11,6 @@ local VulkanApp = require 'glapp.view'.apply(SDLApp):subclass()
 VulkanApp.title = 'Vulkan test'
 VulkanApp.sdlCreateWindowFlags = bit.bor(
 	VulkanApp.sdlCreateWindowFlags,
-	--sdl.SDL_WINDOW_HIDDEN, -- added in hopes to fix my sdl init problem...
 	sdl.SDL_WINDOW_VULKAN
 )
 

@@ -8,7 +8,56 @@ local ObjLoader = require 'mesh.objloader'
 local VulkanDeviceMemoryBuffer = require 'vk.vulkandevicememorybuffer'
 
 
+local vk = require 'vk'
+local VkVertexInputBindingDescription = ffi.typeof'VkVertexInputBindingDescription'
+local VkVertexInputAttributeDescription = ffi.typeof'VkVertexInputAttributeDescription'
+local struct = require 'struct'
+local vec3f = require 'vec-ffi.vec3f'
+local Vertex
+Vertex = struct{
+	name = 'Vertex',
+	fields = {
+		{name = 'pos', type = 'vec3f_t'},
+		{name = 'color', type = 'vec3f_t'},
+		{name = 'texCoord', type = 'vec3f_t'},
+	},
+	metatable = function(mt)
+		mt.getBindingDescription = function()
+			return ffi.new(VkVertexInputBindingDescription, {
+				binding = 0,
+				stride = ffi.sizeof(Vertex),
+				inputRate = vk.VK_VERTEX_INPUT_RATE_VERTEX,
+			})
+		end
+
+		mt.getAttributeDescriptions = function()
+			return vector(VkVertexInputAttributeDescription, {
+				{
+					location = 0,
+					binding = 0,
+					format = vk.VK_FORMAT_R32G32B32_SFLOAT,
+					offset = ffi.offsetof(Vertex, 'pos'),
+				},
+				{
+					location = 1,
+					binding = 0,
+					format = vk.VK_FORMAT_R32G32B32_SFLOAT,
+					offset = ffi.offsetof(Vertex, 'color'),
+				},
+				{
+					location = 2,
+					binding = 0,
+					format = vk.VK_FORMAT_R32G32B32_SFLOAT,
+					offset = ffi.offsetof(Vertex, 'texCoord'),
+				},
+			})
+		end
+	end,
+}
+
+
 local VulkanMesh = class()
+VulkanMesh.Vertex = Vertex
 
 function VulkanMesh:init(physDev, device, commandPool)
 	local mesh = ObjLoader():load"viking_room.obj";
@@ -16,7 +65,7 @@ function VulkanMesh:init(physDev, device, commandPool)
 	local indices = mesh.triIndexes	-- vector'int32_t'
 	asserteq(indices.type, ffi.typeof'int32_t') 	-- well, uint, but whatever
 	-- copy from MeshVertex_t to Vertex ... TODO why bother ...
-	local vertices = vector'Vertex'
+_G.vertices = vector(Vertex)
 	vertices:resize(#mesh.vtxs)
 	for i=0,#mesh.vtxs-1 do
 		local srcv = mesh.vtxs.v[i]

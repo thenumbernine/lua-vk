@@ -1,14 +1,14 @@
 local ffi = require 'ffi'
 local assertindex = require 'ext.assert'.index
 local vk = require 'vk'
-local VKPhysDev = require 'vk.physdev'
-
 local vkassert = require 'vk.util'.vkassert
+local vkGet = require 'vk.util'.vkGet
+local VKPhysDev = require 'vk.physdev'
 
 
 local VkDevice = ffi.typeof'VkDevice'
-local VkDevice_1 = ffi.typeof'VkDevice[1]'
 local VkDeviceCreateInfo = ffi.typeof'VkDeviceCreateInfo'
+
 
 local VKDevice = require 'vk.raii'{
 	ctype = VkDevice,
@@ -21,11 +21,14 @@ function VKDevice:init(args)
 	-- can I still pass args to ffi.new?  will it ignore extra fields?  seems alright ...
 	local physDev = assertindex(args, 'physDev')
 	if VKPhysDev:isa(physDev) then physDev = physDev.id end
-
-	local info = self:initFromArgs(args)
-	local ptr = ffi.new(VkDevice_1)
-	vkassert(vk.vkCreateDevice, physDev, info, nil, ptr)
-	self.id = ptr[0]
+	self.id = vkGet(
+		VkDevice,
+		vkassert,
+		vk.vkCreateDevice,
+		physDev,
+		self:initFromArgs(args),
+		nil
+	)
 end
 
 function VKDevice:waitIdle()

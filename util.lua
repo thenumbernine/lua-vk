@@ -93,9 +93,8 @@ local function addInitFromArgs(cl)
 		if type(args) == 'cdata' then
 			return args
 		else
-			local info = ffi.new(infoType, {args})
-			info[0].sType = sType
-			return info
+			args.sType = sType
+			return ffi.new(infoType, {args})
 		end
 	end
 end

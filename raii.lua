@@ -1,11 +1,12 @@
 -- class wrapper (and maybe raii) for VkInstance
 require 'ext.gc'	-- make sure luajit can __gc lua-tables
 local ffi = require 'ffi'
-local vk = require 'vk'
 local class = require 'ext.class'
 local assertindex = require 'ext.assert'.index
-
+local vk = require 'vk'
 local vkassert = require 'vk.util'.vkassert
+local vkGet = require 'vk.util'.vkGet
+
 
 --[[
 args:
@@ -18,7 +19,6 @@ args:
 return function(args)
 	local ctype = assertindex(args, 'ctype')
 	ctype = ffi.typeof(ctype)
-	local ctype_1 = ffi.typeof('$[1]', ctype)
 	
 	-- create might ask for extra arguments.
 	-- rather than provide how to describe them here, I'll let each subclass perform the call.
@@ -38,10 +38,7 @@ return function(args)
 	if create then
 		assert(cl.createType)
 		function cl:init(args)
-			local info = self:initFromArgs(args)
-			local ptr = ffi.new(ctype_1)
-			vkassert(create, info, nil, ptr)
-			self.id = ptr[0]
+			self.id = vkGet(ctype, vkassert, create, self:initFromArgs(args), nil)
 		end
 	end
 

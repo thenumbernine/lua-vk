@@ -21,7 +21,6 @@ local VkApplicationInfo_1 = ffi.typeof'VkApplicationInfo[1]'
 
 
 vk.VK_EXT_DEBUG_UTILS_EXTENSION_NAME = "VK_EXT_debug_utils"
-vk.VK_KHR_SURFACE_EXTENSION_NAME = 'VK_KHR_surface'
 
 
 -- TODO move to vk?
@@ -50,7 +49,8 @@ function VulkanInstance:init(common)
 		)
 	end
 
-	local appInfo = ffi.new(VkApplicationInfo_1, {{
+	-- how to prevent gc until a variable is done?
+	self.info = ffi.new(VkApplicationInfo_1, {{
 		sType = vk.VK_STRUCTURE_TYPE_APPLICATION_INFO,
 		pApplicationName = app.title,
 		applicationVersion = VK_MAKE_API_VERSION(0, 1, 0, 0),
@@ -59,20 +59,25 @@ function VulkanInstance:init(common)
 		apiVersion = VK_API_VERISON_1_0,
 	}})
 
-	local layerNames = vector(char_const_ptr)
+	self.layerNames = vector(char_const_ptr)
 	if enableValidationLayers then
-		layerNames:emplace_back()[0] = 'VK_LAYER_KHRONOS_validation'
+		-- will this leak?  static strings are at least forever in memory right?
+		self.layerNames:emplace_back()[0] = 'VK_LAYER_KHRONOS_validation'
 	end
 
-	local extensions = self:getRequiredExtensions(common)
+	self.extensions = self:getRequiredExtensions(common)
 
 	self.obj = VKInstance{
-		pApplicationInfo = appInfo,
-		enabledLayerCount = #layerNames,
-		ppEnabledLayerNames = layerNames.v,
-		enabledExtensionCount = #extensions,
-		ppEnabledExtensionNames = extensions.v,
+		pApplicationInfo = self.info,
+		enabledLayerCount = #self.layerNames,
+		ppEnabledLayerNames = self.layerNames.v,
+		enabledExtensionCount = #self.extensions,
+		ppEnabledExtensionNames = self.extensions.v,
 	}
+
+	self.info = nil
+	self.layerNames = nil
+	self.extensions = nil
 end
 
 function VulkanInstance:getRequiredExtensions(common)
@@ -91,7 +96,7 @@ function VulkanInstance:getRequiredExtensions(common)
 	do
 		local count = ffi.new(uint32_t_1)
 		local extstrs = assertne(sdl.SDL_Vulkan_GetInstanceExtensions(count), ffi.null)
-		for i=1,count[0]-1 do
+		for i=0,count[0]-1 do
 			extensions:push_back(extstrs[i])
 		end
 	end
@@ -105,9 +110,6 @@ function VulkanInstance:getRequiredExtensions(common)
 	if enableValidationLayers then
 		extensions:emplace_back()[0] = vk.VK_EXT_DEBUG_UTILS_EXTENSION_NAME
 	end
-
--- TODO why do I have to manually insert this here?
-extensions:emplace_back()[0] = vk.VK_KHR_SURFACE_EXTENSION_NAME 
 
 	return extensions
 end

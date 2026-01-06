@@ -1,5 +1,4 @@
 #!/usr/bin/env luajit
-local VulkanApp = require 'vk.app'
 
 -- [[ build shaders
 local table = require 'ext.table'
@@ -22,5 +21,7 @@ end
 targets:run(fns:mapi(function(fn) return fn.dst end):unpack())
 --]]
 
-
+-- [[ app
+local VulkanApp = require 'vk.app'
 return VulkanApp():run()
+--]]
