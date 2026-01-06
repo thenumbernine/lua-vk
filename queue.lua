@@ -2,8 +2,12 @@ local ffi = require 'ffi'
 local class = require 'ext.class'
 local assertindex = require 'ext.assert'.index
 local vk = require 'vk'
-local vkassert = require 'vk.util'.vkassert
+local vkGet = require 'vk.util'.vkGet
 local VKDevice = require 'vk.device'
+
+
+local VkQueue = ffi.typeof'VkQueue'
+
 
 local VKQueue = class()
 
@@ -15,9 +19,7 @@ function VKQueue:init(args)
 	local queueIndex = args.index or 0
 
 	-- queues don't get gc'd so ...
-	local ptr = ffi.new'VkQueue[1]'
-	vk.vkGetDeviceQueue(device, queueFamilyIndex, queueIndex, ptr)
-	self.id = ptr[0]
+	self.id = vkGet(VkQueue, nil, vk.vkGetDeviceQueue, device, queueFamilyIndex, queueIndex)
 end
 
 return VKQueue

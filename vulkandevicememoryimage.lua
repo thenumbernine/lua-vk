@@ -28,51 +28,43 @@ function VulkanDeviceMemoryImage:createImage(
 	usage,
 	properties
 )
-	local image = vkGet(
-		VkImage,
-		vkassert,
-		vk.vkCreateImage,
-		device,
-		ffi.new(VkImageCreateInfo_1, {{
-			sType = vk.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-			imageType = vk.VK_IMAGE_TYPE_2D,
-			format = format,
-			extent = {
-				width = width,
-				height = height,
-				depth = 1,
-			},
-			mipLevels = mipLevels,
-			arrayLayers = 1,
-			samples = numSamples,
-			tiling = tiling,
-			usage = usage,
-			sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE,
-			initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED,
-		}}),
-		nil
-	)
+	self.info = ffi.new(VkImageCreateInfo_1, {{
+		sType = vk.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+		imageType = vk.VK_IMAGE_TYPE_2D,
+		format = format,
+		extent = {
+			width = width,
+			height = height,
+			depth = 1,
+		},
+		mipLevels = mipLevels,
+		arrayLayers = 1,
+		samples = numSamples,
+		tiling = tiling,
+		usage = usage,
+		sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE,
+		initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED,
+	}})
+	local image = vkGet(VkImage, vkassert, vk.vkCreateImage, device, self.info, nil)
+	self.info = nil
 
-	local memReq = vkGet(
-		VkMemoryRequirements,
-		nil,
-		vk.vkGetImageMemoryRequirements,
-		device,
-		image
-	)
-
+	self.memReq = vkGet(VkMemoryRequirements, nil, vk.vkGetImageMemoryRequirements, device, image)
+	self.info = ffi.new(VkMemoryAllocateInfo_1, {{
+		sType = vk.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+		allocationSize = self.memReq.size,
+		memoryTypeIndex = physDev:findMemoryType(self.memReq.memoryTypeBits, properties),
+	}})
 	local imageMemory = vkGet(
 		VkDeviceMemory,
 		vkassert,
 		vk.vkAllocateMemory,
 		device,
-		ffi.new(VkMemoryAllocateInfo_1, {{
-			sType = vk.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-			allocationSize = memReq.size,
-			memoryTypeIndex = physDev:findMemoryType(memReq.memoryTypeBits, properties),
-		}}),
+		self.info,
 		nil
 	)
+	self.info = nil
+	self.memReq = nil
+
 	vkassert(vk.vkBindImageMemory, device, image, imageMemory, 0)
 
 	return {

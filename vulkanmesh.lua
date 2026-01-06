@@ -23,15 +23,17 @@ Vertex = struct{
 	},
 	metatable = function(mt)
 		mt.getBindingDescription = function()
-			return ffi.new(VkVertexInputBindingDescription, {
+			local result = ffi.new(VkVertexInputBindingDescription, {
 				binding = 0,
 				stride = ffi.sizeof(Vertex),
 				inputRate = vk.VK_VERTEX_INPUT_RATE_VERTEX,
 			})
+_G.VertexRetainBiningDescription = result			
+			return result
 		end
 
 		mt.getAttributeDescriptions = function()
-			return vector(VkVertexInputAttributeDescription, {
+			local result = vector(VkVertexInputAttributeDescription, {
 				{
 					location = 0,
 					binding = 0,
@@ -51,6 +53,8 @@ Vertex = struct{
 					offset = ffi.offsetof(Vertex, 'texCoord'),
 				},
 			})
+_G.VertexRetainAttributeDescriptions = result			
+			return result
 		end
 	end,
 }
@@ -60,16 +64,16 @@ local VulkanMesh = class()
 VulkanMesh.Vertex = Vertex
 
 function VulkanMesh:init(physDev, device, commandPool)
-	local mesh = ObjLoader():load"viking_room.obj";
+	self.mesh = ObjLoader():load"viking_room.obj";
 
-	local indices = mesh.triIndexes	-- vector'int32_t'
-	asserteq(indices.type, ffi.typeof'int32_t') 	-- well, uint, but whatever
+	self.indices = self.mesh.triIndexes	-- vector'int32_t'
+	asserteq(self.indices.type, ffi.typeof'int32_t') 	-- well, uint, but whatever
 	-- copy from MeshVertex_t to Vertex ... TODO why bother ...
-_G.vertices = vector(Vertex)
-	vertices:resize(#mesh.vtxs)
-	for i=0,#mesh.vtxs-1 do
-		local srcv = mesh.vtxs.v[i]
-		local dstv = vertices.v[i]
+	self.vertices = vector(Vertex)
+	self.vertices:resize(#self.mesh.vtxs)
+	for i=0,#self.mesh.vtxs-1 do
+		local srcv = self.mesh.vtxs.v[i]
+		local dstv = self.vertices.v[i]
 		dstv.pos = srcv.pos
 		dstv.texCoord = srcv.texcoord	-- TODO y-flip?
 		dstv.color:set(1, 1, 1)	-- do our objects have normal properties?  nope, just v vt vn ... why doesn't the demo use normals? does it bake lighting?
@@ -79,18 +83,22 @@ _G.vertices = vector(Vertex)
 		physDev,
 		device.obj.id,
 		commandPool,
-		vertices.v,
-		#vertices * ffi.sizeof(vertices.type)
+		self.vertices.v,
+		#self.vertices * ffi.sizeof(self.vertices.type)
 	)
 
-	self.numIndices = #indices
+	self.numIndices = #self.indices
 	self.indexBufferAndMemory = VulkanDeviceMemoryBuffer:makeBufferFromStaged(
 		physDev,
 		device.obj.id,
 		commandPool,
-		indices.v,
-		#indices * ffi.sizeof(indices.type)
+		self.indices.v,
+		#self.indices * ffi.sizeof(self.indices.type)
 	)
+
+	self.vertices = nil
+	self.indices = nil
+	self.mesh = nil
 end
 
 return VulkanMesh

@@ -34,7 +34,7 @@ local VulkanGraphicsPipeline = class()
 
 function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 	-- descriptorSetLayout is only used by graphicsPipeline
-_G.bindings = vector(VkDescriptorSetLayoutBinding, {
+	self.bindings = vector(VkDescriptorSetLayoutBinding, {
 		{ --uboLayoutBinding
 			binding = 0,
 			descriptorType = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -48,39 +48,41 @@ _G.bindings = vector(VkDescriptorSetLayoutBinding, {
 			stageFlags = vk.VK_SHADER_STAGE_FRAGMENT_BIT,
 		},
 	})
-
-_G.info = ffi.new(VkDescriptorSetLayoutCreateInfo_1, {{
+	self.info = ffi.new(VkDescriptorSetLayoutCreateInfo_1, {{
 		sType = vk.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-		bindingCount = #bindings,
-		pBindings = bindings.v,
+		bindingCount = #self.bindings,
+		pBindings = self.bindings.v,
 	}})
-	self.descriptorSetLayout = vkGet(VkDescriptorSetLayout, nil, vk.vkCreateDescriptorSetLayout, device, info, nil)
+	self.descriptorSetLayout = vkGet(VkDescriptorSetLayout, nil, vk.vkCreateDescriptorSetLayout, device, self.info, nil)
+	self.info = nil
+	self.bindings = nil
 
-_G.bindingDescription = Vertex:getBindingDescription()
-_G.bindingDescriptions = vector(VkVertexInputBindingDescription, {
-		bindingDescription,
+
+	self.bindingDescription = Vertex:getBindingDescription()
+	self.bindingDescriptions = vector(VkVertexInputBindingDescription, {
+		self.bindingDescription,
 	})
 
-_G.attributeDescriptions = Vertex:getAttributeDescriptions()
-_G.vertexInputInfo = ffi.new(VkPipelineVertexInputStateCreateInfo_1, {{
+	self.attributeDescriptions = Vertex:getAttributeDescriptions()
+	self.vertexInputInfo = ffi.new(VkPipelineVertexInputStateCreateInfo_1, {{
 		sType = vk.VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-		vertexBindingDescriptionCount = #bindingDescriptions,
-		pVertexBindingDescriptions = bindingDescriptions.v,
-		vertexAttributeDescriptionCount = #attributeDescriptions,
-		pVertexAttributeDescriptions = attributeDescriptions.v,
+		vertexBindingDescriptionCount = #self.bindingDescriptions,
+		pVertexBindingDescriptions = self.bindingDescriptions.v,
+		vertexAttributeDescriptionCount = #self.attributeDescriptions,
+		pVertexAttributeDescriptions = self.attributeDescriptions.v,
 	}})
 
-_G.inputAssembly = ffi.new(VkPipelineInputAssemblyStateCreateInfo_1, {{
+	self.inputAssembly = ffi.new(VkPipelineInputAssemblyStateCreateInfo_1, {{
 		topology = vk.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
 		primitiveRestartEnable = vk.VK_FALSE,
 	}})
 
-_G.viewportState = ffi.new(VkPipelineViewportStateCreateInfo_1, {{
+	self.viewportState = ffi.new(VkPipelineViewportStateCreateInfo_1, {{
 		viewportCount = 1,
 		scissorCount = 1,
 	}})
 
-_G.rasterizer = ffi.new(VkPipelineRasterizationStateCreateInfo_1, {{
+	self.rasterizer = ffi.new(VkPipelineRasterizationStateCreateInfo_1, {{
 		depthClampEnable = vk.VK_FALSE,
 		rasterizerDiscardEnable = vk.VK_FALSE,
 		polygonMode = vk.VK_POLYGON_MODE_FILL,
@@ -91,12 +93,12 @@ _G.rasterizer = ffi.new(VkPipelineRasterizationStateCreateInfo_1, {{
 		lineWidth = 1,
 	}})
 
-_G.multisampling = ffi.new(VkPipelineMultisampleStateCreateInfo_1, {{
+	self.multisampling = ffi.new(VkPipelineMultisampleStateCreateInfo_1, {{
 		rasterizationSamples = msaaSamples,
 		sampleShadingEnable = vk.VK_FALSE,
 	}})
 
-_G.depthStencil = ffi.new(VkPipelineDepthStencilStateCreateInfo_1, {{
+	self.depthStencil = ffi.new(VkPipelineDepthStencilStateCreateInfo_1, {{
 		depthTestEnable = vk.VK_TRUE,
 		depthWriteEnable = vk.VK_TRUE,
 		depthCompareOp = vk.VK_COMPARE_OP_LESS,
@@ -104,7 +106,7 @@ _G.depthStencil = ffi.new(VkPipelineDepthStencilStateCreateInfo_1, {{
 		stencilTestEnable = vk.VK_FALSE,
 	}})
 
-_G.colorBlendAttachment = ffi.new(VkPipelineColorBlendAttachmentState_1, {{
+	self.colorBlendAttachment = ffi.new(VkPipelineColorBlendAttachmentState_1, {{
 		blendEnable = vk.VK_FALSE,
 		colorWriteMask = bit.bor(
 			vk.VK_COLOR_COMPONENT_R_BIT,
@@ -114,69 +116,91 @@ _G.colorBlendAttachment = ffi.new(VkPipelineColorBlendAttachmentState_1, {{
 		),
 	}})
 
-_G.colorBlending = ffi.new(VkPipelineColorBlendStateCreateInfo_1, {{
+	self.colorBlending = ffi.new(VkPipelineColorBlendStateCreateInfo_1, {{
 		logicOpEnable = vk.VK_FALSE,
 		logicOp = vk.VK_LOGIC_OP_COPY,
 		attachmentCount = 1,
-		pAttachments = colorBlendAttachment,
+		pAttachments = self.colorBlendAttachment,
 		blendConstants = {0, 0, 0, 0},
 	}})
 
-_G.dynamicStates = vector(VkDynamicState, {
+	self.dynamicStates = vector(VkDynamicState, {
 		vk.VK_DYNAMIC_STATE_VIEWPORT,
 		vk.VK_DYNAMIC_STATE_SCISSOR,
 	})
-_G.dynamicState = ffi.new(VkPipelineDynamicStateCreateInfo_1, {{
-		dynamicStateCount = #dynamicStates,
-		pDynamicStates = dynamicStates.v,
+	self.dynamicState = ffi.new(VkPipelineDynamicStateCreateInfo_1, {{
+		dynamicStateCount = #self.dynamicStates,
+		pDynamicStates = self.dynamicStates.v,
 	}})
 
-_G.descriptorSetLayouts = vector(VkDescriptorSetLayout, {
+	self.descriptorSetLayouts = vector(VkDescriptorSetLayout, {
 		self.descriptorSetLayout,
 	})
-_G.info = ffi.new(VkPipelineLayoutCreateInfo_1, {{
+	self.info = ffi.new(VkPipelineLayoutCreateInfo_1, {{
 		sType = vk.VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-		setLayoutCount = #descriptorSetLayouts,
-		pSetLayouts = descriptorSetLayouts.v,
+		setLayoutCount = #self.descriptorSetLayouts,
+		pSetLayouts = self.descriptorSetLayouts.v,
 	}})
-_G.pipelineLayout = vkGet(VkPipelineLayout, vkassert, vk.vkCreatePipelineLayout, device, info, nil)
+	self.pipelineLayout = vkGet(VkPipelineLayout, vkassert, vk.vkCreatePipelineLayout, device, self.info, nil)
+	self.info = nil
+	self.descriptorSetLayouts = nil
+	-- but save self.descriptorSetLayout for later
 
-_G.vertShaderModule = VulkanShaderModule:fromFile(device, "shader-vert.spv")
-_G.fragShaderModule = VulkanShaderModule:fromFile(device, "shader-frag.spv")
-_G.shaderStages = vector(VkPipelineShaderStageCreateInfo, {
+	self.vertexShaderModule = VulkanShaderModule:fromFile(device, "shader-vert.spv")
+	self.fragmentShaderModule = VulkanShaderModule:fromFile(device, "shader-frag.spv")
+	self.shaderStages = vector(VkPipelineShaderStageCreateInfo, {
 		{
 			sType = vk.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			stage = vk.VK_SHADER_STAGE_VERTEX_BIT,
-			module = vertShaderModule,
+			module = self.vertexShaderModule,
 			pName = 'main',	--'vert'	--GLSL uses 'main', but clspv doesn't allow 'main', so ...
 		},
 		{
 			sType = vk.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			stage = vk.VK_SHADER_STAGE_FRAGMENT_BIT,
-			module = fragShaderModule,
+			module = self.fragmentShaderModule,
 			pName = 'main',	--'frag'
 		},
 	})
 
-_G.info = ffi.new(VkGraphicsPipelineCreateInfo_1, {{
+	self.info = ffi.new(VkGraphicsPipelineCreateInfo_1, {{
 		sType = vk.VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-		stageCount = #shaderStages,
-		pStages = shaderStages.v,
-		pVertexInputState = vertexInputInfo,	--why it need to be a pointer?
-		pInputAssemblyState = inputAssembly,
-		pViewportState = viewportState,
-		pRasterizationState = rasterizer,
-		pMultisampleState = multisampling,
-		pDepthStencilState = depthStencil,
-		pColorBlendState = colorBlending,
-		pDynamicState = dynamicState,
-		layout = pipelineLayout,
+		stageCount = #self.shaderStages,
+		pStages = self.shaderStages.v,
+		pVertexInputState = self.vertexInputInfo,
+		pInputAssemblyState = self.inputAssembly,
+		pViewportState = self.viewportState,
+		pRasterizationState = self.rasterizer,
+		pMultisampleState = self.multisampling,
+		pDepthStencilState = self.depthStencil,
+		pColorBlendState = self.colorBlending,
+		pDynamicState = self.dynamicState,
+		layout = self.pipelineLayout,
 		renderPass = renderPass,
 		subpass = 0,
 	}})
 
-	--info[0].basePipelineHandle = {}
-	self.id = vkGet(VkPipeline, vkassert, vk.vkCreateGraphicsPipelines, device, nil, 1, info, nil)
+	--self.info[0].basePipelineHandle = {}
+	self.id = vkGet(VkPipeline, vkassert, vk.vkCreateGraphicsPipelines, device, nil, 1, self.info, nil)
+
+	self.info = nil
+	self.shaderStages = nil
+	self.fragmentShaderModule = nil
+	self.vertexShaderModule = nil
+	self.pipelineLayout = nil
+	self.dynamicState = nil
+	self.dynamicStates = nil
+	self.colorBlending = nil
+	self.colorBlendAttachment = nil
+	self.depthStencil = nil
+	self.multisampling = nil
+	self.rasterizer = nil
+	self.viewportState = nil
+	self.inputAssembly = nil
+	self.vertexInputInfo = nil
+	self.attributeDescriptions = nil
+	self.bindingDescriptions = nil
+	self.bindingDescription = nil
 end
 
 return VulkanGraphicsPipeline 

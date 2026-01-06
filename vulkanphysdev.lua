@@ -99,15 +99,22 @@ function VulkanPhysicalDevice:querySwapChainSupport(physDev, surface)
 	}
 end
 
+local sampleCountBits = {
+	vk.VK_SAMPLE_COUNT_1_BIT,
+	vk.VK_SAMPLE_COUNT_2_BIT,
+	vk.VK_SAMPLE_COUNT_4_BIT,
+	vk.VK_SAMPLE_COUNT_8_BIT,
+	vk.VK_SAMPLE_COUNT_16_BIT,
+	vk.VK_SAMPLE_COUNT_32_BIT,
+	vk.VK_SAMPLE_COUNT_64_BIT,
+}
 function VulkanPhysicalDevice:getMaxUsableSampleCount(...)
 	local props = self.obj:getProps(...)
 	local counts = bit.band(props.limits.framebufferColorSampleCounts, props.limits.framebufferDepthSampleCounts)
-	if 0 ~= bit.band(counts, vk.VK_SAMPLE_COUNT_64_BIT) then return vk.VK_SAMPLE_COUNT_64_BIT end
-	if 0 ~= bit.band(counts, vk.VK_SAMPLE_COUNT_32_BIT) then return vk.VK_SAMPLE_COUNT_32_BIT end
-	if 0 ~= bit.band(counts, vk.VK_SAMPLE_COUNT_16_BIT) then return vk.VK_SAMPLE_COUNT_16_BIT end
-	if 0 ~= bit.band(counts, vk.VK_SAMPLE_COUNT_8_BIT) then return vk.VK_SAMPLE_COUNT_8_BIT end
-	if 0 ~= bit.band(counts, vk.VK_SAMPLE_COUNT_4_BIT) then return vk.VK_SAMPLE_COUNT_4_BIT end
-	if 0 ~= bit.band(counts, vk.VK_SAMPLE_COUNT_2_BIT) then return vk.VK_SAMPLE_COUNT_2_BIT end
+	for i=#sampleCountBits,2,-1 do	-- skip 1. why even store it. why even store in-order and not in reversed-order?
+		local sampleCountBit = sampleCountBits[i]
+		if 0 ~= bit.band(counts, sampleCountBit) then return sampleCountBit end
+	end
 	return vk.VK_SAMPLE_COUNT_1_BIT
 end
 

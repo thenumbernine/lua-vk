@@ -6,6 +6,7 @@ local assertne = require 'ext.assert'.ne
 local sdl = require 'sdl'
 local sdlAssert = require 'sdl.assert'.assert
 local vk = require 'vk'
+local vkGet = require 'vk.util'.vkGet
 local VKInstance = require 'vk.instance'
 
 -- TODO put this in sdl/ffi/sdl3.lua ...
@@ -18,6 +19,7 @@ bool SDL_Vulkan_CreateSurface(
 ]]
 
 
+local VkSurfaceKHR = ffi.typeof'VkSurfaceKHR'
 local VkSurfaceKHR_1 = ffi.typeof'VkSurfaceKHR[1]'
 
 
@@ -28,10 +30,15 @@ function VKSurface:init(args)
 	local instance = assertindex(args, 'instance')
 	if VKInstance:isa(instance) then instance = assertindex(instance, 'id') end
 	self.instance = instance
-	
+
+--[[ check() has the responsibility of passing the args to the function, which sdlAssert doesn't do
+	self.id = vkGet(VkSurfaceKHR, sdlAssert, sdl.SDL_Vulkan_CreateSurface, window, instance, nil)
+--]]
+-- [[
 	local ptr = ffi.new(VkSurfaceKHR_1)
 	sdlAssert(sdl.SDL_Vulkan_CreateSurface(window, instance, nil, ptr), 'SDL_Vulkan_CreateSurface')
 	self.id = ptr[0]
+--]]
 end
 
 function VKSurface:destroy()

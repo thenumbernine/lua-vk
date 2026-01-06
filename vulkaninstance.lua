@@ -21,6 +21,7 @@ local VkApplicationInfo_1 = ffi.typeof'VkApplicationInfo[1]'
 
 
 vk.VK_EXT_DEBUG_UTILS_EXTENSION_NAME = "VK_EXT_debug_utils"
+vk.VK_LAYER_KHRONOS_VALIDATION_NAME = 'VK_LAYER_KHRONOS_validation'
 
 
 -- TODO move to vk?
@@ -61,8 +62,7 @@ function VulkanInstance:init(common)
 
 	self.layerNames = vector(char_const_ptr)
 	if enableValidationLayers then
-		-- will this leak?  static strings are at least forever in memory right?
-		self.layerNames:emplace_back()[0] = 'VK_LAYER_KHRONOS_validation'
+		self.layerNames:emplace_back()[0] = vk.VK_LAYER_KHRONOS_VALIDATION_NAME
 	end
 
 	self.extensions = self:getRequiredExtensions(common)
@@ -75,9 +75,9 @@ function VulkanInstance:init(common)
 		ppEnabledExtensionNames = self.extensions.v,
 	}
 
-	self.info = nil
-	self.layerNames = nil
 	self.extensions = nil
+	self.layerNames = nil
+	self.info = nil
 end
 
 function VulkanInstance:getRequiredExtensions(common)

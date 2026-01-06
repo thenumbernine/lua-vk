@@ -53,22 +53,23 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 	info.presentMode = presentMode
 	info.clipped = vk.VK_TRUE
 	local indices = physDev:findQueueFamilies(nil, surface)
-	local queueFamilyIndices = vector(uint32_t)
+	self.queueFamilyIndices = vector(uint32_t)
 	for index in pairs{
 		[indices.graphicsFamily] = true,
 		[indices.presentFamily] = true,
 	} do
-		queueFamilyIndices:emplace_back()[0] = index
+		self.queueFamilyIndices:emplace_back()[0] = index
 	end
 	if indices.graphicsFamily ~= indices.presentFamily then
 		info.imageSharingMode = vk.VK_SHARING_MODE_CONCURRENT
-		info.queueFamilyIndexCount = #queueFamilyIndices
-		info.pQueueFamilyIndices = queueFamilyIndices.v
+		info.queueFamilyIndexCount = #self.queueFamilyIndices
+		info.pQueueFamilyIndices = self.queueFamilyIndices.v
 	else
 		info.imageSharingMode = vk.VK_SHARING_MODE_EXCLUSIVE
 	end
 	info.device = device
 	self.obj = VKSwapchain(info)
+	self.queueFamilyIndices = nil
 
 	self.images = self.obj:getImages(device)
 
@@ -132,21 +133,30 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 
 	self.framebuffers = vector(VkFramebuffer)
 	for i=0,#self.imageViews-1 do
-_G.attachments = vector(VkImageView, {
+		self.attachments = vector(VkImageView, {
 			self.colorImageView,
 			self.depthImageView,
 			self.imageViews.v[i],
 		})
-_G.info = ffi.new(VkFramebufferCreateInfo_1, {{
+		self.info = ffi.new(VkFramebufferCreateInfo_1, {{
 			sType = vk.VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
 			renderPass = self.renderPass,
-			attachmentCount = #attachments,
-			pAttachments = attachments.v,
+			attachmentCount = #self.attachments,
+			pAttachments = self.attachments.v,
 			width = width,
 			height = height,
 			layers = 1,
 		}})
-		self.framebuffers:push_back(vkGet(VkFramebuffer, vkassert, vk.vkCreateFramebuffer, device.id, _G.info, nil))
+		self.framebuffers:push_back(vkGet(
+			VkFramebuffer,
+			vkassert,
+			vk.vkCreateFramebuffer,
+			device.id,
+			self.info,
+			nil
+		))
+		self.info = nil
+		self.attachments = nil
 	end
 end
 
@@ -185,29 +195,25 @@ function VulkanSwapchain:chooseSwapPresentMode(availablePresentModes)
 end
 
 function VulkanSwapchain:createImageView(device, image, format, aspectFlags, mipLevels)
-	return vkGet(
-		VkImageView,
-		vkassert,
-		vk.vkCreateImageView,
-		device,
-		ffi.new(VkImageViewCreateInfo_1, {{
-			sType = vk.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-			image = image,
-			viewType = vk.VK_IMAGE_VIEW_TYPE_2D,
-			format = format,
-			subresourceRange = {
-				aspectMask = aspectFlags,
-				levelCount = mipLevels,
-				layerCount = 1,
-			},
-		}}),
-		nil
-	)
+	self.info = ffi.new(VkImageViewCreateInfo_1, {{
+		sType = vk.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+		image = image,
+		viewType = vk.VK_IMAGE_VIEW_TYPE_2D,
+		format = format,
+		subresourceRange = {
+			aspectMask = aspectFlags,
+			levelCount = mipLevels,
+			layerCount = 1,
+		},
+	}})
+	local result = vkGet(VkImageView, vkassert, vk.vkCreateImageView, device, self.info, nil)
+	self.info = nil
+	return result
 end
 
 function VulkanSwapchain:createRenderPass(physDev, device, swapChainImageFormat, msaaSamples)
 	-- need to keep these from gc'ing until the function is through ...
-_G.attachments = vector(VkAttachmentDescription, {
+	self.attachments = vector(VkAttachmentDescription, {
 		{-- colorAttachment
 			format = swapChainImageFormat,
 			samples = msaaSamples,
@@ -240,28 +246,28 @@ _G.attachments = vector(VkAttachmentDescription, {
 		},
 	})
 
-_G.colorAttachmentRef = ffi.new(VkAttachmentReference_1, {{
+	self.colorAttachmentRef = ffi.new(VkAttachmentReference_1, {{
 		attachment = 0,
 		layout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 	}})
-_G.depthAttachmentRef = ffi.new(VkAttachmentReference_1, {{
+	self.depthAttachmentRef = ffi.new(VkAttachmentReference_1, {{
 		attachment = 1,
 		layout = vk.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 	}})
-_G.colorAttachmentResolveRef = ffi.new(VkAttachmentReference_1, {{
+	self.colorAttachmentResolveRef = ffi.new(VkAttachmentReference_1, {{
 		attachment = 2,
 		layout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 	}})
 
-_G.subpasses = vector(VkSubpassDescription, {{
+	self.subpasses = vector(VkSubpassDescription, {{
 		pipelineBindPoint = vk.VK_PIPELINE_BIND_POINT_GRAPHICS,
 		colorAttachmentCount = 1,
-		pColorAttachments = colorAttachmentRef,
-		pResolveAttachments = colorAttachmentResolveRef,
-		pDepthStencilAttachment = depthAttachmentRef,
+		pColorAttachments = self.colorAttachmentRef,
+		pResolveAttachments = self.colorAttachmentResolveRef,
+		pDepthStencilAttachment = self.depthAttachmentRef,
 	}})
 
-_G.dependencies = vector(VkSubpassDependency, {{
+	self.dependencies = vector(VkSubpassDependency, {{
 		srcSubpass = vk.VK_SUBPASS_EXTERNAL,
 		dstSubpass = 0,
 		srcStageMask = bit.bor(
@@ -279,17 +285,27 @@ _G.dependencies = vector(VkSubpassDependency, {{
 		),
 	}})
 
-_G.info = ffi.new(VkRenderPassCreateInfo_1, {{
+	self.info = ffi.new(VkRenderPassCreateInfo_1, {{
 		sType = vk.VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-		attachmentCount = #attachments,
-		pAttachments = attachments.v,
-		subpassCount = #subpasses,
-		pSubpasses = subpasses.v,
-		dependencyCount = #dependencies,
-		pDependencies = dependencies.v,
+		attachmentCount = #self.attachments,
+		pAttachments = self.attachments.v,
+		subpassCount = #self.subpasses,
+		pSubpasses = self.subpasses.v,
+		dependencyCount = #self.dependencies,
+		pDependencies = self.dependencies.v,
 	}})
 
-	return vkGet(VkRenderPass, vkassert, vk.vkCreateRenderPass, device, info, nil)
+	local result = vkGet(VkRenderPass, vkassert, vk.vkCreateRenderPass, device, self.info, nil)
+
+	self.info = nil
+	self.dependencies = nil
+	self.subpasses = nil
+	self.colorAttachmentResolveRef = nil
+	self.depthAttachmentRef = nil
+	self.colorAttachmentRef = nil
+	self.attachments = nil
+
+	return result
 end
 
 return VulkanSwapchain

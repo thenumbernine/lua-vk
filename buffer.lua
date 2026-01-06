@@ -11,15 +11,16 @@ local vk = require 'vk'
 local VKDevice = require 'vk.device'
 
 local vkassert = require 'vk.util'.vkassert
+local vkGet = require 'vk.util'.vkGet
 local vkGetVector = require 'vk.util'.vkGetVector
 
 
-local VkBuffer_1 = ffi.typeof'VkBuffer[1]'
+local VkBuffer = ffi.typeof'VkBuffer'
 
 
 local VKBuffer = class()
 
-VKBuffer.createType = 'VkBufferCreateInfo'
+VKBuffer.createType = ffi.typeof'VkBufferCreateInfo'
 require 'vk.util'.addInitFromArgs(VKBuffer)
 
 function VKBuffer:init(args)
@@ -28,10 +29,9 @@ function VKBuffer:init(args)
 	
 	self.device = device
 
-	local info = self:initFromArgs(args)
-	local ptr = ffi.new(VkBuffer_1)
-	vkassert(vk.vkCreateBuffer, device, info, nil, ptr)
-	self.id = ptr[0]
+	self.info = self:initFromArgs(args)
+	self.id = vkGet(VkBuffer, vkassert, vk.vkCreateBuffer, device, self.info, nil)
+	self.info = nil
 end
 
 function VKBuffer:destroy()

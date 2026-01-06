@@ -38,7 +38,9 @@ return function(args)
 	if create then
 		assert(cl.createType)
 		function cl:init(args)
-			self.id = vkGet(ctype, vkassert, create, self:initFromArgs(args), nil)
+			self.createInfo = self:initFromArgs(args)
+			self.id = vkGet(ctype, vkassert, create, self.createInfo, nil)
+			self.createInfo = nil
 		end
 	end
 

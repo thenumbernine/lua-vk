@@ -23,36 +23,27 @@ function VulkanDeviceMemoryFromStagingBuffer:create(physDev, device, srcData, bu
 		sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE,
 	}
 
-	local memReq = vkGet(
-		VkMemoryRequirements,
-		nil,
-		vk.vkGetBufferMemoryRequirements,
-		device,
-		buffer.id
-	)
+	self.memReq = vkGet(VkMemoryRequirements, nil, vk.vkGetBufferMemoryRequirements, device, buffer.id)
 
-	local memory = vkGet(
-		VkDeviceMemory,
-		vkassert,
-		vk.vkAllocateMemory,
-		device,
-		ffi.new(VkMemoryAllocateInfo_1, {{
-			allocationSize = memReq.size,
-			memoryTypeIndex = physDev:findMemoryType(
-				memReq.memoryTypeBits,
-				bit.bor(
-					vk.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-					vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-				)
-			),
-		}}),
-		nil
-	)
+	self.info = ffi.new(VkMemoryAllocateInfo_1, {{
+		allocationSize = self.memReq.size,
+		memoryTypeIndex = physDev:findMemoryType(
+			self.memReq.memoryTypeBits,
+			bit.bor(
+				vk.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+				vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+			)
+		),
+	}})
+	local memory = vkGet(VkDeviceMemory, vkassert, vk.vkAllocateMemory, device, self.info, nil)
+	self.info = nil
+	self.memReq = nil
 
 	vkassert(vk.vkBindBufferMemory, device, buffer.id, memory, 0)
 
-	local dstData = vkGet(void_ptr, vkassert, vk.vkMapMemory, device, memory, 0, bufferSize, 0)
-	ffi.copy(dstData, srcData, bufferSize)
+	self.dstData = vkGet(void_ptr, vkassert, vk.vkMapMemory, device, memory, 0, bufferSize, 0)
+	ffi.copy(self.dstData, srcData, bufferSize)
+	self.dstData = nil
 
 	vk.vkUnmapMemory(device, memory)
 

@@ -18,40 +18,46 @@ local VkPhysicalDeviceFeatures_1 = ffi.typeof'VkPhysicalDeviceFeatures[1]'
 local VulkanDevice = class()
 
 function VulkanDevice:init(physDev, deviceExtensions, enableValidationLayers, indices)
-	local queuePriorities = vector(float)
-	queuePriorities:emplace_back()[0] = 1
-	local queueCreateInfos = vector(VkDeviceQueueCreateInfo)
+	self.queuePriorities = vector(float, {1})
+	self.queueCreateInfos = vector(VkDeviceQueueCreateInfo)
 	for queueFamily in pairs{
 		[indices.graphicsFamily] = true,
 		[indices.presentFamily] = true,
 	} do
-		local info = queueCreateInfos:emplace_back()
-		info[0].sType = vk.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO
-		info[0].queueFamilyIndex = queueFamily
-		info[0].queueCount = #queuePriorities
-		info[0].pQueuePriorities = queuePriorities.v
+		self.queueCreateInfos:emplace_back()[0] = VkDeviceQueueCreateInfo{
+			sType = vk.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+			queueFamilyIndex = queueFamily,
+			queueCount = #self.queuePriorities,
+			pQueuePriorities = self.queuePriorities.v,
+		}
 	end
 
-	local deviceFeatures = ffi.new(VkPhysicalDeviceFeatures_1)
-	deviceFeatures[0].samplerAnisotropy = vk.VK_TRUE
+	self.deviceFeatures = ffi.new(VkPhysicalDeviceFeatures_1, {{
+		samplerAnisotropy = vk.VK_TRUE,
+	}})
 
-	local thisValidationLayers = vector(char_const_ptr)
+	self.thisValidationLayers = vector(char_const_ptr)
 	if enableValidationLayers then
-		thisValidationLayers.emplace_back()[0] = validationLayer	-- TODO vector copy?
+		self.thisValidationLayers.emplace_back()[0] = vk.validationLayer
 	end
 
 	self.obj = VKDevice{
 		-- create extra args:
 		physDev = physDev,
 		-- info args:
-		queueCreateInfoCount = #queueCreateInfos,
-		pQueueCreateInfos = queueCreateInfos.v,
-		enabledLayerCount = #thisValidationLayers,
-		ppEnabledLayerNames = thisValidationLayers.v,
+		queueCreateInfoCount = #self.queueCreateInfos,
+		pQueueCreateInfos = self.queueCreateInfos.v,
+		enabledLayerCount = #self.thisValidationLayers,
+		ppEnabledLayerNames = self.thisValidationLayers.v,
 		enabledExtensionCount = #deviceExtensions,
 		ppEnabledExtensionNames = deviceExtensions.v,
-		pEnabledFeatures = deviceFeatures,
+		pEnabledFeatures = self.deviceFeatures,
 	}
+	
+	self.thisValidationLayers = nil
+	self.deviceFeatures = nil
+	self.queueCreateInfos = nil
+	self.queuePriorities = nil
 end
 
 return VulkanDevice
