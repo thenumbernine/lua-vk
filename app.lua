@@ -20,9 +20,8 @@ function VulkanApp:initWindow()
 print('VulkanApp:initWindow done')
 end
 
-function VulkanApp:postUpdate()
+function VulkanApp:update()
 	self.vkCommon:drawFrame()
-	VulkanApp.super.postUpdate(self)
 end
 
 function VulkanCommon:resize()

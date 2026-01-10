@@ -56,7 +56,7 @@ function VKPhysDev:getSurfaceSupport(index, surface)
 	return 0 ~= vkGet(VkBool32, vkassert, vk.vkGetPhysicalDeviceSurfaceSupportKHR, self.id, index, surface)
 	--]]
 	--[[ debugging
-	local result = ffi.new'VkBool32[1]'
+	local result = VkBool32_1()
 	vk.vkGetPhysicalDeviceSurfaceSupportKHR(self.id, index, surface, result)
 	print('vkGetPhysicalDeviceSurfaceSupportKHR(', self.id, index, surface,') result', result[0])
 	return result[0] ~= 0

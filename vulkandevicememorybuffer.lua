@@ -25,10 +25,9 @@ function VulkanDeviceMemoryBuffer:init(physDev, device, size, usage, properties)
 
 	local memReq = vkGet(VkMemoryRequirements, nil, vk.vkGetBufferMemoryRequirements, device, self.buffer.id)
 
-	self.info = ffi.new(VkMemoryAllocateInfo_1, {{
-		allocationSize = memReq.size,
-		memoryTypeIndex = physDev:findMemoryType(memReq.memoryTypeBits, properties),
-	}})
+	self.info = VkMemoryAllocateInfo_1()
+	self.info[0].allocationSize = memReq.size
+	self.info[0].memoryTypeIndex = physDev:findMemoryType(memReq.memoryTypeBits, properties)
 	self.memory = vkGet(VkDeviceMemory, vkassert, vk.vkAllocateMemory, device, self.info, nil)
 	self.info = nil
 
@@ -48,8 +47,10 @@ function VulkanDeviceMemoryBuffer:makeBufferFromStaged(physDev, device, commandP
 		physDev,
 		device,
 		bufferSize,
-		bit.bor(vk.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-			vk.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT),
+		bit.bor(
+			vk.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			vk.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
+		),
 		vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	)
 

@@ -25,16 +25,15 @@ function VulkanDeviceMemoryFromStagingBuffer:create(physDev, device, srcData, bu
 
 	self.memReq = vkGet(VkMemoryRequirements, nil, vk.vkGetBufferMemoryRequirements, device, buffer.id)
 
-	self.info = ffi.new(VkMemoryAllocateInfo_1, {{
-		allocationSize = self.memReq.size,
-		memoryTypeIndex = physDev:findMemoryType(
-			self.memReq.memoryTypeBits,
-			bit.bor(
-				vk.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-				vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-			)
-		),
-	}})
+	self.info = VkMemoryAllocateInfo_1()
+	self.info[0].allocationSize = self.memReq.size
+	self.info[0].memoryTypeIndex = physDev:findMemoryType(
+		self.memReq.memoryTypeBits,
+		bit.bor(
+			vk.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+			vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+		)
+	)
 	local memory = vkGet(VkDeviceMemory, vkassert, vk.vkAllocateMemory, device, self.info, nil)
 	self.info = nil
 	self.memReq = nil

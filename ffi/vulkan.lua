@@ -10654,6 +10654,7 @@ void vkCmdDrawMeshTasksIndirectCountEXT( VkCommandBuffer commandBuffer, VkBuffer
 ]]
 
 local lib = require 'ffi.load' 'vulkan'
+--[[
 return setmetatable({
 	VK_PIPELINE_STAGE_2_NONE = ffi.new('VkPipelineStageFlagBits2', 0),
 	VK_PIPELINE_STAGE_2_NONE_KHR = ffi.new('VkPipelineStageFlagBits2', 0),
@@ -10926,3 +10927,5 @@ return setmetatable({
 	VK_PHYSICAL_DEVICE_SCHEDULING_CONTROLS_SHADER_CORE_COUNT_ARM = ffi.new('VkPhysicalDeviceSchedulingControlsFlagBitsARM', 0x00000001),
 	VK_MEMORY_DECOMPRESSION_METHOD_GDEFLATE_1_0_BIT_NV = ffi.new('VkMemoryDecompressionMethodFlagBitsNV', 0x00000001),
 }, {__index=lib})
+--]]
+return lib

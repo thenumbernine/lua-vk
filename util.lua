@@ -27,7 +27,7 @@ end
 local function vkGet(ctype, check, f, ...)
 	ctype = ffi.typeof(ctype)
 	local resultType = ffi.typeof('$[1]', ctype)
-	local result = ffi.new(resultType)
+	local result = resultType()
 _G.vkGetRetain = result
 	if check then
 		check(f, addlast(result, ...))
@@ -38,7 +38,7 @@ _G.vkGetRetain = result
 end
 
 local function vkGetVector(ctype, check, f, ...)
-	local count = ffi.new(uint32_t_1)
+	local count = uint32_t_1()
 _G.vkGetVectorRetainCount = count
 	if check then
 		check(f, addlast(nil, addlast(count, ...)))
@@ -97,7 +97,7 @@ local function addInitFromArgs(cl)
 			return args
 		else
 			args.sType = sType
-			self.initArgs = ffi.new(infoType, {args})
+			self.initArgs = infoType{args}
 			return self.initArgs
 		end
 	end

@@ -13,9 +13,9 @@ local VkVertexInputBindingDescription = ffi.typeof'VkVertexInputBindingDescripti
 local VkVertexInputAttributeDescription = ffi.typeof'VkVertexInputAttributeDescription'
 local struct = require 'struct'
 local vec3f = require 'vec-ffi.vec3f'
-local Vertex
-Vertex = struct{
-	name = 'Vertex',
+local VulkanVertex
+VulkanVertex = struct{
+	name = 'VulkanVertex',
 	fields = {
 		{name = 'pos', type = 'vec3f_t'},
 		{name = 'color', type = 'vec3f_t'},
@@ -25,7 +25,7 @@ Vertex = struct{
 		mt.getBindingDescription = function()
 			local result = ffi.new(VkVertexInputBindingDescription, {
 				binding = 0,
-				stride = ffi.sizeof(Vertex),
+				stride = ffi.sizeof(VulkanVertex),
 				inputRate = vk.VK_VERTEX_INPUT_RATE_VERTEX,
 			})
 _G.VertexRetainBiningDescription = result			
@@ -38,19 +38,19 @@ _G.VertexRetainBiningDescription = result
 					location = 0,
 					binding = 0,
 					format = vk.VK_FORMAT_R32G32B32_SFLOAT,
-					offset = ffi.offsetof(Vertex, 'pos'),
+					offset = ffi.offsetof(VulkanVertex, 'pos'),
 				},
 				{
 					location = 1,
 					binding = 0,
 					format = vk.VK_FORMAT_R32G32B32_SFLOAT,
-					offset = ffi.offsetof(Vertex, 'color'),
+					offset = ffi.offsetof(VulkanVertex, 'color'),
 				},
 				{
 					location = 2,
 					binding = 0,
 					format = vk.VK_FORMAT_R32G32B32_SFLOAT,
-					offset = ffi.offsetof(Vertex, 'texCoord'),
+					offset = ffi.offsetof(VulkanVertex, 'texCoord'),
 				},
 			})
 _G.VertexRetainAttributeDescriptions = result			
@@ -61,15 +61,15 @@ _G.VertexRetainAttributeDescriptions = result
 
 
 local VulkanMesh = class()
-VulkanMesh.Vertex = Vertex
+VulkanMesh.VulkanVertex = VulkanVertex
 
 function VulkanMesh:init(physDev, device, commandPool)
 	self.mesh = ObjLoader():load"viking_room.obj";
 
 	self.indices = self.mesh.triIndexes	-- vector'int32_t'
 	asserteq(self.indices.type, ffi.typeof'int32_t') 	-- well, uint, but whatever
-	-- copy from MeshVertex_t to Vertex ... TODO why bother ...
-	self.vertices = vector(Vertex)
+	-- copy from MeshVertex_t to VulkanVertex ... TODO why bother ...
+	self.vertices = vector(VulkanVertex)
 	self.vertices:resize(#self.mesh.vtxs)
 	for i=0,#self.mesh.vtxs-1 do
 		local srcv = self.mesh.vtxs.v[i]

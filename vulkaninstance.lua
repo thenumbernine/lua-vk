@@ -4,6 +4,7 @@ local class = require 'ext.class'
 local assertne = require 'ext.assert'.ne
 local vector = require 'ffi.cpp.vector-lua'
 local vk = require 'vk'
+local defs = require 'vk.defs'
 local vkassert = require 'vk.util'.vkassert
 local vkGetVector = require 'vk.util'.vkGetVector
 local VKInstance = require 'vk.instance'
@@ -20,10 +21,6 @@ local VkLayerProperties = ffi.typeof'VkLayerProperties'
 local VkApplicationInfo_1 = ffi.typeof'VkApplicationInfo[1]'
 
 
-vk.VK_EXT_DEBUG_UTILS_EXTENSION_NAME = "VK_EXT_debug_utils"
-vk.VK_LAYER_KHRONOS_VALIDATION_NAME = 'VK_LAYER_KHRONOS_validation'
-
-
 -- TODO move to vk?
 local function VK_MAKE_VERSION(major, minor, patch)
 	return bit.bor(bit.lshift(major, 22), bit.lshift(minor, 12), patch)
@@ -33,6 +30,9 @@ local function VK_MAKE_API_VERSION(variant, major, minor, patch)
 end
 -- but why not just use bitfields? meh
 local VK_API_VERISON_1_0 = VK_MAKE_API_VERSION(0, 1, 0, 0)
+
+
+defs.engineName ="No Engine"
 
 
 local VulkanInstance = class()
@@ -51,18 +51,17 @@ function VulkanInstance:init(common)
 	end
 
 	-- how to prevent gc until a variable is done?
-	self.info = ffi.new(VkApplicationInfo_1, {{
-		sType = vk.VK_STRUCTURE_TYPE_APPLICATION_INFO,
-		pApplicationName = app.title,
-		applicationVersion = VK_MAKE_API_VERSION(0, 1, 0, 0),
-		pEngineName = "No Engine",
-		engineVersion = VK_MAKE_API_VERSION(0, 1, 0, 0),
-		apiVersion = VK_API_VERISON_1_0,
-	}})
+	self.info = VkApplicationInfo_1()
+	self.info[0].sType = vk.VK_STRUCTURE_TYPE_APPLICATION_INFO
+	self.info[0].pApplicationName = app.title
+	self.info[0].applicationVersion = VK_MAKE_API_VERSION(0, 1, 0, 0)
+	self.info[0].pEngineName = defs.engineName
+	self.info[0].engineVersion = VK_MAKE_API_VERSION(0, 1, 0, 0)
+	self.info[0].apiVersion = VK_API_VERISON_1_0
 
 	self.layerNames = vector(char_const_ptr)
 	if enableValidationLayers then
-		self.layerNames:emplace_back()[0] = vk.VK_LAYER_KHRONOS_VALIDATION_NAME
+		self.layerNames:emplace_back()[0] = defs.VK_LAYER_KHRONOS_VALIDATION_NAME
 	end
 
 	self.extensions = self:getRequiredExtensions(common)
@@ -94,7 +93,7 @@ function VulkanInstance:getRequiredExtensions(common)
 	-- [[ SDL3
 	local extensions = vector(char_const_ptr)
 	do
-		local count = ffi.new(uint32_t_1)
+		local count = uint32_t_1()
 		local extstrs = assertne(sdl.SDL_Vulkan_GetInstanceExtensions(count), ffi.null)
 		for i=0,count[0]-1 do
 			extensions:push_back(extstrs[i])
@@ -108,10 +107,10 @@ function VulkanInstance:getRequiredExtensions(common)
 	end
 
 	if enableValidationLayers then
-		extensions:emplace_back()[0] = vk.VK_EXT_DEBUG_UTILS_EXTENSION_NAME
+		extensions:emplace_back()[0] = defs.VK_EXT_DEBUG_UTILS_EXTENSION_NAME
 	end
 
 	return extensions
 end
 
-return VulkanInstance 
+return VulkanInstance

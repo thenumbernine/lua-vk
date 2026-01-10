@@ -28,32 +28,28 @@ function VulkanDeviceMemoryImage:createImage(
 	usage,
 	properties
 )
-	self.info = ffi.new(VkImageCreateInfo_1, {{
-		sType = vk.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-		imageType = vk.VK_IMAGE_TYPE_2D,
-		format = format,
-		extent = {
-			width = width,
-			height = height,
-			depth = 1,
-		},
-		mipLevels = mipLevels,
-		arrayLayers = 1,
-		samples = numSamples,
-		tiling = tiling,
-		usage = usage,
-		sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE,
-		initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED,
-	}})
+	self.info = VkImageCreateInfo_1()
+	self.info[0].sType = vk.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO
+	self.info[0].imageType = vk.VK_IMAGE_TYPE_2D
+	self.info[0].format = format
+	self.info[0].extent.width = width
+	self.info[0].extent.height = height
+	self.info[0].extent.depth = 1
+	self.info[0].mipLevels = mipLevels
+	self.info[0].arrayLayers = 1
+	self.info[0].samples = numSamples
+	self.info[0].tiling = tiling
+	self.info[0].usage = usage
+	self.info[0].sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE
+	self.info[0].initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED
 	local image = vkGet(VkImage, vkassert, vk.vkCreateImage, device, self.info, nil)
 	self.info = nil
 
 	self.memReq = vkGet(VkMemoryRequirements, nil, vk.vkGetImageMemoryRequirements, device, image)
-	self.info = ffi.new(VkMemoryAllocateInfo_1, {{
-		sType = vk.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-		allocationSize = self.memReq.size,
-		memoryTypeIndex = physDev:findMemoryType(self.memReq.memoryTypeBits, properties),
-	}})
+	self.info = VkMemoryAllocateInfo_1()
+	self.info[0].sType = vk.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO
+	self.info[0].allocationSize = self.memReq.size
+	self.info[0].memoryTypeIndex = physDev:findMemoryType(self.memReq.memoryTypeBits, properties)
 	local imageMemory = vkGet(
 		VkDeviceMemory,
 		vkassert,

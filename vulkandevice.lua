@@ -3,14 +3,12 @@ local ffi = require 'ffi'
 local class = require 'ext.class'
 local vector = require 'ffi.cpp.vector-lua'
 local vk = require 'vk'
+local defs = require 'vk.defs'
 local VKDevice = require 'vk.device'
 
 
-vk.validationLayer = 'VK_LAYER_KHRONOS_validation'	-- TODO vector?
-
-
 local char_const_ptr = ffi.typeof'char const *'
-local float = ffi.typeof'float'
+local float_1 = ffi.typeof'float[1]'
 local VkDeviceQueueCreateInfo = ffi.typeof'VkDeviceQueueCreateInfo'
 local VkPhysicalDeviceFeatures_1 = ffi.typeof'VkPhysicalDeviceFeatures[1]'
 
@@ -18,7 +16,8 @@ local VkPhysicalDeviceFeatures_1 = ffi.typeof'VkPhysicalDeviceFeatures[1]'
 local VulkanDevice = class()
 
 function VulkanDevice:init(physDev, deviceExtensions, enableValidationLayers, indices)
-	self.queuePriorities = vector(float, {1})
+	self.queuePriorities = float_1()
+	self.queuePriorities[0] = 1
 	self.queueCreateInfos = vector(VkDeviceQueueCreateInfo)
 	for queueFamily in pairs{
 		[indices.graphicsFamily] = true,
@@ -27,18 +26,17 @@ function VulkanDevice:init(physDev, deviceExtensions, enableValidationLayers, in
 		self.queueCreateInfos:emplace_back()[0] = VkDeviceQueueCreateInfo{
 			sType = vk.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
 			queueFamilyIndex = queueFamily,
-			queueCount = #self.queuePriorities,
-			pQueuePriorities = self.queuePriorities.v,
+			queueCount = 1,
+			pQueuePriorities = self.queuePriorities,
 		}
 	end
 
-	self.deviceFeatures = ffi.new(VkPhysicalDeviceFeatures_1, {{
-		samplerAnisotropy = vk.VK_TRUE,
-	}})
+	self.deviceFeatures = VkPhysicalDeviceFeatures_1()
+	self.deviceFeatures[0].samplerAnisotropy = vk.VK_TRUE
 
 	self.thisValidationLayers = vector(char_const_ptr)
 	if enableValidationLayers then
-		self.thisValidationLayers.emplace_back()[0] = vk.validationLayer
+		self.thisValidationLayers.emplace_back()[0] = defs.validationLayer
 	end
 
 	self.obj = VKDevice{

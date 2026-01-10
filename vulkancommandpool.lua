@@ -1,6 +1,7 @@
 -- helper
 local ffi = require 'ffi'
 local class = require 'ext.class'
+local assert = require 'ext.assert'
 local vk = require 'vk'
 local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
@@ -19,11 +20,10 @@ local VulkanCommandPool = class()
 function VulkanCommandPool:init(common, physDev, device, surface)
 	local queueFamilyIndices = physDev:findQueueFamilies(nil, surface)
 
-	self.info = ffi.new(VkCommandPoolCreateInfo_1, {{
-		sType = vk.VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-		flags = vk.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-		queueFamilyIndex = queueFamilyIndices.graphicsFamily,
-	}})
+	self.info = VkCommandPoolCreateInfo_1()
+	self.info[0].sType = vk.VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO
+	self.info[0].flags = vk.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT
+	self.info[0].queueFamilyIndex = assert.index(queueFamilyIndices, 'graphicsFamily')
 	self.id = vkGet(VkCommandPool, vkassert, vk.vkCreateCommandPool, device.obj.id, self.info, nil)
 	self.info = nil
 
@@ -37,18 +37,15 @@ function VulkanCommandPool:transitionImageLayout(image, oldLayout, newLayout, mi
 		self.graphicsQueue.id,
 		self.id,
 		function(commandBuffer)
-			self.barrier = ffi.new(VkImageMemoryBarrier_1, {{
-				oldLayout = oldLayout,
-				newLayout = newLayout,
-				srcQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED,
-				dstQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED,
-				image = image,
-				subresourceRange = {
-					aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT,
-					levelCount = mipLevels,
-					layerCount = 1,
-				},
-			}})
+			self.barrier = VkImageMemoryBarrier_1()
+			self.barrier[0].oldLayout = oldLayout
+			self.barrier[0].newLayout = newLayout
+			self.barrier[0].srcQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED
+			self.barrier[0].dstQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED
+			self.barrier[0].image = image
+			self.barrier[0].subresourceRange.aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT
+			self.barrier[0].subresourceRange.levelCount = mipLevels
+			self.barrier[0].subresourceRange.layerCount = 1
 
 			local srcStage, dstStage
 			if oldLayout == vk.VK_IMAGE_LAYOUT_UNDEFINED
@@ -79,7 +76,7 @@ function VulkanCommandPool:transitionImageLayout(image, oldLayout, newLayout, mi
 				0,              -- bufferMemoryBarrierCount
 				nil,            -- pBufferMemoryBarriers
 				1,              -- imageMemoryBarrierCount
-				self.barrier         -- pImageMemoryBarriers
+				self.barrier+0	-- pImageMemoryBarriers
 			)
 
 			self.barrier = nil
@@ -93,7 +90,7 @@ function VulkanCommandPool:copyBuffer(srcBuffer, dstBuffer, size)
 		self.graphicsQueue.id,
 		self.id,
 		function(commandBuffer)
-			self.regions = ffi.new(VkBufferCopy_1)
+			self.regions = VkBufferCopy_1()
 			self.regions[0].size = size
 			vk.vkCmdCopyBuffer(
 				commandBuffer,
@@ -113,17 +110,12 @@ function VulkanCommandPool:copyBufferToImage(buffer, image, width, height)
 		self.graphicsQueue.id,
 		self.id,
 		function(commandBuffer)
-			self.regions = ffi.new(VkBufferImageCopy_1, {{
-				imageSubresource = {
-					aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT,
-					layerCount = 1,
-				},
-				imageExtent = {
-					width = width,
-					height = height,
-					depth = 1,
-				},
-			}})
+			self.regions = VkBufferImageCopy_1()
+			self.regions[0].imageSubresource.aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT
+			self.regions[0].imageSubresource.layerCount = 1
+			self.regions[0].imageExtent.width = width
+			self.regions[0].imageExtent.height = height
+			self.regions[0].imageExtent.depth = 1
 			vk.vkCmdCopyBufferToImage(
 				commandBuffer,
 				buffer.id,
