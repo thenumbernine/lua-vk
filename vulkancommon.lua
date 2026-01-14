@@ -814,10 +814,12 @@ function VulkanCommon:exit()
 		if self.commandBuffers then
 			vk.vkFreeCommandBuffers(device_id, self.commandPool.id, self.maxFramesInFlight, self.commandBuffers)
 		end
-		-- doesn't like freeing this ...
+
+		-- gives "descriptorPool must have been created with the VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT flag"
 		if self.descriptorSets then
---			vk.vkFreeDescriptorSets(device_id, self.desciptorPool, self.maxFramesInFlight, self.descriptorSets)
+--			vk.vkFreeDescriptorSets(device_id, self.descriptorPool, self.maxFramesInFlight, self.descriptorSets)
 		end
+
 		if self.layouts then
 			for i=0,self.maxFramesInFlight-1 do
 				vk.vkDestroyDescriptorSetLayout(device_id, self.layouts[i], nil)
