@@ -48,7 +48,7 @@ local VkSampler = ffi.typeof'VkSampler'
 local VkSamplerCreateInfo_1 = ffi.typeof'VkSamplerCreateInfo[1]'
 local VkDescriptorPoolCreateInfo_1 = ffi.typeof'VkDescriptorPoolCreateInfo[1]'
 local VkCommandBufferAllocateInfo_1 = ffi.typeof'VkCommandBufferAllocateInfo[1]'
-local VkSemaphoreCreateInfo_1 = ffi.typeof'VkSemaphoreCreateInfo[1]'
+local VkSemaphoreCreateInfo = ffi.typeof'VkSemaphoreCreateInfo'
 local VkFenceCreateInfo_1 = ffi.typeof'VkFenceCreateInfo[1]'
 local VkImageMemoryBarrier_1 = ffi.typeof'VkImageMemoryBarrier[1]'
 local VkImageBlit_1 = ffi.typeof'VkImageBlit[1]'
@@ -209,8 +209,8 @@ print('msaaSamples', self.msaaSamples)
 
 	self.imageAvailableSemaphores = ffi.new(ffi.typeof('$[?]', VkSemaphore), self.maxFramesInFlight)
 	for i=0,self.maxFramesInFlight-1 do
-		self.info = VkSemaphoreCreateInfo_1()
-		self.info[0].sType = vk.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
+		self.info = VkSemaphoreCreateInfo()
+		self.info.sType = vk.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
 		self.imageAvailableSemaphores[i] = vkGet(
 			VkSemaphore,
 			vkassert,
@@ -224,8 +224,8 @@ print('msaaSamples', self.msaaSamples)
 
 	self.renderFinishedSemaphores = ffi.new(ffi.typeof('$[?]', VkSemaphore), self.maxFramesInFlight)
 	for i=0,self.maxFramesInFlight-1 do
-		self.info = VkSemaphoreCreateInfo_1()
-		self.info[0].sType = vk.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
+		self.info = VkSemaphoreCreateInfo()
+		self.info.sType = vk.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
 		self.renderFinishedSemaphores[i] = vkGet(
 			VkSemaphore,
 			vkassert,
@@ -511,7 +511,7 @@ function VulkanCommon:drawFrame()
 	self.info[0].timeout = ffi.cast(uint64_t, -1)
 	self.info[0].semaphore = self.imageAvailableSemaphores[self.currentFrame]
 	self.info[0].fence = nil
-	self.info[0].deviceMask = 0
+	self.info[0].deviceMask = 1
 	local result = vk.vkAcquireNextImage2KHR(assert(self.device.obj.id), self.info, self.imageIndex)
 	self.info = nil
 	if result == vk.VK_ERROR_OUT_OF_DATE_KHR then
@@ -614,15 +614,16 @@ function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 	vkassert(vk.vkBeginCommandBuffer, commandBuffer, self.info)
 	self.info = nil
 
-	self.clearValues = vector(VkClearValue)
-	local c = self.clearValues:emplace_back()
-	c[0].color.float32[0] = 0
-	c[0].color.float32[1] = 0
-	c[0].color.float32[2] = 0
-	c[0].color.float32[3] = 1
-	local c = self.clearValues:emplace_back()
-	c[0].depthStencil.depth = 1
-	c[0].depthStencil.stencil = 0
+	local numClearValues = 2
+	self.clearValues = ffi.new(ffi.typeof('$[?]', VkClearValue), numClearValues)
+	local c = self.clearValues+0
+	c.color.float32[0] = 0
+	c.color.float32[1] = 0
+	c.color.float32[2] = 0
+	c.color.float32[3] = 1
+	local c = self.clearValues+1
+	c.depthStencil.depth = 1
+	c.depthStencil.stencil = 0
 
 	self.info = VkRenderPassBeginInfo_1()
 	self.info[0].sType = vk.VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO
@@ -630,8 +631,8 @@ function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 	self.info[0].framebuffer = self.swapchain.framebuffers.v[imageIndex]
 	self.info[0].renderArea.extent.width = self.swapchain.extent.width
 	self.info[0].renderArea.extent.height = self.swapchain.extent.height
-	self.info[0].clearValueCount = #self.clearValues
-	self.info[0].pClearValues = self.clearValues.v
+	self.info[0].clearValueCount = numClearValues
+	self.info[0].pClearValues = self.clearValues
 	vk.vkCmdBeginRenderPass(
 		commandBuffer,
 		self.info,

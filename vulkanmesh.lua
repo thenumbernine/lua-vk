@@ -84,7 +84,11 @@ function VulkanMesh:init(physDev, device, commandPool)
 		device.obj.id,
 		commandPool,
 		self.vertices.v,
-		#self.vertices * ffi.sizeof(self.vertices.type)
+		#self.vertices * ffi.sizeof(self.vertices.type),
+		bit.bor(
+			vk.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			vk.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
+		)
 	)
 
 	self.numIndices = #self.indices
@@ -93,7 +97,11 @@ function VulkanMesh:init(physDev, device, commandPool)
 		device.obj.id,
 		commandPool,
 		self.indices.v,
-		#self.indices * ffi.sizeof(self.indices.type)
+		#self.indices * ffi.sizeof(self.indices.type),
+		bit.bor(
+			vk.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			vk.VK_BUFFER_USAGE_INDEX_BUFFER_BIT
+		)
 	)
 
 	self.vertices = nil
