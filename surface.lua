@@ -35,7 +35,7 @@ function VKSurface:init(args)
 	self.id = vkGet(VkSurfaceKHR, sdlAssert, sdl.SDL_Vulkan_CreateSurface, window, instance, nil)
 --]]
 -- [[
-	local ptr = ffi.new(VkSurfaceKHR_1)
+	local ptr = VkSurfaceKHR_1()
 	sdlAssert(sdl.SDL_Vulkan_CreateSurface(window, instance, nil, ptr), 'SDL_Vulkan_CreateSurface')
 	self.id = ptr[0]
 --]]

@@ -11,7 +11,7 @@ local VKDevice = require 'vk.device'
 local char_const_ptr = ffi.typeof'char const *'
 local float_1 = ffi.typeof'float[1]'
 local VkDeviceQueueCreateInfo = ffi.typeof'VkDeviceQueueCreateInfo'
-local VkPhysicalDeviceFeatures_1 = ffi.typeof'VkPhysicalDeviceFeatures[1]'
+local VkPhysicalDeviceFeatures = ffi.typeof'VkPhysicalDeviceFeatures'
 
 
 local VulkanDevice = class()
@@ -32,8 +32,8 @@ function VulkanDevice:init(physDev, deviceExtensions, enableValidationLayers, in
 		}
 	end
 
-	self.deviceFeatures = VkPhysicalDeviceFeatures_1()
-	self.deviceFeatures[0].samplerAnisotropy = vk.VK_TRUE
+	self.deviceFeatures = VkPhysicalDeviceFeatures()
+	self.deviceFeatures.samplerAnisotropy = vk.VK_TRUE
 
 	self.thisValidationLayers = vector(char_const_ptr)
 	if enableValidationLayers then

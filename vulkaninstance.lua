@@ -18,7 +18,7 @@ char const * const * SDL_Vulkan_GetInstanceExtensions(uint32_t * count);
 local char_const_ptr = ffi.typeof'char const *'
 local uint32_t_1 = ffi.typeof'uint32_t[1]'
 local VkLayerProperties = ffi.typeof'VkLayerProperties'
-local VkApplicationInfo_1 = ffi.typeof'VkApplicationInfo[1]'
+local VkApplicationInfo = ffi.typeof'VkApplicationInfo'
 
 
 -- TODO move to vk?
@@ -51,13 +51,13 @@ function VulkanInstance:init(common)
 	end
 
 	-- how to prevent gc until a variable is done?
-	self.info = VkApplicationInfo_1()
-	self.info[0].sType = vk.VK_STRUCTURE_TYPE_APPLICATION_INFO
-	self.info[0].pApplicationName = app.title
-	self.info[0].applicationVersion = VK_MAKE_API_VERSION(0, 1, 0, 0)
-	self.info[0].pEngineName = defs.engineName
-	self.info[0].engineVersion = VK_MAKE_API_VERSION(0, 1, 0, 0)
-	self.info[0].apiVersion = VK_API_VERISON_1_0
+	self.info = VkApplicationInfo()
+	self.info.sType = vk.VK_STRUCTURE_TYPE_APPLICATION_INFO
+	self.info.pApplicationName = app.title
+	self.info.applicationVersion = VK_MAKE_API_VERSION(0, 1, 0, 0)
+	self.info.pEngineName = defs.engineName
+	self.info.engineVersion = VK_MAKE_API_VERSION(0, 1, 0, 0)
+	self.info.apiVersion = VK_API_VERISON_1_0
 
 	self.layerNames = vector(char_const_ptr)
 	if enableValidationLayers then

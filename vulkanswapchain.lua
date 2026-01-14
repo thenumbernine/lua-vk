@@ -11,17 +11,18 @@ local VKSwapchain = require 'vk.swapchain'
 
 
 local uint32_t = ffi.typeof'uint32_t'
-local VkAttachmentDescription = ffi.typeof'VkAttachmentDescription'
-local VkFramebuffer = ffi.typeof'VkFramebuffer'
-local VkImageView = ffi.typeof'VkImageView'
-local VkRenderPass = ffi.typeof'VkRenderPass'
-local VkSubpassDescription_1 = ffi.typeof'VkSubpassDescription[1]'
-local VkSubpassDependency_1 = ffi.typeof'VkSubpassDependency[1]'
-local VkFramebufferCreateInfo = ffi.typeof'VkFramebufferCreateInfo'
+local VkAttachmentDescription_array = ffi.typeof'VkAttachmentDescription[?]'
+local VkAttachmentReference = ffi.typeof'VkAttachmentReference'
 local VkExtent2D = ffi.typeof'VkExtent2D'
+local VkFramebuffer = ffi.typeof'VkFramebuffer'
+local VkFramebufferCreateInfo = ffi.typeof'VkFramebufferCreateInfo'
+local VkImageView = ffi.typeof'VkImageView'
+local VkImageView_array = ffi.typeof'VkImageView[?]'
 local VkImageViewCreateInfo = ffi.typeof'VkImageViewCreateInfo'
-local VkAttachmentReference_1 = ffi.typeof'VkAttachmentReference[1]'
+local VkRenderPass = ffi.typeof'VkRenderPass'
 local VkRenderPassCreateInfo = ffi.typeof'VkRenderPassCreateInfo'
+local VkSubpassDependency = ffi.typeof'VkSubpassDependency'
+local VkSubpassDescription = ffi.typeof'VkSubpassDescription'
 
 
 local VulkanSwapchain = class()
@@ -75,7 +76,7 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 	self.images = self.obj:getImages(device)
 
 	local numImageViews = #self.images
-	self.imageViews = ffi.new(ffi.typeof('$[?]', VkImageView), numImageViews)
+	self.imageViews = VkImageView_array(numImageViews)
 	for i=0,#self.images-1 do
 		self.imageViews[i] = self:createImageView(
 			device.id,
@@ -136,7 +137,7 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 	self.framebuffers = vector(VkFramebuffer, numImageViews)
 	for i=0,numImageViews-1 do
 		local numAttachments = 3
-		self.attachments = ffi.new(ffi.typeof('$[?]', VkImageView), numAttachments)
+		self.attachments = VkImageView_array(numAttachments)
 		self.attachments[0] = self.colorImageView
 		self.attachments[1] = self.depthImageView
 		self.attachments[2] = self.imageViews[i]
@@ -219,7 +220,7 @@ end
 function VulkanSwapchain:createRenderPass(physDev, device, swapChainImageFormat, msaaSamples)
 	-- need to keep these from gc'ing until the function is through ...
 	local numAttachments = 3
-	self.attachments = ffi.new(ffi.typeof('$[?]', VkAttachmentDescription), numAttachments)
+	self.attachments = VkAttachmentDescription_array(numAttachments)
 	-- colorAttachment
 	local v = self.attachments+0
 	v.format = swapChainImageFormat
@@ -253,36 +254,36 @@ function VulkanSwapchain:createRenderPass(physDev, device, swapChainImageFormat,
 	v=v+1
 	asserteq(v, self.attachments + numAttachments)
 
-	self.colorAttachmentRef = VkAttachmentReference_1()
-	self.colorAttachmentRef[0].attachment = 0
-	self.colorAttachmentRef[0].layout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-	self.depthAttachmentRef = VkAttachmentReference_1()
-	self.depthAttachmentRef[0].attachment = 1
-	self.depthAttachmentRef[0].layout = vk.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-	self.colorAttachmentResolveRef = VkAttachmentReference_1()
-	self.colorAttachmentResolveRef[0].attachment = 2
-	self.colorAttachmentResolveRef[0].layout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+	self.colorAttachmentRef = VkAttachmentReference()
+	self.colorAttachmentRef.attachment = 0
+	self.colorAttachmentRef.layout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+	self.depthAttachmentRef = VkAttachmentReference()
+	self.depthAttachmentRef.attachment = 1
+	self.depthAttachmentRef.layout = vk.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+	self.colorAttachmentResolveRef = VkAttachmentReference()
+	self.colorAttachmentResolveRef.attachment = 2
+	self.colorAttachmentResolveRef.layout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
 
-	self.subpasses = VkSubpassDescription_1()
-	self.subpasses[0].pipelineBindPoint = vk.VK_PIPELINE_BIND_POINT_GRAPHICS
-	self.subpasses[0].colorAttachmentCount = 1
-	self.subpasses[0].pColorAttachments = self.colorAttachmentRef
-	self.subpasses[0].pResolveAttachments = self.colorAttachmentResolveRef
-	self.subpasses[0].pDepthStencilAttachment = self.depthAttachmentRef
+	self.subpasses = VkSubpassDescription()
+	self.subpasses.pipelineBindPoint = vk.VK_PIPELINE_BIND_POINT_GRAPHICS
+	self.subpasses.colorAttachmentCount = 1
+	self.subpasses.pColorAttachments = self.colorAttachmentRef
+	self.subpasses.pResolveAttachments = self.colorAttachmentResolveRef
+	self.subpasses.pDepthStencilAttachment = self.depthAttachmentRef
 
-	self.dependencies = VkSubpassDependency_1()
-	self.dependencies[0].srcSubpass = vk.VK_SUBPASS_EXTERNAL
-	self.dependencies[0].dstSubpass = 0
-	self.dependencies[0].srcStageMask = bit.bor(
+	self.dependencies = VkSubpassDependency()
+	self.dependencies.srcSubpass = vk.VK_SUBPASS_EXTERNAL
+	self.dependencies.dstSubpass = 0
+	self.dependencies.srcStageMask = bit.bor(
 		vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 		vk.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
 	)
-	self.dependencies[0].dstStageMask = bit.bor(
+	self.dependencies.dstStageMask = bit.bor(
 		vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 		vk.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
 	)
-	self.dependencies[0].srcAccessMask = 0
-	self.dependencies[0].dstAccessMask = bit.bor(
+	self.dependencies.srcAccessMask = 0
+	self.dependencies.dstAccessMask = bit.bor(
 		vk.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 		vk.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT
 	)

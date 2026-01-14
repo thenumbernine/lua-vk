@@ -23,36 +23,31 @@ VulkanVertex = struct{
 	},
 	metatable = function(mt)
 		mt.getBindingDescription = function()
-			local result = ffi.new(VkVertexInputBindingDescription, {
-				binding = 0,
-				stride = ffi.sizeof(VulkanVertex),
-				inputRate = vk.VK_VERTEX_INPUT_RATE_VERTEX,
-			})
+			local result = VkVertexInputBindingDescription()
+			result.binding = 0
+			result.stride = ffi.sizeof(VulkanVertex)
+			resultinputRate = vk.VK_VERTEX_INPUT_RATE_VERTEX
 _G.VertexRetainBiningDescription = result			
 			return result
 		end
 
 		mt.getAttributeDescriptions = function()
-			local result = vector(VkVertexInputAttributeDescription, {
-				{
-					location = 0,
-					binding = 0,
-					format = vk.VK_FORMAT_R32G32B32_SFLOAT,
-					offset = ffi.offsetof(VulkanVertex, 'pos'),
-				},
-				{
-					location = 1,
-					binding = 0,
-					format = vk.VK_FORMAT_R32G32B32_SFLOAT,
-					offset = ffi.offsetof(VulkanVertex, 'color'),
-				},
-				{
-					location = 2,
-					binding = 0,
-					format = vk.VK_FORMAT_R32G32B32_SFLOAT,
-					offset = ffi.offsetof(VulkanVertex, 'texCoord'),
-				},
-			})
+			local result = vector(VkVertexInputAttributeDescription)
+			local v = result:emplace_back()
+			v.location = 0
+			v.binding = 0
+			v.format = vk.VK_FORMAT_R32G32B32_SFLOAT
+			v.offset = ffi.offsetof(VulkanVertex, 'pos')
+			local v = result:emplace_back()
+			v.location = 1
+			v.binding = 0
+			v.format = vk.VK_FORMAT_R32G32B32_SFLOAT
+			v.offset = ffi.offsetof(VulkanVertex, 'color')
+			local v = result:emplace_back()
+			v.location = 2
+			v.binding = 0
+			v.format = vk.VK_FORMAT_R32G32B32_SFLOAT
+			v.offset = ffi.offsetof(VulkanVertex, 'texCoord')
 _G.VertexRetainAttributeDescriptions = result			
 			return result
 		end

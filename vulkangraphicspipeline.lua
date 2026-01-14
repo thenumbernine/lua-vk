@@ -12,9 +12,9 @@ local VulkanVertex = require 'vk.vulkanmesh'.VulkanVertex
 defs.main = 'main'
 
 local VkDescriptorSetLayout = ffi.typeof'VkDescriptorSetLayout'
-local VkDescriptorSetLayoutBinding = ffi.typeof'VkDescriptorSetLayoutBinding'
+local VkDescriptorSetLayoutBinding_array = ffi.typeof'VkDescriptorSetLayoutBinding[?]'
 local VkDescriptorSetLayoutCreateInfo = ffi.typeof'VkDescriptorSetLayoutCreateInfo'
-local VkDynamicState = ffi.typeof'VkDynamicState'
+local VkDynamicState_array = ffi.typeof'VkDynamicState[?]'
 local VkGraphicsPipelineCreateInfo = ffi.typeof'VkGraphicsPipelineCreateInfo'
 local VkPipeline = ffi.typeof'VkPipeline'
 local VkPipelineColorBlendAttachmentState = ffi.typeof'VkPipelineColorBlendAttachmentState'
@@ -26,7 +26,7 @@ local VkPipelineLayout = ffi.typeof'VkPipelineLayout'
 local VkPipelineLayoutCreateInfo = ffi.typeof'VkPipelineLayoutCreateInfo'
 local VkPipelineMultisampleStateCreateInfo = ffi.typeof'VkPipelineMultisampleStateCreateInfo'
 local VkPipelineRasterizationStateCreateInfo = ffi.typeof'VkPipelineRasterizationStateCreateInfo'
-local VkPipelineShaderStageCreateInfo = ffi.typeof'VkPipelineShaderStageCreateInfo'
+local VkPipelineShaderStageCreateInfo_array = ffi.typeof'VkPipelineShaderStageCreateInfo[?]'
 local VkPipelineVertexInputStateCreateInfo = ffi.typeof'VkPipelineVertexInputStateCreateInfo'
 local VkPipelineViewportStateCreateInfo = ffi.typeof'VkPipelineViewportStateCreateInfo'
 local VkDescriptorSetLayout_1 = ffi.typeof'VkDescriptorSetLayout[1]'
@@ -38,7 +38,7 @@ local VulkanGraphicsPipeline = class()
 function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 	-- descriptorSetLayout is only used by graphicsPipeline
 	local numBindings = 2
-	self.bindings = ffi.new(ffi.typeof('$[?]', VkDescriptorSetLayoutBinding), numBindings)
+	self.bindings = VkDescriptorSetLayoutBinding_array(numBindings)
 	local v = self.bindings+0
 	--uboLayoutBinding
 	v.binding = 0
@@ -71,8 +71,7 @@ function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 
 
 	self.bindingDescription = VulkanVertex:getBindingDescription()
-	self.bindingDescriptions = VkVertexInputBindingDescription_1()
-	self.bindingDescriptions[0] = self.bindingDescription
+	self.bindingDescriptions = VkVertexInputBindingDescription_1(self.bindingDescription)
 
 	self.attributeDescriptions = VulkanVertex:getAttributeDescriptions()
 	self.vertexInputInfo = VkPipelineVertexInputStateCreateInfo()
@@ -131,10 +130,13 @@ function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 	self.colorBlending.logicOp = vk.VK_LOGIC_OP_COPY
 	self.colorBlending.attachmentCount = 1
 	self.colorBlending.pAttachments = self.colorBlendAttachment
-	self.colorBlending.blendConstants = {0, 0, 0, 0}
+	self.colorBlending.blendConstants[0] = 0
+	self.colorBlending.blendConstants[1] = 0
+	self.colorBlending.blendConstants[2] = 0
+	self.colorBlending.blendConstants[3] = 0
 
 	local numDynamicStates = 2
-	self.dynamicStates = ffi.new(ffi.typeof('$[?]', VkDynamicState), numDynamicStates)
+	self.dynamicStates = VkDynamicState_array(numDynamicStates)
 	self.dynamicStates[0] = vk.VK_DYNAMIC_STATE_VIEWPORT
 	self.dynamicStates[1] = vk.VK_DYNAMIC_STATE_SCISSOR
 	self.dynamicState = VkPipelineDynamicStateCreateInfo()
@@ -142,8 +144,7 @@ function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 	self.dynamicState.dynamicStateCount = numDynamicStates
 	self.dynamicState.pDynamicStates = self.dynamicStates
 
-	self.descriptorSetLayouts = VkDescriptorSetLayout_1()
-	self.descriptorSetLayouts[0] = self.descriptorSetLayout
+	self.descriptorSetLayouts = VkDescriptorSetLayout_1(self.descriptorSetLayout)
 
 	self.info = VkPipelineLayoutCreateInfo()
 	self.info.sType = vk.VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO
@@ -157,7 +158,7 @@ function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 	self.vertexShaderModule = VulkanShaderModule:fromFile(device, "shader-vert.spv")
 	self.fragmentShaderModule = VulkanShaderModule:fromFile(device, "shader-frag.spv")
 	local numShaderStages = 2
-	self.shaderStages = ffi.new(ffi.typeof('$[?]', VkPipelineShaderStageCreateInfo), numShaderStages)
+	self.shaderStages = VkPipelineShaderStageCreateInfo_array(numShaderStages)
 	local v = self.shaderStages+0
 	v.sType = vk.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO
 	v.stage = vk.VK_SHADER_STAGE_VERTEX_BIT
