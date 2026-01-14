@@ -192,8 +192,6 @@ function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 
 	self.info = nil
 	self.shaderStages = nil
-	self.fragmentShaderModule = nil
-	self.vertexShaderModule = nil
 	self.dynamicState = nil
 	self.dynamicStates = nil
 	self.colorBlending = nil
@@ -208,6 +206,31 @@ function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 	self.bindingDescriptions = nil
 	self.bindingDescription = nil
 	-- keep self.pipelineLayout
+	-- keep self.fragmentShaderModule
+	-- keep self.vertexShaderModule
+end
+
+function VulkanGraphicsPipeline:destroy(device)
+	if self.descriptorSetLayout then
+		vk.vkDestroyDescriptorSetLayout(device, self.descriptorSetLayout, nil)
+	end
+	if self.pipelineLayout then
+		vk.vkDestroyPipelineLayout(device, self.pipelineLayout, nil)
+	end
+	if self.vertexShaderModule then
+		vk.vkDestroyShaderModule(device, self.vertexShaderModule, nil)
+	end
+	if self.fragmentShaderModule then
+		vk.vkDestroyShaderModule(device, self.fragmentShaderModule, nil)
+	end
+	if self.id then
+		vk.vkDestroyPipeline(device, self.id, nil)
+	end
+	self.descriptorSetLayout = nil
+	self.pipelineLayout = nil
+	self.vertexShaderModule = nil
+	self.fragmentShaderModule = nil
+	self.id = nil
 end
 
 return VulkanGraphicsPipeline 

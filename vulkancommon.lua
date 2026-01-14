@@ -72,6 +72,7 @@ local VkLayerProperties = ffi.typeof'VkLayerProperties'
 local VkDebugUtilsMessengerEXT = ffi.typeof'VkDebugUtilsMessengerEXT'
 local VkDebugUtilsMessengerCreateInfoEXT = ffi.typeof'VkDebugUtilsMessengerCreateInfoEXT'
 local PFN_vkCreateDebugUtilsMessengerEXT = ffi.typeof'PFN_vkCreateDebugUtilsMessengerEXT'
+local PFN_vkDestroyDebugUtilsMessengerEXT = ffi.typeof'PFN_vkDestroyDebugUtilsMessengerEXT'
 local PFN_vkDebugUtilsMessengerCallbackEXT = ffi.typeof'PFN_vkDebugUtilsMessengerCallbackEXT'
 
 local UniformBufferObject = struct{
@@ -101,7 +102,7 @@ function VulkanCommon:init(app)
 	-- debug:
 	if self.enableValidationLayers then
 		defs.vkCreateDebugUtilsMessengerEXT = ffi.cast(PFN_vkCreateDebugUtilsMessengerEXT, vk.vkGetInstanceProcAddr(self.instance.obj.id, 'vkCreateDebugUtilsMessengerEXT'))
-
+		defs.vkDestroyDebugUtilsMessengerEXT = ffi.cast(PFN_vkDestroyDebugUtilsMessengerEXT, vk.vkGetInstanceProcAddr(self.instance.obj.id, 'vkDestroyDebugUtilsMessengerEXT'))
 		-- store as self member to prevent function closure gc'ing
 		self.debugCallback = ffi.cast(PFN_vkDebugUtilsMessengerCallbackEXT, VulkanCommon.debugCallback)
 
@@ -792,44 +793,69 @@ end
 
 function VulkanCommon:exit()
 	if self.device then
+		local device_id = self.device.obj.id
 		self.device.obj:waitIdle()
 
 		if self.imageAvailableSemaphores then
 			for i=0,self.maxFramesInFlight-1 do
-				vk.vkDestroySemaphore(self.device.obj.id, self.imageAvailableSemaphores[i], nil) 
+				vk.vkDestroySemaphore(device_id, self.imageAvailableSemaphores[i], nil) 
 			end
 		end
 		if self.renderFinishedSemaphores then
 			for i=0,self.maxFramesInFlight-1 do
-				vk.vkDestroySemaphore(self.device.obj.id, self.renderFinishedSemaphores[i], nil) 
+				vk.vkDestroySemaphore(device_id, self.renderFinishedSemaphores[i], nil) 
 			end
 		end
 		if self.inFlightFences then
 			for i=0,self.maxFramesInFlight-1 do
-				vk.vkDestroyFence(self.device.obj.id, self.inFlightFences[i], nil)
+				vk.vkDestroyFence(device_id, self.inFlightFences[i], nil)
 			end
 		end
 		if self.commandBuffers then
-			vk.vkFreeCommandBuffers(self.device.obj.id, self.commandPool.id, self.maxFramesInFlight, self.commandBuffers)
+			vk.vkFreeCommandBuffers(device_id, self.commandPool.id, self.maxFramesInFlight, self.commandBuffers)
+		end
+		-- doesn't like freeing this ...
+		if self.descriptorSets then
+--			vk.vkFreeDescriptorSets(device_id, self.desciptorPool, self.maxFramesInFlight, self.descriptorSets)
+		end
+		if self.layouts then
+			for i=0,self.maxFramesInFlight-1 do
+				vk.vkDestroyDescriptorSetLayout(device_id, self.layouts[i], nil)
+			end
 		end
 		if self.textureImageAndMemory then
-			vk.vkFreeMemory(self.device.obj.id, self.textureImageAndMemory.imageMemory, nil)
-			vk.vkDestroyImage(self.device.obj.id, self.textureImageAndMemory.image, nil)
+			vk.vkFreeMemory(device_id, self.textureImageAndMemory.imageMemory, nil)
+			vk.vkDestroyImage(device_id, self.textureImageAndMemory.image, nil)
 		end
 		if self.uniformBuffers then
 			for _,ub in ipairs(self.uniformBuffers) do
-				vk.vkFreeMemory(self.device.obj.id, ub.bm.memory, nil)
+				vk.vkFreeMemory(device_id, ub.bm.memory, nil)
 				ub.bm.buffer:destroy()
 			end
 		end
+		if self.descriptorPool then
+			vk.vkDestroyDescriptorPool(device_id, self.descriptorPool, nil)
+		end
 		if self.mesh then
-			vk.vkFreeMemory(self.device.obj.id, self.mesh.vertexBufferAndMemory.memory, nil)
+			vk.vkFreeMemory(device_id, self.mesh.vertexBufferAndMemory.memory, nil)
 			self.mesh.vertexBufferAndMemory.buffer:destroy()
-			vk.vkFreeMemory(self.device.obj.id, self.mesh.indexBufferAndMemory.memory, nil)
+			vk.vkFreeMemory(device_id, self.mesh.indexBufferAndMemory.memory, nil)
 			self.mesh.indexBufferAndMemory.buffer:destroy()
 		end
+		if self.textureSampler then
+			vk.vkDestroySampler(device_id, self.textureSampler, nil)
+		end
+		if self.textureImageView then
+			vk.vkDestroyImageView(device_id, self.textureImageView, nil)
+		end
+		if self.commandPool then
+			self.commandPool:destroy(device_id)
+		end
+		if self.graphicsPipeline then
+			self.graphicsPipeline:destroy(device_id)
+		end
 		if self.swapchain then
-			self.swapchain:destroy(self.device.obj.id)
+			self.swapchain:destroy(device_id)
 		end
 		self.device.obj:destroy()
 	end
@@ -837,9 +863,16 @@ function VulkanCommon:exit()
 	self.renderFinishedSemaphores = nil
 	self.inFlightFences = nil
 	self.commandBuffers = nil
+	self.descriptorSets = nil
+	self.layouts = nil
 	self.textureImageAndMemory = nil
 	self.uniformBuffers = nil
 	self.mesh = nil
+	self.descriptorPool = nil
+	self.textureSampler = nil
+	self.textureImageView = nil
+	self.commandPool = nil
+	self.graphicsPipeline = nil
 	self.swapchain = nil
 	self.device = nil
 
@@ -847,6 +880,11 @@ function VulkanCommon:exit()
 		self.surface:destroy()
 	end
 	self.surface = nil
+
+	if self.debug then
+		defs.vkDestroyDebugUtilsMessengerEXT(self.instance.obj.id, self.debug, nil)
+	end
+	self.debug = nil
 
 	if self.instance then
 		self.instance.obj:destroy()

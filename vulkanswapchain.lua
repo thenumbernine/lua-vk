@@ -328,10 +328,15 @@ function VulkanSwapchain:destroy(device)
 	self.imageViews = nil
 	self.images = nil
 
+	vk.vkDestroyRenderPass(device, self.renderPass, nil)
+	self.renderPass = nil
+
+	vk.vkDestroyImageView(device, self.colorImageView, nil)
 	vk.vkFreeMemory(device, self.colorImageAndMemory.imageMemory, nil)
 	vk.vkDestroyImage(device, self.colorImageAndMemory.image, nil)
 	self.colorImageAndMemory = nil
 	
+	vk.vkDestroyImageView(device, self.depthImageView, nil)
 	vk.vkFreeMemory(device, self.depthImageAndMemory.imageMemory, nil)
 	vk.vkDestroyImage(device, self.depthImageAndMemory.image, nil)
 	self.depthImageAndMemory = nil

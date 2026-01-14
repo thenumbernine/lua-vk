@@ -9,10 +9,10 @@ local VKSingleTimeCommand = require 'vk.singletimecommand'
 
 
 local VkCommandPool = ffi.typeof'VkCommandPool'
-local VkCommandPoolCreateInfo_1 = ffi.typeof'VkCommandPoolCreateInfo[1]'
+local VkCommandPoolCreateInfo = ffi.typeof'VkCommandPoolCreateInfo'
 local VkImageMemoryBarrier = ffi.typeof'VkImageMemoryBarrier'
-local VkBufferCopy_1 = ffi.typeof'VkBufferCopy[1]'
-local VkBufferImageCopy_1 = ffi.typeof'VkBufferImageCopy[1]'
+local VkBufferCopy = ffi.typeof'VkBufferCopy'
+local VkBufferImageCopy = ffi.typeof'VkBufferImageCopy'
 
 
 local VulkanCommandPool = class()
@@ -20,10 +20,10 @@ local VulkanCommandPool = class()
 function VulkanCommandPool:init(common, physDev, device, surface)
 	local queueFamilyIndices = physDev:findQueueFamilies(nil, surface)
 
-	self.info = VkCommandPoolCreateInfo_1()
-	self.info[0].sType = vk.VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO
-	self.info[0].flags = vk.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT
-	self.info[0].queueFamilyIndex = assert.index(queueFamilyIndices, 'graphicsFamily')
+	self.info = VkCommandPoolCreateInfo()
+	self.info.sType = vk.VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO
+	self.info.flags = vk.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT
+	self.info.queueFamilyIndex = assert.index(queueFamilyIndices, 'graphicsFamily')
 	self.id = vkGet(VkCommandPool, vkassert, vk.vkCreateCommandPool, device.obj.id, self.info, nil)
 	self.info = nil
 
@@ -90,8 +90,8 @@ function VulkanCommandPool:copyBuffer(srcBuffer, dstBuffer, size)
 		self.graphicsQueue.id,
 		self.id,
 		function(commandBuffer)
-			self.regions = VkBufferCopy_1()
-			self.regions[0].size = size
+			self.regions = VkBufferCopy()
+			self.regions.size = size
 			vk.vkCmdCopyBuffer(
 				commandBuffer,
 				srcBuffer.id,
@@ -110,12 +110,12 @@ function VulkanCommandPool:copyBufferToImage(buffer, image, width, height)
 		self.graphicsQueue.id,
 		self.id,
 		function(commandBuffer)
-			self.regions = VkBufferImageCopy_1()
-			self.regions[0].imageSubresource.aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT
-			self.regions[0].imageSubresource.layerCount = 1
-			self.regions[0].imageExtent.width = width
-			self.regions[0].imageExtent.height = height
-			self.regions[0].imageExtent.depth = 1
+			self.regions = VkBufferImageCopy()
+			self.regions.imageSubresource.aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT
+			self.regions.imageSubresource.layerCount = 1
+			self.regions.imageExtent.width = width
+			self.regions.imageExtent.height = height
+			self.regions.imageExtent.depth = 1
 			vk.vkCmdCopyBufferToImage(
 				commandBuffer,
 				buffer.id,
@@ -127,6 +127,13 @@ function VulkanCommandPool:copyBufferToImage(buffer, image, width, height)
 			self.regions = nil
 		end
 	)
+end
+
+function VulkanCommandPool:destroy(device)
+	if self.id then
+		vk.vkDestroyCommandPool(device, self.id, nil)
+	end
+	self.id = nil
 end
 
 return VulkanCommandPool 

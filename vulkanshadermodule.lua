@@ -7,7 +7,7 @@ local vkassert = require 'vk.util'.vkassert
 
 
 local uint32_t_ptr = ffi.typeof'uint32_t*'
-local VkShaderModuleCreateInfo_1 = ffi.typeof'VkShaderModuleCreateInfo[1]'
+local VkShaderModuleCreateInfo = ffi.typeof'VkShaderModuleCreateInfo'
 local VkShaderModule = ffi.typeof'VkShaderModule'
 
 
@@ -18,10 +18,10 @@ local VulkanShaderModule = class()
 -- glslangValidator -V shader.frag -o shader-frag.spv
 function VulkanShaderModule:fromFile(device, filename)
 	self.code = assert(path(filename):read())
-	self.info = VkShaderModuleCreateInfo_1()
-	self.info[0].sType = vk.VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO
-	self.info[0].codeSize = #self.code
-	self.info[0].pCode = ffi.cast(uint32_t_ptr, self.code)
+	self.info = VkShaderModuleCreateInfo()
+	self.info.sType = vk.VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO
+	self.info.codeSize = #self.code
+	self.info.pCode = ffi.cast(uint32_t_ptr, self.code)
 	local result = vkGet(
 		VkShaderModule,
 		vkassert,
