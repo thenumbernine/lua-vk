@@ -1,6 +1,7 @@
 -- helper not wrapper
 local ffi = require 'ffi'
 local class = require 'ext.class'
+local assertindex = require 'ext.assert'.index
 local vector = require 'ffi.cpp.vector-lua'
 local vk = require 'vk'
 local defs = require 'vk.defs'
@@ -36,7 +37,7 @@ function VulkanDevice:init(physDev, deviceExtensions, enableValidationLayers, in
 
 	self.thisValidationLayers = vector(char_const_ptr)
 	if enableValidationLayers then
-		self.thisValidationLayers.emplace_back()[0] = defs.validationLayer
+		self.thisValidationLayers:emplace_back()[0] = assertindex(defs, 'validationLayer')
 	end
 
 	self.obj = VKDevice{

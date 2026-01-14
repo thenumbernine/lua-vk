@@ -10,7 +10,7 @@ local VulkanDeviceMemoryFromStagingBuffer = require 'vk.vulkandevicememoryfromst
 
 local VkDeviceMemory = ffi.typeof'VkDeviceMemory'
 local VkMemoryRequirements = ffi.typeof'VkMemoryRequirements'
-local VkMemoryAllocateInfo_1 = ffi.typeof'VkMemoryAllocateInfo[1]'
+local VkMemoryAllocateInfo = ffi.typeof'VkMemoryAllocateInfo'
 
 
 local VulkanDeviceMemoryBuffer = class()
@@ -25,10 +25,18 @@ function VulkanDeviceMemoryBuffer:init(physDev, device, size, usage, properties)
 
 	local memReq = vkGet(VkMemoryRequirements, nil, vk.vkGetBufferMemoryRequirements, device, self.buffer.id)
 
-	self.info = VkMemoryAllocateInfo_1()
-	self.info[0].allocationSize = memReq.size
-	self.info[0].memoryTypeIndex = physDev:findMemoryType(memReq.memoryTypeBits, properties)
-	self.memory = vkGet(VkDeviceMemory, vkassert, vk.vkAllocateMemory, device, self.info, nil)
+	self.info = VkMemoryAllocateInfo()
+	self.info.sType = vk.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO
+	self.info.allocationSize = memReq.size
+	self.info.memoryTypeIndex = physDev:findMemoryType(memReq.memoryTypeBits, properties)
+	self.memory = vkGet(
+		VkDeviceMemory,
+		vkassert,
+		vk.vkAllocateMemory,
+		device,
+		self.info,
+		nil
+	)
 	self.info = nil
 
 	vkassert(vk.vkBindBufferMemory, device, self.buffer.id, self.memory, 0)
@@ -57,6 +65,7 @@ function VulkanDeviceMemoryBuffer:makeBufferFromStaged(physDev, device, commandP
 		bufferSize
 	)
 
+	vk.vkFreeMemory(device, stagingBufferAndMemory.memory, nil)
 	stagingBufferAndMemory.buffer:destroy()
 
 	return bufferAndMemory

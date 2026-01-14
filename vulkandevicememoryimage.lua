@@ -9,8 +9,8 @@ local VulkanDeviceMemoryFromStagingBuffer = require 'vk.vulkandevicememoryfromst
 
 local VkDeviceMemory = ffi.typeof'VkDeviceMemory'
 local VkImage = ffi.typeof'VkImage'
-local VkImageCreateInfo_1 = ffi.typeof'VkImageCreateInfo[1]'
-local VkMemoryAllocateInfo_1 = ffi.typeof'VkMemoryAllocateInfo[1]'
+local VkImageCreateInfo = ffi.typeof'VkImageCreateInfo'
+local VkMemoryAllocateInfo = ffi.typeof'VkMemoryAllocateInfo'
 local VkMemoryRequirements = ffi.typeof'VkMemoryRequirements'
 
 
@@ -28,28 +28,34 @@ function VulkanDeviceMemoryImage:createImage(
 	usage,
 	properties
 )
-	self.info = VkImageCreateInfo_1()
-	self.info[0].sType = vk.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO
-	self.info[0].imageType = vk.VK_IMAGE_TYPE_2D
-	self.info[0].format = format
-	self.info[0].extent.width = width
-	self.info[0].extent.height = height
-	self.info[0].extent.depth = 1
-	self.info[0].mipLevels = mipLevels
-	self.info[0].arrayLayers = 1
-	self.info[0].samples = numSamples
-	self.info[0].tiling = tiling
-	self.info[0].usage = usage
-	self.info[0].sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE
-	self.info[0].initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED
+	self.info = VkImageCreateInfo()
+	self.info.sType = vk.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO
+	self.info.imageType = vk.VK_IMAGE_TYPE_2D
+	self.info.format = format
+	self.info.extent.width = width
+	self.info.extent.height = height
+	self.info.extent.depth = 1
+	self.info.mipLevels = mipLevels
+	self.info.arrayLayers = 1
+	self.info.samples = numSamples
+	self.info.tiling = tiling
+	self.info.usage = usage
+	self.info.sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE
+	self.info.initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED
 	local image = vkGet(VkImage, vkassert, vk.vkCreateImage, device, self.info, nil)
 	self.info = nil
 
-	self.memReq = vkGet(VkMemoryRequirements, nil, vk.vkGetImageMemoryRequirements, device, image)
-	self.info = VkMemoryAllocateInfo_1()
-	self.info[0].sType = vk.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO
-	self.info[0].allocationSize = self.memReq.size
-	self.info[0].memoryTypeIndex = physDev:findMemoryType(self.memReq.memoryTypeBits, properties)
+	self.memReq = vkGet(
+		VkMemoryRequirements,
+		nil,
+		vk.vkGetImageMemoryRequirements,
+		device,
+		image
+	)
+	self.info = VkMemoryAllocateInfo()
+	self.info.sType = vk.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO
+	self.info.allocationSize = self.memReq.size
+	self.info.memoryTypeIndex = physDev:findMemoryType(self.memReq.memoryTypeBits, properties)
 	local imageMemory = vkGet(
 		VkDeviceMemory,
 		vkassert,
@@ -95,9 +101,11 @@ function VulkanDeviceMemoryImage:makeTextureFromStaged(
 		vk.VK_SAMPLE_COUNT_1_BIT,
 		vk.VK_FORMAT_R8G8B8A8_SRGB,
 		vk.VK_IMAGE_TILING_OPTIMAL,
-		bit.bor(vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+		bit.bor(
+			vk.VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 			vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-			vk.VK_IMAGE_USAGE_SAMPLED_BIT),
+			vk.VK_IMAGE_USAGE_SAMPLED_BIT
+		),
 		vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	)
 
@@ -115,6 +123,7 @@ function VulkanDeviceMemoryImage:makeTextureFromStaged(
 		texHeight
 	)
 
+	vk.vkFreeMemory(device, stagingBufferAndMemory.memory, nil)
 	stagingBufferAndMemory.buffer:destroy()
 
 	return imageAndMemory

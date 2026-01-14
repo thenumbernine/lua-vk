@@ -10,7 +10,7 @@ local VKSingleTimeCommand = require 'vk.singletimecommand'
 
 local VkCommandPool = ffi.typeof'VkCommandPool'
 local VkCommandPoolCreateInfo_1 = ffi.typeof'VkCommandPoolCreateInfo[1]'
-local VkImageMemoryBarrier_1 = ffi.typeof'VkImageMemoryBarrier[1]'
+local VkImageMemoryBarrier = ffi.typeof'VkImageMemoryBarrier'
 local VkBufferCopy_1 = ffi.typeof'VkBufferCopy[1]'
 local VkBufferImageCopy_1 = ffi.typeof'VkBufferImageCopy[1]'
 
@@ -37,29 +37,30 @@ function VulkanCommandPool:transitionImageLayout(image, oldLayout, newLayout, mi
 		self.graphicsQueue.id,
 		self.id,
 		function(commandBuffer)
-			self.barrier = VkImageMemoryBarrier_1()
-			self.barrier[0].oldLayout = oldLayout
-			self.barrier[0].newLayout = newLayout
-			self.barrier[0].srcQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED
-			self.barrier[0].dstQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED
-			self.barrier[0].image = image
-			self.barrier[0].subresourceRange.aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT
-			self.barrier[0].subresourceRange.levelCount = mipLevels
-			self.barrier[0].subresourceRange.layerCount = 1
+			self.barrier = VkImageMemoryBarrier()
+			self.barrier.sType = vk.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER
+			self.barrier.oldLayout = oldLayout
+			self.barrier.newLayout = newLayout
+			self.barrier.srcQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED
+			self.barrier.dstQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED
+			self.barrier.image = image
+			self.barrier.subresourceRange.aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT
+			self.barrier.subresourceRange.levelCount = mipLevels
+			self.barrier.subresourceRange.layerCount = 1
 
 			local srcStage, dstStage
 			if oldLayout == vk.VK_IMAGE_LAYOUT_UNDEFINED
 			and newLayout == vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
 			then
-				self.barrier[0].srcAccessMask = 0
-				self.barrier[0].dstAccessMask = vk.VK_ACCESS_TRANSFER_WRITE_BIT
+				self.barrier.srcAccessMask = 0
+				self.barrier.dstAccessMask = vk.VK_ACCESS_TRANSFER_WRITE_BIT
 				srcStage = vk.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT
 				dstStage = vk.VK_PIPELINE_STAGE_TRANSFER_BIT
 			elseif oldLayout == vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
 			and newLayout == vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			then
-				self.barrier[0].srcAccessMask = vk.VK_ACCESS_TRANSFER_WRITE_BIT
-				self.barrier[0].dstAccessMask = vk.VK_ACCESS_SHADER_READ_BIT
+				self.barrier.srcAccessMask = vk.VK_ACCESS_TRANSFER_WRITE_BIT
+				self.barrier.dstAccessMask = vk.VK_ACCESS_SHADER_READ_BIT
 				srcStage = vk.VK_PIPELINE_STAGE_TRANSFER_BIT
 				dstStage = vk.VK_PIPELINE_STAGE_FRAGMENT_SHADER
 			else
@@ -76,9 +77,8 @@ function VulkanCommandPool:transitionImageLayout(image, oldLayout, newLayout, mi
 				0,              -- bufferMemoryBarrierCount
 				nil,            -- pBufferMemoryBarriers
 				1,              -- imageMemoryBarrierCount
-				self.barrier+0	-- pImageMemoryBarriers
+				self.barrier	-- pImageMemoryBarriers
 			)
-
 			self.barrier = nil
 		end
 	)

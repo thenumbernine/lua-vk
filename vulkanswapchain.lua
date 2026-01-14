@@ -17,11 +17,11 @@ local VkImageView = ffi.typeof'VkImageView'
 local VkRenderPass = ffi.typeof'VkRenderPass'
 local VkSubpassDescription_1 = ffi.typeof'VkSubpassDescription[1]'
 local VkSubpassDependency_1 = ffi.typeof'VkSubpassDependency[1]'
-local VkFramebufferCreateInfo_1 = ffi.typeof'VkFramebufferCreateInfo[1]'
+local VkFramebufferCreateInfo = ffi.typeof'VkFramebufferCreateInfo'
 local VkExtent2D = ffi.typeof'VkExtent2D'
-local VkImageViewCreateInfo_1 = ffi.typeof'VkImageViewCreateInfo[1]'
+local VkImageViewCreateInfo = ffi.typeof'VkImageViewCreateInfo'
 local VkAttachmentReference_1 = ffi.typeof'VkAttachmentReference[1]'
-local VkRenderPassCreateInfo_1 = ffi.typeof'VkRenderPassCreateInfo[1]'
+local VkRenderPassCreateInfo = ffi.typeof'VkRenderPassCreateInfo'
 
 
 local VulkanSwapchain = class()
@@ -140,14 +140,14 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 		self.attachments[0] = self.colorImageView
 		self.attachments[1] = self.depthImageView
 		self.attachments[2] = self.imageViews[i]
-		self.info = VkFramebufferCreateInfo_1()
-		self.info[0].sType = vk.VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO
-		self.info[0].renderPass = self.renderPass
-		self.info[0].attachmentCount = numAttachments
-		self.info[0].pAttachments = self.attachments
-		self.info[0].width = width
-		self.info[0].height = height
-		self.info[0].layers = 1
+		self.info = VkFramebufferCreateInfo()
+		self.info.sType = vk.VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO
+		self.info.renderPass = self.renderPass
+		self.info.attachmentCount = numAttachments
+		self.info.pAttachments = self.attachments
+		self.info.width = width
+		self.info.height = height
+		self.info.layers = 1
 		self.framebuffers.v[i] = vkGet(
 			VkFramebuffer,
 			vkassert,
@@ -196,14 +196,14 @@ function VulkanSwapchain:chooseSwapPresentMode(availablePresentModes)
 end
 
 function VulkanSwapchain:createImageView(device, image, format, aspectFlags, mipLevels)
-	self.info = VkImageViewCreateInfo_1()
-	self.info[0].sType = vk.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO
-	self.info[0].image = image
-	self.info[0].viewType = vk.VK_IMAGE_VIEW_TYPE_2D
-	self.info[0].format = format
-	self.info[0].subresourceRange.aspectMask = aspectFlags
-	self.info[0].subresourceRange.levelCount = mipLevels
-	self.info[0].subresourceRange.layerCount = 1
+	self.info = VkImageViewCreateInfo()
+	self.info.sType = vk.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO
+	self.info.image = image
+	self.info.viewType = vk.VK_IMAGE_VIEW_TYPE_2D
+	self.info.format = format
+	self.info.subresourceRange.aspectMask = aspectFlags
+	self.info.subresourceRange.levelCount = mipLevels
+	self.info.subresourceRange.layerCount = 1
 	local result = vkGet(
 		VkImageView,
 		vkassert,
@@ -287,14 +287,14 @@ function VulkanSwapchain:createRenderPass(physDev, device, swapChainImageFormat,
 		vk.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT
 	)
 
-	self.info = VkRenderPassCreateInfo_1()
-	self.info[0].sType = vk.VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO
-	self.info[0].attachmentCount = numAttachments
-	self.info[0].pAttachments = self.attachments
-	self.info[0].subpassCount = 1
-	self.info[0].pSubpasses = self.subpasses
-	self.info[0].dependencyCount = 1
-	self.info[0].pDependencies = self.dependencies
+	self.info = VkRenderPassCreateInfo()
+	self.info.sType = vk.VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO
+	self.info.attachmentCount = numAttachments
+	self.info.pAttachments = self.attachments
+	self.info.subpassCount = 1
+	self.info.pSubpasses = self.subpasses
+	self.info.dependencyCount = 1
+	self.info.pDependencies = self.dependencies
 
 	local result = vkGet(
 		VkRenderPass,
@@ -314,6 +314,29 @@ function VulkanSwapchain:createRenderPass(physDev, device, swapChainImageFormat,
 	self.attachments = nil
 
 	return result
+end
+
+function VulkanSwapchain:destroy(device)
+	for i=0,#self.framebuffers-1 do
+		vk.vkDestroyFramebuffer(device, self.framebuffers.v[i], nil)
+	end
+	self.framebuffers = nil
+
+	for i=0,#self.images-1 do
+		vk.vkDestroyImageView(device, self.imageViews[i], nil)
+	end
+	self.imageViews = nil
+	self.images = nil
+
+	vk.vkFreeMemory(device, self.colorImageAndMemory.imageMemory, nil)
+	vk.vkDestroyImage(device, self.colorImageAndMemory.image, nil)
+	self.colorImageAndMemory = nil
+	
+	vk.vkFreeMemory(device, self.depthImageAndMemory.imageMemory, nil)
+	vk.vkDestroyImage(device, self.depthImageAndMemory.image, nil)
+	self.depthImageAndMemory = nil
+	
+	self.obj:destroy()
 end
 
 return VulkanSwapchain
