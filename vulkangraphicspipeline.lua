@@ -162,12 +162,12 @@ function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 	local shaderStages = VkPipelineShaderStageCreateInfo_array(numShaderStages, {
 		makeVkPipelineShaderStageCreateInfo{
 			stage = vk.VK_SHADER_STAGE_VERTEX_BIT,
-			module = self.vertexShaderModule,
+			module = self.vertexShaderModule.id,
 			pName = defs.main,	--'vert'	--GLSL uses 'main', but clspv doesn't allow 'main', so ...
 		},
 		makeVkPipelineShaderStageCreateInfo{
 			stage = vk.VK_SHADER_STAGE_FRAGMENT_BIT,
-			module = self.fragmentShaderModule,
+			module = self.fragmentShaderModule.id,
 			pName = defs.main,	--'frag'
 		},
 	})
@@ -197,10 +197,6 @@ function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 		},
 		nil
 	)
-
-	-- keep self.pipelineLayout
-	-- keep self.fragmentShaderModule
-	-- keep self.vertexShaderModule
 end
 
 function VulkanGraphicsPipeline:destroy(device)
@@ -211,10 +207,10 @@ function VulkanGraphicsPipeline:destroy(device)
 		vk.vkDestroyPipelineLayout(device, self.pipelineLayout, nil)
 	end
 	if self.vertexShaderModule then
-		vk.vkDestroyShaderModule(device, self.vertexShaderModule, nil)
+		self.vertexShaderModule:destroy()
 	end
 	if self.fragmentShaderModule then
-		vk.vkDestroyShaderModule(device, self.fragmentShaderModule, nil)
+		self.fragmentShaderModule:destroy()
 	end
 	if self.id then
 		vk.vkDestroyPipeline(device, self.id, nil)
