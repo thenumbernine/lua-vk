@@ -323,7 +323,6 @@ function VulkanSwapchain:createRenderPass(physDev, device, swapChainImageFormat,
 					},
 				},
 			},
-			dependencyCount = 1,
 			dependencies = {
 				{
 					srcSubpass = vk.VK_SUBPASS_EXTERNAL,
