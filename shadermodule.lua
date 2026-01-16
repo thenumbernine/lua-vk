@@ -31,6 +31,24 @@ function VKShaderModule:init(args)
 	)
 end
 
+--[[
+static generator method
+args:
+	device
+	filename
+--]]
+function VKShaderModule:fromFile(args)
+	local path = require 'ext.path'
+	return VKShaderModule{
+		device = args.device,
+		code = assert(path(assert.index(args, 'filename')):read()),
+	}
+end
+-- TODO in a wrapping .obj or something, use lua.make
+-- glslangValidator -V shader.vert -o shader-vert.spv
+-- glslangValidator -V shader.frag -o shader-frag.spv
+
+
 function VKShaderModule:destroy()
 	if self.id then
 		vk.vkDestroyShaderModule(self.device, self.id, nil)

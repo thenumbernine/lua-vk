@@ -7,7 +7,7 @@ local defs = require 'vk.defs'
 local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
 local makeStructCtor = require 'vk.util'.makeStructCtor
-local VulkanShaderModule = require 'vk.vulkanshadermodule'
+local VKShaderModule = require 'vk.shadermodule'
 local VulkanVertex = require 'vk.vulkanmesh'.VulkanVertex
 
 defs.main = 'main'
@@ -156,8 +156,8 @@ function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 	)
 	-- but save self.descriptorSetLayout for later
 
-	self.vertexShaderModule = VulkanShaderModule:fromFile(device, "shader-vert.spv")
-	self.fragmentShaderModule = VulkanShaderModule:fromFile(device, "shader-frag.spv")
+	self.vertexShaderModule = VKShaderModule:fromFile{device=device, filename="shader-vert.spv"}
+	self.fragmentShaderModule = VKShaderModule:fromFile{device=device, filename="shader-frag.spv"}
 	local numShaderStages = 2
 	local shaderStages = VkPipelineShaderStageCreateInfo_array(numShaderStages, {
 		makeVkPipelineShaderStageCreateInfo{
