@@ -5,6 +5,7 @@ local assertindex = require 'ext.assert'.index
 local vector = require 'ffi.cpp.vector-lua'
 local vk = require 'vk'
 local defs = require 'vk.defs'
+local makeStructCtor = require 'vk.util'.makeStructCtor
 local VKDevice = require 'vk.device'
 
 
@@ -12,6 +13,9 @@ local char_const_ptr = ffi.typeof'char const *'
 local float_1 = ffi.typeof'float[1]'
 local VkDeviceQueueCreateInfo = ffi.typeof'VkDeviceQueueCreateInfo'
 local VkPhysicalDeviceFeatures = ffi.typeof'VkPhysicalDeviceFeatures'
+
+
+local makeVkDeviceQueueCreateInfo = makeStructCtor'VkDeviceQueueCreateInfo'
 
 
 local VulkanDevice = class()
@@ -23,8 +27,7 @@ function VulkanDevice:init(physDev, deviceExtensions, enableValidationLayers, in
 		[indices.graphicsFamily] = true,
 		[indices.presentFamily] = true,
 	} do
-		queueCreateInfos:emplace_back()[0] = VkDeviceQueueCreateInfo{
-			sType = vk.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+		queueCreateInfos:emplace_back()[0] = makeVkDeviceQueueCreateInfo{
 			queueFamilyIndex = queueFamily,
 			queueCount = 1,
 			pQueuePriorities = queuePriorities,

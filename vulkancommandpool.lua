@@ -5,28 +5,34 @@ local assert = require 'ext.assert'
 local vk = require 'vk'
 local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
+local makeStructCtor = require 'vk.util'.makeStructCtor
 local VKSingleTimeCommand = require 'vk.singletimecommand'
 
 
 local VkCommandPool = ffi.typeof'VkCommandPool'
-local VkCommandPoolCreateInfo = ffi.typeof'VkCommandPoolCreateInfo'
-local VkImageMemoryBarrier = ffi.typeof'VkImageMemoryBarrier'
 local VkBufferCopy = ffi.typeof'VkBufferCopy'
 local VkBufferImageCopy = ffi.typeof'VkBufferImageCopy'
+
+
+local makeVkCommandPoolCreateInfo = makeStructCtor'VkCommandPoolCreateInfo'
+local makeVkImageMemoryBarrier = makeStructCtor'VkImageMemoryBarrier'
 
 
 local VulkanCommandPool = class()
 
 function VulkanCommandPool:init(common, physDev, device, surface)
-	local queueFamilyIndices = physDev:findQueueFamilies(nil, surface)
-
-	local info = VkCommandPoolCreateInfo()
-	info.sType = vk.VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO
-	info.flags = vk.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT
-	info.queueFamilyIndex = assert.index(queueFamilyIndices, 'graphicsFamily')
-	self.id = vkGet(VkCommandPool, vkassert, vk.vkCreateCommandPool, device.obj.id, info, nil)
-
 	self.device = device.obj.id
+	self.id = vkGet(
+		VkCommandPool,
+		vkassert,
+		vk.vkCreateCommandPool,
+		self.device,
+		makeVkCommandPoolCreateInfo{
+			flags = vk.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+			queueFamilyIndex = assert.index(physDev:findQueueFamilies(nil, surface), 'graphicsFamily'),
+		},
+		nil
+	)
 	self.graphicsQueue = common.graphicsQueue
 end
 
@@ -36,16 +42,18 @@ function VulkanCommandPool:transitionImageLayout(image, oldLayout, newLayout, mi
 		self.graphicsQueue.id,
 		self.id,
 		function(commandBuffer)
-			local barrier = VkImageMemoryBarrier()
-			barrier.sType = vk.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER
-			barrier.oldLayout = oldLayout
-			barrier.newLayout = newLayout
-			barrier.srcQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED
-			barrier.dstQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED
-			barrier.image = image
-			barrier.subresourceRange.aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT
-			barrier.subresourceRange.levelCount = mipLevels
-			barrier.subresourceRange.layerCount = 1
+			local barrier = makeVkImageMemoryBarrier{
+				oldLayout = oldLayout,
+				newLayout = newLayout,
+				srcQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED,
+				dstQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED,
+				image = image,
+				subresourceRange = {
+					aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT,
+					levelCount = mipLevels,
+					layerCount = 1,
+				},
+			}
 
 			local srcStage, dstStage
 			if oldLayout == vk.VK_IMAGE_LAYOUT_UNDEFINED

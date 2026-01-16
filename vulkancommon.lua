@@ -14,6 +14,7 @@ local defs = require 'vk.defs'
 local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
 local vkGetVector = require 'vk.util'.vkGetVector
+local makeStructCtor = require 'vk.util'.makeStructCtor
 local VKSurface = require 'vk.surface'
 local VKQueue = require 'vk.queue'
 require 'ffi.req' 'c.string'	-- debug: strcmp
@@ -40,42 +41,46 @@ local uint64_t = ffi.typeof'uint64_t'
 local PFN_vkCreateDebugUtilsMessengerEXT = ffi.typeof'PFN_vkCreateDebugUtilsMessengerEXT'
 local PFN_vkDebugUtilsMessengerCallbackEXT = ffi.typeof'PFN_vkDebugUtilsMessengerCallbackEXT'
 local PFN_vkDestroyDebugUtilsMessengerEXT = ffi.typeof'PFN_vkDestroyDebugUtilsMessengerEXT'
-local VkAcquireNextImageInfoKHR = ffi.typeof'VkAcquireNextImageInfoKHR'
 local VkBuffer_1 = ffi.typeof'VkBuffer[1]'
 local VkClearValue_array = ffi.typeof'VkClearValue[?]'
 local VkCommandBuffer_array = ffi.typeof'VkCommandBuffer[?]'
-local VkCommandBufferAllocateInfo = ffi.typeof'VkCommandBufferAllocateInfo'
-local VkCommandBufferBeginInfo = ffi.typeof'VkCommandBufferBeginInfo'
-local VkDebugUtilsMessengerCreateInfoEXT = ffi.typeof'VkDebugUtilsMessengerCreateInfoEXT'
 local VkDebugUtilsMessengerEXT = ffi.typeof'VkDebugUtilsMessengerEXT'
 local VkDescriptorBufferInfo = ffi.typeof'VkDescriptorBufferInfo'
 local VkDescriptorImageInfo = ffi.typeof'VkDescriptorImageInfo'
 local VkDescriptorPool = ffi.typeof'VkDescriptorPool'
-local VkDescriptorPoolCreateInfo = ffi.typeof'VkDescriptorPoolCreateInfo'
 local VkDescriptorPoolSize_array = ffi.typeof'VkDescriptorPoolSize[?]'
 local VkDescriptorSet_array = ffi.typeof'VkDescriptorSet[?]'
-local VkDescriptorSetAllocateInfo = ffi.typeof'VkDescriptorSetAllocateInfo'
 local VkDescriptorSetLayout_array = ffi.typeof'VkDescriptorSetLayout[?]'
 local VkDeviceSize_1 = ffi.typeof'VkDeviceSize[1]'
 local VkFence = ffi.typeof'VkFence'
 local VkFence_array = ffi.typeof'VkFence[?]'
-local VkFenceCreateInfo = ffi.typeof'VkFenceCreateInfo'
 local VkImageBlit = ffi.typeof'VkImageBlit'
-local VkImageMemoryBarrier = ffi.typeof'VkImageMemoryBarrier'
 local VkLayerProperties = ffi.typeof'VkLayerProperties'
 local VkPipelineStageFlags_1 = ffi.typeof'VkPipelineStageFlags[1]'
-local VkPresentInfoKHR = ffi.typeof'VkPresentInfoKHR'
 local VkRect2D = ffi.typeof'VkRect2D'
-local VkRenderPassBeginInfo = ffi.typeof'VkRenderPassBeginInfo'
 local VkSampler = ffi.typeof'VkSampler'
-local VkSamplerCreateInfo = ffi.typeof'VkSamplerCreateInfo'
 local VkSemaphore = ffi.typeof'VkSemaphore'
 local VkSemaphore_array = ffi.typeof'VkSemaphore[?]'
-local VkSemaphoreCreateInfo = ffi.typeof'VkSemaphoreCreateInfo'
-local VkSubmitInfo = ffi.typeof'VkSubmitInfo'
 local VkSwapchainKHR_1 = ffi.typeof'VkSwapchainKHR[1]'
 local VkViewport = ffi.typeof'VkViewport'
 local VkWriteDescriptorSet_array = ffi.typeof'VkWriteDescriptorSet[?]'
+
+
+local makeVkDebugUtilsMessengerCreateInfoEXT = makeStructCtor'VkDebugUtilsMessengerCreateInfoEXT'
+local makeVkSamplerCreateInfo = makeStructCtor'VkSamplerCreateInfo'
+local makeVkDescriptorPoolCreateInfo = makeStructCtor'VkDescriptorPoolCreateInfo'
+local makeVkCommandBufferAllocateInfo = makeStructCtor'VkCommandBufferAllocateInfo'
+local makeVkSemaphoreCreateInfo = makeStructCtor'VkSemaphoreCreateInfo'
+local makeVkFenceCreateInfo = makeStructCtor'VkFenceCreateInfo'
+local makeVkImageMemoryBarrier = makeStructCtor'VkImageMemoryBarrier'
+local makeVkDescriptorSetAllocateInfo = makeStructCtor'VkDescriptorSetAllocateInfo'
+local makeVkWriteDescriptorSet = makeStructCtor'VkWriteDescriptorSet'
+local makeVkAcquireNextImageInfoKHR = makeStructCtor'VkAcquireNextImageInfoKHR'
+local makeVkSubmitInfo = makeStructCtor'VkSubmitInfo'
+local makeVkPresentInfoKHR = makeStructCtor'VkPresentInfoKHR'
+local makeVkCommandBufferBeginInfo = makeStructCtor'VkCommandBufferBeginInfo'
+local makeVkRenderPassBeginInfo = makeStructCtor'VkRenderPassBeginInfo'
+
 
 local UniformBufferObject = struct{
 	name = 'UniformBufferObject',
@@ -114,27 +119,26 @@ function VulkanCommon:init(app)
 		-- store as self member to prevent function closure gc'ing
 		self.debugCallback = ffi.cast(PFN_vkDebugUtilsMessengerCallbackEXT, VulkanCommon.debugCallback)
 
-		local info = VkDebugUtilsMessengerCreateInfoEXT()
-		info.sType = vk.VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT
-		info.messageSeverity = bit.bor(
-			vk.VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT,
-		--vk.VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT,
-			vk.VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT,
-			vk.VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
-		)
-		info.messageType = bit.bor(
-			vk.VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT,
-			vk.VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT,
-			vk.VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT
-			--vk.VK_DEBUG_UTILS_MESSAGE_TYPE_DEVICE_ADDRESS_BINDING_BIT_EXT
-		)
-		info.pfnUserCallback = self.debugCallback
 		self.debug = vkGet(
 			VkDebugUtilsMessengerEXT,
 			vkassert,
 			defs.vkCreateDebugUtilsMessengerEXT,
 			self.instance.obj.id,
-			info,
+			makeVkDebugUtilsMessengerCreateInfoEXT{
+				messageSeverity = bit.bor(
+					vk.VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT,
+					--vk.VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT,
+					vk.VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT,
+					vk.VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
+				),
+				messageType = bit.bor(
+					vk.VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT,
+					vk.VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT,
+					vk.VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT
+					--vk.VK_DEBUG_UTILS_MESSAGE_TYPE_DEVICE_ADDRESS_BINDING_BIT_EXT
+				),
+				pfnUserCallback = self.debugCallback,
+			},
 			nil
 		)
 	end
@@ -179,28 +183,27 @@ print('msaaSamples', self.msaaSamples)
 		self.mipLevels
 	)
 
-	local info = VkSamplerCreateInfo()
-	info.sType = vk.VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO
-	info.magFilter = vk.VK_FILTER_LINEAR
-	info.minFilter = vk.VK_FILTER_LINEAR
-	info.mipmapMode = vk.VK_SAMPLER_MIPMAP_MODE_LINEAR
-	info.addressModeU = vk.VK_SAMPLER_ADDRESS_MODE_REPEAT
-	info.addressModeV = vk.VK_SAMPLER_ADDRESS_MODE_REPEAT
-	info.addressModeW = vk.VK_SAMPLER_ADDRESS_MODE_REPEAT
-	info.anisotropyEnable = vk.VK_TRUE
-	info.maxAnisotropy = self.physDev.obj:getProps().limits.maxSamplerAnisotropy
-	info.compareEnable = vk.VK_FALSE
-	info.compareOp = vk.VK_COMPARE_OP_ALWAYS
-	info.minLod = 0
-	info.maxLod = self.mipLevels
-	info.borderColor = vk.VK_BORDER_COLOR_INT_OPAQUE_BLACK
-	info.unnormalizedCoordinates = vk.VK_FALSE
 	self.textureSampler = vkGet(
 		VkSampler,
 		vkassert,
 		vk.vkCreateSampler,
 		self.device.obj.id,
-		info,
+		makeVkSamplerCreateInfo{
+			magFilter = vk.VK_FILTER_LINEAR,
+			minFilter = vk.VK_FILTER_LINEAR,
+			mipmapMode = vk.VK_SAMPLER_MIPMAP_MODE_LINEAR,
+			addressModeU = vk.VK_SAMPLER_ADDRESS_MODE_REPEAT,
+			addressModeV = vk.VK_SAMPLER_ADDRESS_MODE_REPEAT,
+			addressModeW = vk.VK_SAMPLER_ADDRESS_MODE_REPEAT,
+			anisotropyEnable = vk.VK_TRUE,
+			maxAnisotropy = self.physDev.obj:getProps().limits.maxSamplerAnisotropy,
+			compareEnable = vk.VK_FALSE,
+			compareOp = vk.VK_COMPARE_OP_ALWAYS,
+			minLod = 0,
+			maxLod = self.mipLevels,
+			borderColor = vk.VK_BORDER_COLOR_INT_OPAQUE_BLACK,
+			unnormalizedCoordinates = vk.VK_FALSE,
+		},
 		nil
 	)
 
@@ -236,74 +239,82 @@ print('msaaSamples', self.msaaSamples)
 	poolSizes[0].descriptorCount = self.maxFramesInFlight
 	poolSizes[1].type = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
 	poolSizes[1].descriptorCount = self.maxFramesInFlight
-	local info = VkDescriptorPoolCreateInfo()
-	info.sType = vk.VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO
-	info.maxSets = self.maxFramesInFlight
-	info.poolSizeCount = poolSizeCount
-	info.pPoolSizes = poolSizes
 	self.descriptorPool = vkGet(
 		VkDescriptorPool,
 		vkassert,
 		vk.vkCreateDescriptorPool,
 		self.device.obj.id,
-		info,
+		makeVkDescriptorPoolCreateInfo{
+			maxSets = self.maxFramesInFlight,
+			poolSizeCount = poolSizeCount,
+			pPoolSizes = poolSizes,
+		},
 		nil
 	)
 
 	self.descriptorSets = self:createDescriptorSets()
 
-	local info = VkCommandBufferAllocateInfo()
-	info.sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO
-	info.commandPool = self.commandPool.id
-	info.level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY
-	info.commandBufferCount = self.maxFramesInFlight
 	--[[
-	self.commandBuffers = vkGet(VkCommandBuffer, vkassert, vk.vkAllocateCommandBuffers, self.device.obj.id, info)
+	self.commandBuffers = vkGet(
+		VkCommandBuffer,
+		vkassert,
+		vk.vkAllocateCommandBuffers,
+		self.device.obj.id,
+		makeVkCommandBufferAllocateInfo{
+			commandPool = self.commandPool.id,
+			level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+			commandBufferCount = self.maxFramesInFlight,
+		}
+	)
 	--]]
 	-- [[ can't use vkGet and can't use vkGetVector ...
 	self.commandBuffers = VkCommandBuffer_array(self.maxFramesInFlight)
-	vkassert(vk.vkAllocateCommandBuffers, self.device.obj.id, info, self.commandBuffers)
+	vkassert(
+		vk.vkAllocateCommandBuffers,
+		self.device.obj.id,
+		makeVkCommandBufferAllocateInfo{
+			commandPool = self.commandPool.id,
+			level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+			commandBufferCount = self.maxFramesInFlight,
+		},
+		self.commandBuffers
+	)
 	--]]
 
 	self.imageAvailableSemaphores = VkSemaphore_array(self.maxFramesInFlight)
 	for i=0,self.maxFramesInFlight-1 do
-		local info = VkSemaphoreCreateInfo()
-		info.sType = vk.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
 		self.imageAvailableSemaphores[i] = vkGet(
 			VkSemaphore,
 			vkassert,
 			vk.vkCreateSemaphore,
 			self.device.obj.id,
-			info,
+			makeVkSemaphoreCreateInfo(),
 			nil
 		)
 	end
 
 	self.renderFinishedSemaphores = VkSemaphore_array(self.maxFramesInFlight)
 	for i=0,self.maxFramesInFlight-1 do
-		local info = VkSemaphoreCreateInfo()
-		info.sType = vk.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
 		self.renderFinishedSemaphores[i] = vkGet(
 			VkSemaphore,
 			vkassert,
 			vk.vkCreateSemaphore,
 			self.device.obj.id,
-			info,
+			makeVkSemaphoreCreateInfo(),
 			nil
 		)
 	end
 
 	self.inFlightFences = VkFence_array(self.maxFramesInFlight)
 	for i=0,self.maxFramesInFlight-1 do
-		local info = VkFenceCreateInfo()
-		info.sType = vk.VK_STRUCTURE_TYPE_FENCE_CREATE_INFO
-		info.flags = vk.VK_FENCE_CREATE_SIGNALED_BIT
 		self.inFlightFences[i] = vkGet(
 			VkFence,
 			vkassert,
 			vk.vkCreateFence,
 			self.device.obj.id,
-			info,
+			makeVkFenceCreateInfo{
+				flags = vk.VK_FENCE_CREATE_SIGNALED_BIT,
+			},
 			nil
 		)
 	end
@@ -389,14 +400,16 @@ function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, m
 		self.graphicsQueue.id,
 		self.commandPool.id,
 		function(commandBuffer)
-			local barrier = VkImageMemoryBarrier()
-			barrier.sType = vk.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER
-			barrier.srcQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED
-			barrier.dstQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED
-			barrier.image = image
-			barrier.subresourceRange.aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT
-			barrier.subresourceRange.levelCount = 1
-			barrier.subresourceRange.layerCount = 1
+			local barrier = makeVkImageMemoryBarrier{
+				srcQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED,
+				dstQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED,
+				image = image,
+				subresourceRange = {
+					aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT,
+					levelCount = 1,
+					layerCount = 1,
+				},
+			}
 
 			local mipWidth = texWidth
 			local mipHeight = texHeight
@@ -493,12 +506,6 @@ function VulkanCommon:createDescriptorSets()
 		layouts[i] = self.graphicsPipeline.descriptorSetLayout
 	end
 
-	local info = VkDescriptorSetAllocateInfo()
-	info.sType = vk.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO
-	info.descriptorPool = self.descriptorPool
-	info.descriptorSetCount = self.maxFramesInFlight
-	info.pSetLayouts = layouts	-- length matches descriptorSetCount I think?
-
 	--[[ vkGet just allocates one
 	-- vkGetVector expects a 'count' field to determine size
 	-- ... we have to statically allocate for this function ...
@@ -507,12 +514,25 @@ function VulkanCommon:createDescriptorSets()
 		vkassert,
 		vk.vkAllocateDescriptorSets,
 		self.device.obj.id,
-		info
+		makeVkDescriptorSetAllocateInfo{
+			descriptorPool = self.descriptorPool,
+			descriptorSetCount = self.maxFramesInFlight,
+			pSetLayouts = layouts,	-- length matches descriptorSetCount I think?
+		}
 	)
 	--]]
 	-- [[
 	local descriptorSets = VkDescriptorSet_array(self.maxFramesInFlight)
-	vkassert(vk.vkAllocateDescriptorSets, self.device.obj.id, info, descriptorSets)
+	vkassert(
+		vk.vkAllocateDescriptorSets,
+		self.device.obj.id,
+		makeVkDescriptorSetAllocateInfo{
+			descriptorPool = self.descriptorPool,
+			descriptorSetCount = self.maxFramesInFlight,
+			pSetLayouts = layouts,	-- length matches descriptorSetCount I think?
+		},
+		descriptorSets
+	)
 	--]]
 
 	for i=0,self.maxFramesInFlight-1 do
@@ -527,22 +547,20 @@ function VulkanCommon:createDescriptorSets()
 
 		local numDescriptorWrites = 2
 		local descriptorWrites = VkWriteDescriptorSet_array(numDescriptorWrites)
-		local v = descriptorWrites+0
-		v.sType = vk.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET
-		v.dstSet = descriptorSets[i]
-		v.dstBinding = 0
-		v.descriptorCount = 1
-		v.descriptorType = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
-		v.pBufferInfo = bufferInfo
-		v=v+1
-		v.sType = vk.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET
-		v.dstSet = descriptorSets[i]
-		v.dstBinding = 1
-		v.descriptorCount = 1
-		v.descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
-		v.pImageInfo = imageInfo
-		v=v+1
-		asserteq(v, descriptorWrites + numDescriptorWrites)
+		descriptorWrites[0] = makeVkWriteDescriptorSet{
+			dstSet = descriptorSets[i],
+			dstBinding = 0,
+			descriptorCount = 1,
+			descriptorType = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			pBufferInfo = bufferInfo,
+		}
+		descriptorWrites[1] = makeVkWriteDescriptorSet{
+			dstSet = descriptorSets[i],
+			dstBinding = 1,
+			descriptorCount = 1,
+			descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			pImageInfo = imageInfo,
+		}
 		vk.vkUpdateDescriptorSets(
 			self.device.obj.id,
 			numDescriptorWrites,
@@ -573,15 +591,18 @@ function VulkanCommon:drawFrame()
 	end
 
 	self.imageIndex = uint32_t_1()
-	local info = VkAcquireNextImageInfoKHR()
-	info.sType = vk.VK_STRUCTURE_TYPE_ACQUIRE_NEXT_IMAGE_INFO_KHR
-	info.pNext = nil
-	info.swapchain = self.swapchain.obj.id
-	info.timeout = ffi.cast(uint64_t, -1)
-	info.semaphore = self.imageAvailableSemaphores[self.currentFrame]
-	info.fence = nil
-	info.deviceMask = 1
-	local result = vk.vkAcquireNextImage2KHR(assert(self.device.obj.id), info, self.imageIndex)
+	local result = vk.vkAcquireNextImage2KHR(
+		assert(self.device.obj.id),
+		makeVkAcquireNextImageInfoKHR{
+			--pNext = nil,
+			swapchain = self.swapchain.obj.id,
+			timeout = ffi.cast(uint64_t, -1),
+			semaphore = self.imageAvailableSemaphores[self.currentFrame],
+			--fence = nil,
+			deviceMask = 1,
+		},
+		self.imageIndex
+	)
 	if result == vk.VK_ERROR_OUT_OF_DATE_KHR then
 		self:recreateSwapchain()
 		return
@@ -599,29 +620,33 @@ function VulkanCommon:drawFrame()
 
 	self:recordCommandBuffer(self.commandBuffers[self.currentFrame], self.imageIndex[0])
 
-	local waitStages = VkPipelineStageFlags_1(vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
-	local info = VkSubmitInfo()
-	info.sType = vk.VK_STRUCTURE_TYPE_SUBMIT_INFO
-	info.waitSemaphoreCount = 1
-	info.pWaitSemaphores = self.imageAvailableSemaphores + self.currentFrame
-	info.pWaitDstStageMask = waitStages
-	info.commandBufferCount = 1
-	info.pCommandBuffers = self.commandBuffers + self.currentFrame
-	info.signalSemaphoreCount = 1
-	info.pSignalSemaphores = self.renderFinishedSemaphores + self.currentFrame
-	vkassert(vk.vkQueueSubmit, self.graphicsQueue.id, 1, info, self.inFlightFences[self.currentFrame])
+	vkassert(
+		vk.vkQueueSubmit,
+		self.graphicsQueue.id,
+		1,
+		makeVkSubmitInfo{
+			waitSemaphoreCount = 1,
+			pWaitSemaphores = self.imageAvailableSemaphores + self.currentFrame,
+			pWaitDstStageMask = VkPipelineStageFlags_1(vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT),
+			commandBufferCount = 1,
+			pCommandBuffers = self.commandBuffers + self.currentFrame,
+			signalSemaphoreCount = 1,
+			pSignalSemaphores = self.renderFinishedSemaphores + self.currentFrame,
+		},
+		self.inFlightFences[self.currentFrame]
+	)
 
-	-- TODO reason to keep the gc'd ptr around
-	local swapchains = VkSwapchainKHR_1(self.swapchain.obj.id)
-	local info = VkPresentInfoKHR()
-	info.sType = vk.VK_STRUCTURE_TYPE_PRESENT_INFO_KHR
-	info.waitSemaphoreCount = 1
-	info.pWaitSemaphores = self.renderFinishedSemaphores + self.currentFrame
-	info.swapchainCount = 1
-	info.pSwapchains = swapchains
-	info.pImageIndices = self.imageIndex
 	-- TODO what's info.pResults vs the results returned from vkQueuePresentKHR ?
-	local result = vk.vkQueuePresentKHR(self.presentQueue.id, info)
+	local result = vk.vkQueuePresentKHR(
+		self.presentQueue.id,
+		makeVkPresentInfoKHR{
+			waitSemaphoreCount = 1,
+			pWaitSemaphores = self.renderFinishedSemaphores + self.currentFrame,
+			swapchainCount = 1,
+			pSwapchains = VkSwapchainKHR_1(self.swapchain.obj.id),
+			pImageIndices = self.imageIndex,
+		}
+	)
 
 	if result == vk.VK_ERROR_OUT_OF_DATE_KHR
 	or result == vk.VK_SUBOPTIMAL_KHR
@@ -664,9 +689,11 @@ end
 
 function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 	-- TODO per vulkan api, if we just have null info, can we pass null?
-	local info = VkCommandBufferBeginInfo()
-	info.sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO
-	vkassert(vk.vkBeginCommandBuffer, commandBuffer, info)
+	vkassert(
+		vk.vkBeginCommandBuffer,
+		commandBuffer,
+		makeVkCommandBufferBeginInfo()
+	)
 
 	local numClearValues = 2
 	local clearValues = VkClearValue_array(numClearValues)
@@ -679,21 +706,20 @@ function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 	c.depthStencil.depth = 1
 	c.depthStencil.stencil = 0
 
-	local info = VkRenderPassBeginInfo()
-	info.sType = vk.VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO
-	info.renderPass = self.swapchain.renderPass
-	
-	-- TODO how do we know the framebuffer index is less than the image from teh swapchain?
-	-- framebufer[] is sized b imge of swapchain,
-	-- but her it's indexed by maxFramesInFlight which is set to 2
-	info.framebuffer = self.swapchain.framebuffers[imageIndex]
-	info.renderArea.extent.width = self.swapchain.extent.width
-	info.renderArea.extent.height = self.swapchain.extent.height
-	info.clearValueCount = numClearValues
-	info.pClearValues = clearValues
 	vk.vkCmdBeginRenderPass(
 		commandBuffer,
-		info,
+		makeVkRenderPassBeginInfo{
+			renderPass = self.swapchain.renderPass,
+			-- TODO how do we know the framebuffer index is less than the image from teh swapchain?
+			-- framebufer[] is sized b imge of swapchain,
+			-- but her it's indexed by maxFramesInFlight which is set to 2
+			framebuffer = self.swapchain.framebuffers[imageIndex],
+			renderArea = {
+				extent = self.swapchain.extent,
+			},
+			clearValueCount = numClearValues,
+			pClearValues = clearValues,
+		},
 		vk.VK_SUBPASS_CONTENTS_INLINE
 	)
 

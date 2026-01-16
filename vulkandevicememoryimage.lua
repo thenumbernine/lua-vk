@@ -4,15 +4,17 @@ local class = require 'ext.class'
 local vk = require 'vk'
 local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
+local makeStructCtor = require 'vk.util'.makeStructCtor
 local VulkanDeviceMemoryFromStagingBuffer = require 'vk.vulkandevicememoryfromstagingbuffer'
 
 
 local VkDeviceMemory = ffi.typeof'VkDeviceMemory'
 local VkImage = ffi.typeof'VkImage'
-local VkImageCreateInfo = ffi.typeof'VkImageCreateInfo'
-local VkMemoryAllocateInfo = ffi.typeof'VkMemoryAllocateInfo'
 local VkMemoryRequirements = ffi.typeof'VkMemoryRequirements'
 
+
+local makeVkImageCreateInfo = makeStructCtor'VkImageCreateInfo'
+local makeVkMemoryAllocateInfo = makeStructCtor'VkMemoryAllocateInfo'
 
 local VulkanDeviceMemoryImage = class()
 
@@ -28,21 +30,29 @@ function VulkanDeviceMemoryImage:createImage(
 	usage,
 	properties
 )
-	local info = VkImageCreateInfo()
-	info.sType = vk.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO
-	info.imageType = vk.VK_IMAGE_TYPE_2D
-	info.format = format
-	info.extent.width = width
-	info.extent.height = height
-	info.extent.depth = 1
-	info.mipLevels = mipLevels
-	info.arrayLayers = 1
-	info.samples = numSamples
-	info.tiling = tiling
-	info.usage = usage
-	info.sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE
-	info.initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED
-	local image = vkGet(VkImage, vkassert, vk.vkCreateImage, device, info, nil)
+	local image = vkGet(
+		VkImage,
+		vkassert,
+		vk.vkCreateImage,
+		device,
+		makeVkImageCreateInfo{
+			imageType = vk.VK_IMAGE_TYPE_2D,
+			format = format,
+			extent = {
+				width = width,
+				height = height,
+				depth = 1,
+			},
+			mipLevels = mipLevels,
+			arrayLayers = 1,
+			samples = numSamples,
+			tiling = tiling,
+			usage = usage,
+			sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE,
+			initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED,
+		},
+		nil
+	)
 
 	local memReq = vkGet(
 		VkMemoryRequirements,
@@ -51,16 +61,16 @@ function VulkanDeviceMemoryImage:createImage(
 		device,
 		image
 	)
-	local info = VkMemoryAllocateInfo()
-	info.sType = vk.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO
-	info.allocationSize = memReq.size
-	info.memoryTypeIndex = physDev:findMemoryType(memReq.memoryTypeBits, properties)
+
 	local imageMemory = vkGet(
 		VkDeviceMemory,
 		vkassert,
 		vk.vkAllocateMemory,
 		device,
-		info,
+		makeVkMemoryAllocateInfo{
+			allocationSize = memReq.size,
+			memoryTypeIndex = physDev:findMemoryType(memReq.memoryTypeBits, properties),
+		},
 		nil
 	)
 

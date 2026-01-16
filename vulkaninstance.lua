@@ -7,6 +7,7 @@ local vk = require 'vk'
 local defs = require 'vk.defs'
 local vkassert = require 'vk.util'.vkassert
 local vkGetVector = require 'vk.util'.vkGetVector
+local makeStructCtor = require 'vk.util'.makeStructCtor
 local VKInstance = require 'vk.instance'
 local sdl = require 'sdl'
 
@@ -19,6 +20,9 @@ local char_const_ptr = ffi.typeof'char const *'
 local uint32_t_1 = ffi.typeof'uint32_t[1]'
 local VkLayerProperties = ffi.typeof'VkLayerProperties'
 local VkApplicationInfo = ffi.typeof'VkApplicationInfo'
+
+
+local makeVkApplicationInfo = makeStructCtor'VkApplicationInfo'
 
 
 -- TODO move to vk?
@@ -50,15 +54,6 @@ function VulkanInstance:init(common)
 		)
 	end
 
-	-- how to prevent gc until a variable is done?
-	local info = VkApplicationInfo()
-	info.sType = vk.VK_STRUCTURE_TYPE_APPLICATION_INFO
-	info.pApplicationName = app.title
-	info.applicationVersion = VK_MAKE_API_VERSION(0, 1, 0, 0)
-	info.pEngineName = defs.engineName
-	info.engineVersion = VK_MAKE_API_VERSION(0, 1, 0, 0)
-	info.apiVersion = VK_API_VERISON_1_0
-
 	local layerNames = vector(char_const_ptr)
 	if enableValidationLayers then
 		layerNames:emplace_back()[0] = defs.VK_LAYER_KHRONOS_VALIDATION_NAME
@@ -67,7 +62,13 @@ function VulkanInstance:init(common)
 	local extensions = self:getRequiredExtensions(common)
 
 	self.obj = VKInstance{
-		pApplicationInfo = info,
+		pApplicationInfo = 	makeVkApplicationInfo{
+			pApplicationName = app.title,
+			applicationVersion = VK_MAKE_API_VERSION(0, 1, 0, 0),
+			pEngineName = defs.engineName,
+			engineVersion = VK_MAKE_API_VERSION(0, 1, 0, 0),
+			apiVersion = VK_API_VERISON_1_0,
+		},
 		enabledLayerCount = #layerNames,
 		ppEnabledLayerNames = layerNames.v,
 		enabledExtensionCount = #extensions,

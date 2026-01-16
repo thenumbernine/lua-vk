@@ -7,6 +7,7 @@ local vk = require 'vk'
 local countof = require 'vk.util'.countof
 local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
+local makeStructCtor = require 'vk.util'.makeStructCtor
 local VulkanDeviceMemoryImage = require 'vk.vulkandevicememoryimage'
 local VKSwapchain = require 'vk.swapchain'
 
@@ -18,14 +19,16 @@ local VkAttachmentReference = ffi.typeof'VkAttachmentReference'
 local VkExtent2D = ffi.typeof'VkExtent2D'
 local VkFramebuffer = ffi.typeof'VkFramebuffer'
 local VkFramebuffer_array = ffi.typeof'VkFramebuffer[?]'
-local VkFramebufferCreateInfo = ffi.typeof'VkFramebufferCreateInfo'
 local VkImageView = ffi.typeof'VkImageView'
 local VkImageView_array = ffi.typeof'VkImageView[?]'
-local VkImageViewCreateInfo = ffi.typeof'VkImageViewCreateInfo'
 local VkRenderPass = ffi.typeof'VkRenderPass'
-local VkRenderPassCreateInfo = ffi.typeof'VkRenderPassCreateInfo'
 local VkSubpassDependency = ffi.typeof'VkSubpassDependency'
 local VkSubpassDescription = ffi.typeof'VkSubpassDescription'
+
+
+local makeVkFramebufferCreateInfo = makeStructCtor'VkFramebufferCreateInfo'
+local makeVkImageViewCreateInfo = makeStructCtor'VkImageViewCreateInfo'
+local makeVkRenderPassCreateInfo = makeStructCtor'VkRenderPassCreateInfo'
 
 
 local VulkanSwapchain = class()
@@ -56,27 +59,24 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 	}
 	local queueFamilyIndices = uint32_t_array(#indices, indices)
 
-	local info = {}
-	info.surface = surface.id
-	info.minImageCount = imageCount
-	info.imageFormat = surfaceFormat.format
-	info.imageColorSpace = surfaceFormat.colorSpace
-	info.imageExtent = self.extent
-	info.imageArrayLayers = 1
-	info.imageUsage = vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
-	info.preTransform = swapChainSupport.capabilities.currentTransform
-	info.compositeAlpha = vk.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR
-	info.presentMode = presentMode
-	info.clipped = vk.VK_TRUE
-	if indices.graphicsFamily ~= indices.presentFamily then
-		info.imageSharingMode = vk.VK_SHARING_MODE_CONCURRENT
-		info.queueFamilyIndexCount = countof(queueFamilyIndices)
-		info.pQueueFamilyIndices = queueFamilyIndices
-	else
-		info.imageSharingMode = vk.VK_SHARING_MODE_EXCLUSIVE
-	end
-	info.device = device
-	self.obj = VKSwapchain(info)
+	local familiesDiffer = (indices.graphicsFamily ~= indices.presentFamily) or nil
+	self.obj = VKSwapchain{
+		device = device,
+		surface = surface.id,
+		minImageCount = imageCount,
+		imageFormat = surfaceFormat.format,
+		imageColorSpace = surfaceFormat.colorSpace,
+		imageExtent = self.extent,
+		imageArrayLayers = 1,
+		imageUsage = vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+		preTransform = swapChainSupport.capabilities.currentTransform,
+		compositeAlpha = vk.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+		presentMode = presentMode,
+		clipped = vk.VK_TRUE,
+		imageSharingMode = familiesDiffer and vk.VK_SHARING_MODE_CONCURRENT or vk.VK_SHARING_MODE_EXCLUSIVE,
+		queueFamilyIndexCount = familiesDiffer and countof(queueFamilyIndices),
+		pQueueFamilyIndices = familiesDiffer and queueFamilyIndices,
+	}
 
 	self.images = self.obj:getImages()
 
@@ -146,20 +146,19 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 		attachments[0] = self.colorImageView
 		attachments[1] = self.depthImageView
 		attachments[2] = self.imageViews[i]
-		local info = VkFramebufferCreateInfo()
-		info.sType = vk.VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO
-		info.renderPass = self.renderPass
-		info.attachmentCount = numAttachments
-		info.pAttachments = attachments
-		info.width = width
-		info.height = height
-		info.layers = 1
 		self.framebuffers[i] = vkGet(
 			VkFramebuffer,
 			vkassert,
 			vk.vkCreateFramebuffer,
 			device,
-			info,
+			makeVkFramebufferCreateInfo{
+				renderPass = self.renderPass,
+				attachmentCount = numAttachments,
+				pAttachments = attachments,
+				width = width,
+				height = height,
+				layers = 1,
+			},
 			nil
 		)
 	end
@@ -200,23 +199,23 @@ function VulkanSwapchain:chooseSwapPresentMode(availablePresentModes)
 end
 
 function VulkanSwapchain:createImageView(device, image, format, aspectFlags, mipLevels)
-	local info = VkImageViewCreateInfo()
-	info.sType = vk.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO
-	info.image = image
-	info.viewType = vk.VK_IMAGE_VIEW_TYPE_2D
-	info.format = format
-	info.subresourceRange.aspectMask = aspectFlags
-	info.subresourceRange.levelCount = mipLevels
-	info.subresourceRange.layerCount = 1
-	local result = vkGet(
+	return vkGet(
 		VkImageView,
 		vkassert,
 		vk.vkCreateImageView,
 		device,
-		info,
+		makeVkImageViewCreateInfo{
+			image = image,
+			viewType = vk.VK_IMAGE_VIEW_TYPE_2D,
+			format = format,
+			subresourceRange = {
+				aspectMask = aspectFlags,
+				levelCount = mipLevels,
+				layerCount = 1,
+			},
+		},
 		nil
 	)
-	return result
 end
 
 function VulkanSwapchain:createRenderPass(physDev, device, swapChainImageFormat, msaaSamples)
@@ -290,24 +289,21 @@ function VulkanSwapchain:createRenderPass(physDev, device, swapChainImageFormat,
 		vk.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT
 	)
 
-	local info = VkRenderPassCreateInfo()
-	info.sType = vk.VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO
-	info.attachmentCount = numAttachments
-	info.pAttachments = attachments
-	info.subpassCount = 1
-	info.pSubpasses = subpasses
-	info.dependencyCount = 1
-	info.pDependencies = dependencies
-	local result = vkGet(
+	return vkGet(
 		VkRenderPass,
 		vkassert,
 		vk.vkCreateRenderPass,
 		device,
-		info,
+		makeVkRenderPassCreateInfo{
+			attachmentCount = numAttachments,
+			pAttachments = attachments,
+			subpassCount = 1,
+			pSubpasses = subpasses,
+			dependencyCount = 1,
+			pDependencies = dependencies,
+		},
 		nil
 	)
-
-	return result
 end
 
 function VulkanSwapchain:destroy()

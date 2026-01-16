@@ -4,13 +4,16 @@ local class = require 'ext.class'
 local vk = require 'vk'
 local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
+local makeStructCtor = require 'vk.util'.makeStructCtor
 local VKBuffer = require 'vk.buffer'
 local VulkanDeviceMemoryFromStagingBuffer = require 'vk.vulkandevicememoryfromstagingbuffer'
 
 
 local VkDeviceMemory = ffi.typeof'VkDeviceMemory'
 local VkMemoryRequirements = ffi.typeof'VkMemoryRequirements'
-local VkMemoryAllocateInfo = ffi.typeof'VkMemoryAllocateInfo'
+
+
+local makeVkMemoryAllocateInfo = makeStructCtor'VkMemoryAllocateInfo'
 
 
 local VulkanDeviceMemoryBuffer = class()
@@ -26,16 +29,15 @@ function VulkanDeviceMemoryBuffer:init(physDev, device, size, usage, properties)
 
 	local memReq = vkGet(VkMemoryRequirements, nil, vk.vkGetBufferMemoryRequirements, device, self.buffer.id)
 
-	local info = VkMemoryAllocateInfo()
-	info.sType = vk.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO
-	info.allocationSize = memReq.size
-	info.memoryTypeIndex = physDev:findMemoryType(memReq.memoryTypeBits, properties)
 	self.memory = vkGet(
 		VkDeviceMemory,
 		vkassert,
 		vk.vkAllocateMemory,
 		device,
-		info,
+		makeVkMemoryAllocateInfo{
+			allocationSize = memReq.size,
+			memoryTypeIndex = physDev:findMemoryType(memReq.memoryTypeBits, properties),
+		},
 		nil
 	)
 

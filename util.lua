@@ -57,6 +57,43 @@ local function vkGetVector(ctype, check, f, ...)
 	return vec
 end
 
+local function getSTypeForCType(createType)
+	createType = ffi.typeof(createType)
+	local createTypeStr = tostring(createType)
+	local createTypeName = createTypeStr:match'^ctype<(.*)>$'
+		or error("failed to find ctype in createTypeStr "..tostring(createTypeStr))
+	createTypeName = createTypeName:match'^struct (.*)$' or createTypeName -- work around typedefs
+	local structBaseName = createTypeName:match'^Vk(.*)$' or error("couldn't find Vk(.*) in "..tostring(createTypeName))
+
+	local enumName = ''
+	local lastWasUpper
+	for i=1,#structBaseName do
+		local ch = structBaseName:sub(i,i)
+		local uch = ch:upper()
+		local isUpper = ch == uch
+		if isUpper
+		and not lastWasUpper
+		then
+			enumName = enumName .. '_'
+		end
+		enumName = enumName .. uch
+		lastWasUpper = isUpper
+	end
+	enumName = 'VK_STRUCTURE_TYPE' .. enumName
+	
+	return assertindex(vk, enumName)
+end
+
+local function makeStructCtor(createType)
+	createType = ffi.typeof(createType)
+	local sType = getSTypeForCType(createType)
+	return function(args)
+		args = args or {}
+		args.sType = sType
+		return createType(args)
+	end
+end
+
 -- expects cl to have .createType and optional .sType
 local function addInitFromArgs(cl)
 	local createType = assertindex(cl, 'createType')
@@ -66,30 +103,7 @@ local function addInitFromArgs(cl)
 	local sType = assertindex(cl, 'sType')
 	--]]
 	-- [[ override with automatic deduction (since vulkan has such a clean API)
-	local sType = cl.sType
-	if not sType then
-		local createTypeStr = tostring(createType)
-		local createTypeName = createTypeStr:match'^ctype<(.*)>$'
-		createTypeName = createTypeName:match'^struct (.*)$' or createTypeName -- work around typedefs
-		local structBaseName = createTypeName:match'^Vk(.*)$' or error("couldn't find Vk(.*) in "..tostring(createTypeName))
-		local enumName = ''
-		local lastWasUpper
-		for i=1,#structBaseName do
-			local ch = structBaseName:sub(i,i)
-			local uch = ch:upper()
-			local isUpper = ch == uch
-			if isUpper
-			and not lastWasUpper
-			then
-				enumName = enumName .. '_'
-			end
-			enumName = enumName .. uch
-			lastWasUpper = isUpper
-		end
-		
-		enumName = 'VK_STRUCTURE_TYPE' .. enumName
-		sType = assertindex(vk, enumName)
-	end
+	local sType = cl.sType or getSTypeForCType(createType)
 	--]]
 
 	function cl:initFromArgs(args)
@@ -109,4 +123,5 @@ return {
 	vkGet = vkGet,
 	vkGetVector = vkGetVector,
 	addInitFromArgs = addInitFromArgs,
+	makeStructCtor = makeStructCtor,
 }
