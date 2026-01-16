@@ -2,16 +2,21 @@ require 'ext.gc'
 local ffi = require 'ffi'
 local class = require 'ext.class'
 local assert = require 'ext.assert'
-local vector = require 'ffi.cpp.vector-lua'
 local vk = require 'vk'
-local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
 local makeStructCtor = require 'vk.util'.makeStructCtor
 
 
-local VkDescriptorSetLayoutBinding = ffi.typeof'VkDescriptorSetLayoutBinding'
 local VkDescriptorSetLayout = ffi.typeof'VkDescriptorSetLayout'
-local makeVkDescriptorSetLayoutCreateInfo = makeStructCtor'VkDescriptorSetLayoutCreateInfo'
+local makeVkDescriptorSetLayoutCreateInfo = makeStructCtor(
+	'VkDescriptorSetLayoutCreateInfo',
+	{
+		{
+			name = 'bindings',
+			type = 'VkDescriptorSetLayoutBinding',
+		},
+	}
+)
 
 
 local VKDescriptorSetLayout = class()
@@ -19,20 +24,6 @@ local VKDescriptorSetLayout = class()
 function VKDescriptorSetLayout:init(args)
 	self.device = assert.index(args, 'device')
 	args.device = nil
-
-	if type(args.bindings) == 'table' then
-		if vector:isa(args.bindings) then
-			-- if it's a vector
-			args.bindingCount = #args.bindings
-			args.pBindings = args.bindings.v
-		else
-			-- if it's just a table
-			args.bindings = vector(VkDescriptorSetLayoutBinding, args.bindings)
-			args.bindingCount = #args.bindings
-			args.pBindings = args.bindings.v
-		end
-		args.bindings = nil
-	end
 
 	self.id = vkGet(
 		VkDescriptorSetLayout,

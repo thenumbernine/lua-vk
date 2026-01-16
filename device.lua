@@ -32,6 +32,13 @@ local makeVkDeviceCreateInfo = makeStructCtor(
 			gen = makeVkDeviceQueueCreateInfo,
 		},
 		{
+			name = 'enabledFeatures',
+			ptrname = 'pEnabledFeatures',
+			type = 'VkPhysicalDeviceFeatures',
+			notarray = true,
+		},
+		-- also in instance:
+		{
 			name = 'enabledLayers',
 			ptrname = 'ppEnabledLayerNames',
 			countname = 'enabledLayerCount',
@@ -48,12 +55,6 @@ local makeVkDeviceCreateInfo = makeStructCtor(
 			gen = function(x)
 				return ffi.cast('char const*', x)
 			end,
-		},
-		{
-			name = 'enabledFeatures',
-			ptrname = 'pEnabledFeatures',
-			type = 'VkPhysicalDeviceFeatures',
-			notarray = true,
 		},
 	}
 )

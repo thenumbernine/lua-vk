@@ -10,6 +10,7 @@ local vkGet = require 'vk.util'.vkGet
 local makeStructCtor = require 'vk.util'.makeStructCtor
 local VulkanDeviceMemoryImage = require 'vk.vulkandevicememoryimage'
 local VKSwapchain = require 'vk.swapchain'
+local VKRenderPass = require 'vk.renderpass'
 
 
 local VkAttachmentReference = ffi.typeof'VkAttachmentReference'
@@ -19,29 +20,6 @@ local VkFramebuffer_array = ffi.typeof'VkFramebuffer[?]'
 local VkImageView = ffi.typeof'VkImageView'
 local VkImageView_array = ffi.typeof'VkImageView[?]'
 local VkRenderPass = ffi.typeof'VkRenderPass'
-
-local makeVkSubpassDescription = makeStructCtor(
-	'VkSubpassDescription',
-	{
-		{
-			name = 'colorAttachments',
-			type = 'VkAttachmentReference',
-		},
-		{
-			-- NOTICE there's no matching Count field for this ...
-			-- ... should it always match colorAttachmentCount ?
-			name = 'resolveAttachments',
-			type = 'VkAttachmentReference',
-		},
-		{
-			notarray = true,	-- because most the time it's an array I'm permuting
-			name = 'depthStencilAttachment',
-			ptrname = 'pDepthStencilAttachment',
-			type = 'VkAttachmentReference',
-		},
-	},
-	true	-- no sType
-)
 
 local makeVkFramebufferCreateInfo = makeStructCtor(
 	'VkFramebufferCreateInfo',
@@ -54,28 +32,7 @@ local makeVkFramebufferCreateInfo = makeStructCtor(
 )
 
 local makeVkImageViewCreateInfo = makeStructCtor'VkImageViewCreateInfo'
-local makeVkRenderPassCreateInfo = makeStructCtor(
-	'VkRenderPassCreateInfo',
-	{
-		{
-			name = 'attachments',
-			type = 'VkAttachmentDescription',
-		},
-		{
-			name = 'subpasses',
-			ptrname = 'pSubpasses',
-			countname = 'subpassCount',
-			type = 'VkSubpassDescription',
-			gen = makeVkSubpassDescription,
-		},
-		{
-			name = 'dependencies',
-			ptrname = 'pDependencies',
-			countname = 'dependencyCount',
-			type = 'VkSubpassDependency',
-		},
-	}
-)
+
 
 
 local VulkanSwapchain = class()
@@ -193,7 +150,7 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 			vk.vkCreateFramebuffer,
 			device,
 			makeVkFramebufferCreateInfo{
-				renderPass = self.renderPass,
+				renderPass = self.renderPass.id,
 				attachments = {
 					self.colorImageView,
 					self.depthImageView,
@@ -263,87 +220,81 @@ function VulkanSwapchain:createImageView(device, image, format, aspectFlags, mip
 end
 
 function VulkanSwapchain:createRenderPass(physDev, device, swapChainImageFormat, msaaSamples)
-	return vkGet(
-		VkRenderPass,
-		vkassert,
-		vk.vkCreateRenderPass,
-		device,
-		makeVkRenderPassCreateInfo{
-			attachments = {
-				{	-- colorAttachment
-					format = swapChainImageFormat,
-					samples = msaaSamples,
-					loadOp = vk.VK_ATTACHMENT_LOAD_OP_CLEAR,
-					storeOp = vk.VK_ATTACHMENT_STORE_OP_STORE,
-					stencilLoadOp = vk.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-					stencilStoreOp = vk.VK_ATTACHMENT_STORE_OP_DONT_CARE,
-					initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED,
-					finalLayout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-				},
-				{	-- depthAttachment
-					format = physDev:findDepthFormat(),
-					samples = msaaSamples,
-					loadOp = vk.VK_ATTACHMENT_LOAD_OP_CLEAR,
-					storeOp = vk.VK_ATTACHMENT_STORE_OP_DONT_CARE,
-					stencilLoadOp = vk.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-					stencilStoreOp = vk.VK_ATTACHMENT_STORE_OP_DONT_CARE,
-					initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED,
-					finalLayout = vk.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-				},
-				{	-- colorAttachmentResolve
-					format = swapChainImageFormat,
-					samples = vk.VK_SAMPLE_COUNT_1_BIT,
-					loadOp = vk.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-					storeOp = vk.VK_ATTACHMENT_STORE_OP_STORE,
-					stencilLoadOp = vk.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-					stencilStoreOp = vk.VK_ATTACHMENT_STORE_OP_DONT_CARE,
-					initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED,
-					finalLayout = vk.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-				},
+	return VKRenderPass{
+		device = device,
+		attachments = {
+			{	-- colorAttachment
+				format = swapChainImageFormat,
+				samples = msaaSamples,
+				loadOp = vk.VK_ATTACHMENT_LOAD_OP_CLEAR,
+				storeOp = vk.VK_ATTACHMENT_STORE_OP_STORE,
+				stencilLoadOp = vk.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+				stencilStoreOp = vk.VK_ATTACHMENT_STORE_OP_DONT_CARE,
+				initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED,
+				finalLayout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			},
-			subpasses = {
-				{
-					pipelineBindPoint = vk.VK_PIPELINE_BIND_POINT_GRAPHICS,
-					colorAttachments = {
-						{
-							attachment = 0,
-							layout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-						},
-					},
-					resolveAttachments = {
-						{
-							attachment = 2,
-							layout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-						},
-					},
-					depthStencilAttachment = {
-						attachment = 1,
-						layout = vk.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+			{	-- depthAttachment
+				format = physDev:findDepthFormat(),
+				samples = msaaSamples,
+				loadOp = vk.VK_ATTACHMENT_LOAD_OP_CLEAR,
+				storeOp = vk.VK_ATTACHMENT_STORE_OP_DONT_CARE,
+				stencilLoadOp = vk.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+				stencilStoreOp = vk.VK_ATTACHMENT_STORE_OP_DONT_CARE,
+				initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED,
+				finalLayout = vk.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+			},
+			{	-- colorAttachmentResolve
+				format = swapChainImageFormat,
+				samples = vk.VK_SAMPLE_COUNT_1_BIT,
+				loadOp = vk.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+				storeOp = vk.VK_ATTACHMENT_STORE_OP_STORE,
+				stencilLoadOp = vk.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+				stencilStoreOp = vk.VK_ATTACHMENT_STORE_OP_DONT_CARE,
+				initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED,
+				finalLayout = vk.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+			},
+		},
+		subpasses = {
+			{
+				pipelineBindPoint = vk.VK_PIPELINE_BIND_POINT_GRAPHICS,
+				colorAttachments = {
+					{
+						attachment = 0,
+						layout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 					},
 				},
-			},
-			dependencies = {
-				{
-					srcSubpass = vk.VK_SUBPASS_EXTERNAL,
-					dstSubpass = 0,
-					srcStageMask = bit.bor(
-						vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-						vk.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
-					),
-					dstStageMask = bit.bor(
-						vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-						vk.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
-					),
-					srcAccessMask = 0,
-					dstAccessMask = bit.bor(
-						vk.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-						vk.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT
-					),
+				resolveAttachments = {
+					{
+						attachment = 2,
+						layout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+					},
+				},
+				depthStencilAttachment = {
+					attachment = 1,
+					layout = vk.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 				},
 			},
 		},
-		nil
-	)
+		dependencies = {
+			{
+				srcSubpass = vk.VK_SUBPASS_EXTERNAL,
+				dstSubpass = 0,
+				srcStageMask = bit.bor(
+					vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+					vk.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
+				),
+				dstStageMask = bit.bor(
+					vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+					vk.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
+				),
+				srcAccessMask = 0,
+				dstAccessMask = bit.bor(
+					vk.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+					vk.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT
+				),
+			},
+		},
+	}
 end
 
 function VulkanSwapchain:destroy()
@@ -363,7 +314,7 @@ function VulkanSwapchain:destroy()
 	self.images = nil
 
 	if self.renderPass then
-		vk.vkDestroyRenderPass(self.device, self.renderPass, nil)
+		self.renderPass:destroy()
 	end
 	self.renderPass = nil
 

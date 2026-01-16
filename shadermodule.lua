@@ -11,6 +11,7 @@ local makeStructCtor = require 'vk.util'.makeStructCtor
 local uint32_t_ptr = ffi.typeof'uint32_t*'
 local VkShaderModule = ffi.typeof'VkShaderModule'
 
+-- TODO convert .code into .codeSize and .pCode ?
 local makeVkShaderModuleCreateInfo = makeStructCtor'VkShaderModuleCreateInfo'
 
 

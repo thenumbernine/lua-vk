@@ -106,7 +106,7 @@ local function makeStructCtor(
 		for _,info in ipairs(replaceTableFields) do
 			-- needs either .name and it to end it s or .ptrname and .countname...
 			local fieldName = info.name
-			info.type = ffi.typeof(info.type)
+			info.type = info.type ~= nil and ffi.typeof(info.type) or nil
 
 			if info.notarray then
 				info.gen = info.gen or info.type
@@ -128,36 +128,36 @@ local function makeStructCtor(
 		if replaceTableFields then
 			for _,info in ipairs(replaceTableFields) do
 				local fieldName = info.name
-				local fieldType = info.type
 				local gen = info.gen
 				local v = args[fieldName]
-				if info.notarray then
-					args[fieldName] = nil
-					args[info.ptrname] = gen(v)
-				else
-					local tp = type(v)
-					if tp == 'table' then
-						local count = #v
-					
-						-- convert to array
-						local arr = ffi.new(ffi.typeof('$[?]', fieldType), count)
-						for i=0,count-1 do
-							arr[i] = gen(v[i+1])
-						end
-
+				if v ~= nil then
+					if info.notarray then
 						args[fieldName] = nil
-						args[info.ptrname] = arr
-						args[info.countname] = count
-					elseif tp == 'cdata' 
-					and ffi.typeof(v) == ffi.typeof('$[?]', fieldType)
-					then
-						args[fieldName] = nil
-						args[info.ptrname] = v
-						args[info.countname] = countof(v)
-					elseif tp == 'nil' then
-						-- fall through
+						args[info.ptrname] = gen(v)
 					else
-						error('idk how to handle type '..tp)
+						local fieldType = info.type
+						local tp = type(v)
+						if tp == 'table' then
+							local count = #v
+						
+							-- convert to array
+							local arr = ffi.new(ffi.typeof('$[?]', fieldType), count)
+							for i=0,count-1 do
+								arr[i] = gen(v[i+1])
+							end
+
+							args[fieldName] = nil
+							args[info.ptrname] = arr
+							args[info.countname] = count
+						elseif tp == 'cdata' 
+						and ffi.typeof(v) == ffi.typeof('$[?]', fieldType)
+						then
+							args[fieldName] = nil
+							args[info.ptrname] = v
+							args[info.countname] = countof(v)
+						else
+							error('idk how to handle type '..tp)
+						end
 					end
 				end
 			end

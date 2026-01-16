@@ -1,64 +1,12 @@
 -- helper not wrapper
 local ffi = require 'ffi'
 local class = require 'ext.class'
-local asserteq = require 'ext.assert'.eq
-local vector = require 'ffi.cpp.vector-lua'
 local vk = require 'vk'
-local defs = require 'vk.defs'
-local vkassert = require 'vk.util'.vkassert
-local vkGet = require 'vk.util'.vkGet
-local makeStructCtor = require 'vk.util'.makeStructCtor
 local VKDescriptorSetLayout = require 'vk.descriptorsetlayout'
 local VKPipelineLayout = require 'vk.pipelinelayout'
 local VKShaderModule = require 'vk.shadermodule'
 local VKPipeline = require 'vk.pipeline'
 local VulkanVertex = require 'vk.vulkanmesh'.VulkanVertex
-
-
-local VkPipelineColorBlendAttachmentState = ffi.typeof'VkPipelineColorBlendAttachmentState'
-local VkPipelineShaderStageCreateInfo_array = ffi.typeof'VkPipelineShaderStageCreateInfo[?]'
-local VkVertexInputBindingDescription_1 = ffi.typeof'VkVertexInputBindingDescription[1]'
-
-
-local makeVkPipelineVertexInputStateCreateInfo = makeStructCtor(
-	'VkPipelineVertexInputStateCreateInfo',
-	{
-		{
-			name = 'vertexBindingDescriptions',
-			type = 'VkVertexInputBindingDescription',
-		},
-		{
-			name = 'vertexAttributeDescriptions',
-			type = 'VkVertexInputAttributeDescription',
-		},
-	}
-)
-
-local makeVkPipelineInputAssemblyStateCreateInfo = makeStructCtor'VkPipelineInputAssemblyStateCreateInfo'
-local makeVkPipelineViewportStateCreateInfo = makeStructCtor'VkPipelineViewportStateCreateInfo'
-local makeVkPipelineRasterizationStateCreateInfo = makeStructCtor'VkPipelineRasterizationStateCreateInfo'
-local makeVkPipelineMultisampleStateCreateInfo = makeStructCtor'VkPipelineMultisampleStateCreateInfo'
-local makeVkPipelineDepthStencilStateCreateInfo = makeStructCtor'VkPipelineDepthStencilStateCreateInfo'
-
-local makeVkPipelineColorBlendStateCreateInfo = makeStructCtor(
-	'VkPipelineColorBlendStateCreateInfo',
-	{
-		{
-			name = 'attachments',
-			type = 'VkPipelineColorBlendAttachmentState',
-		},
-	}
-)
-
-local makeVkPipelineDynamicStateCreateInfo = makeStructCtor(
-	'VkPipelineDynamicStateCreateInfo',
-	{
-		{
-			name = 'dynamicStates',
-			type = 'VkDynamicState',
-		},
-	}
-)
 
 
 local VulkanGraphicsPipeline = class()
@@ -115,22 +63,22 @@ function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 				pName = 'main',	--'frag'
 			},
 		},
-		pVertexInputState = makeVkPipelineVertexInputStateCreateInfo{
+		vertexInputState = {
 			vertexBindingDescriptions = {
 				VulkanVertex:getBindingDescription()
 			},
 			-- TODO maybe add makeStuctCtor support for vectors?
 			vertexAttributeDescriptions = VulkanVertex:getAttributeDescriptions(),
 		},
-		pInputAssemblyState = makeVkPipelineInputAssemblyStateCreateInfo{
+		inputAssemblyState = {
 			topology = vk.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
 			primitiveRestartEnable = vk.VK_FALSE,
 		},
-		pViewportState = makeVkPipelineViewportStateCreateInfo{
+		viewportState = {
 			viewportCount = 1,
 			scissorCount = 1,
 		},
-		pRasterizationState = makeVkPipelineRasterizationStateCreateInfo{
+		rasterizationState = {
 			depthClampEnable = vk.VK_FALSE,
 			rasterizerDiscardEnable = vk.VK_FALSE,
 			polygonMode = vk.VK_POLYGON_MODE_FILL,
@@ -140,18 +88,18 @@ function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 			depthBiasEnable = vk.VK_FALSE,
 			lineWidth = 1,
 		},
-		pMultisampleState = makeVkPipelineMultisampleStateCreateInfo{
+		multisampleState = {
 			rasterizationSamples = msaaSamples,
 			sampleShadingEnable = vk.VK_FALSE,
 		},
-		pDepthStencilState = makeVkPipelineDepthStencilStateCreateInfo{
+		depthStencilState = {
 			depthTestEnable = vk.VK_TRUE,
 			depthWriteEnable = vk.VK_TRUE,
 			depthCompareOp = vk.VK_COMPARE_OP_LESS,
 			depthBoundsTestEnable = vk.VK_FALSE,
 			stencilTestEnable = vk.VK_FALSE,
 		},
-		pColorBlendState = 	makeVkPipelineColorBlendStateCreateInfo{
+		colorBlendState = {
 			logicOpEnable = vk.VK_FALSE,
 			logicOp = vk.VK_LOGIC_OP_COPY,
 			attachments = {
@@ -167,7 +115,7 @@ function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 			},
 			blendConstants = {0,0,0,0},
 		},
-		pDynamicState = makeVkPipelineDynamicStateCreateInfo{
+		dynamicState = {
 			dynamicStates = {
 				vk.VK_DYNAMIC_STATE_VIEWPORT,
 				vk.VK_DYNAMIC_STATE_SCISSOR,

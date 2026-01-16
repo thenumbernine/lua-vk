@@ -6,7 +6,6 @@ local vk = require 'vk'
 local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
 local makeStructCtor = require 'vk.util'.makeStructCtor
-local VKSingleTimeCommand = require 'vk.singletimecommand'
 
 
 local VkCommandPool = ffi.typeof'VkCommandPool'
@@ -37,9 +36,8 @@ function VulkanCommandPool:init(common, physDev, device, surface)
 end
 
 function VulkanCommandPool:transitionImageLayout(image, oldLayout, newLayout, mipLevels)
-	VKSingleTimeCommand(
+	self.graphicsQueue:singleTimeCommand(
 		self.device,
-		self.graphicsQueue.id,
 		self.id,
 		function(commandBuffer)
 			local barrier = makeVkImageMemoryBarrier{
@@ -91,43 +89,45 @@ function VulkanCommandPool:transitionImageLayout(image, oldLayout, newLayout, mi
 end
 
 function VulkanCommandPool:copyBuffer(srcBuffer, dstBuffer, size)
-	VKSingleTimeCommand(
+	self.graphicsQueue:singleTimeCommand(
 		self.device,
-		self.graphicsQueue.id,
 		self.id,
 		function(commandBuffer)
-			local regions = VkBufferCopy()
-			regions.size = size
 			vk.vkCmdCopyBuffer(
 				commandBuffer,
 				srcBuffer.id,
 				dstBuffer.id,
 				1,
-				regions
+				VkBufferCopy{
+					size = size,
+				}
 			)
 		end
 	)
 end
 
 function VulkanCommandPool:copyBufferToImage(buffer, image, width, height)
-	VKSingleTimeCommand(
+	self.graphicsQueue:singleTimeCommand(
 		self.device,
-		self.graphicsQueue.id,
 		self.id,
 		function(commandBuffer)
-			local regions = VkBufferImageCopy()
-			regions.imageSubresource.aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT
-			regions.imageSubresource.layerCount = 1
-			regions.imageExtent.width = width
-			regions.imageExtent.height = height
-			regions.imageExtent.depth = 1
 			vk.vkCmdCopyBufferToImage(
 				commandBuffer,
 				buffer.id,
 				image,
 				vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 				1,
-				regions
+				VkBufferImageCopy{
+					imageSubresource = {
+						aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT,
+						layerCount = 1,
+					},
+					imageExtent = {
+						width = width,
+						height = height,
+						depth = 1,
+					},
+				}
 			)
 		end
 	)

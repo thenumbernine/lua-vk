@@ -32,7 +32,6 @@ local VulkanCommandPool = require 'vk.vulkancommandpool'
 local VulkanDeviceMemoryBuffer = require 'vk.vulkandevicememorybuffer'
 local VulkanBufferMemoryAndMapped = require 'vk.vulkanbuffermemoryandmapped'
 local VulkanMesh = require 'vk.vulkanmesh'
-local VKSingleTimeCommand = require 'vk.singletimecommand'
 
 local float = ffi.typeof'float'
 local void_ptr = ffi.typeof'void*'
@@ -43,13 +42,11 @@ local PFN_vkCreateDebugUtilsMessengerEXT = ffi.typeof'PFN_vkCreateDebugUtilsMess
 local PFN_vkDebugUtilsMessengerCallbackEXT = ffi.typeof'PFN_vkDebugUtilsMessengerCallbackEXT'
 local PFN_vkDestroyDebugUtilsMessengerEXT = ffi.typeof'PFN_vkDestroyDebugUtilsMessengerEXT'
 local VkBuffer_1 = ffi.typeof'VkBuffer[1]'
-local VkClearValue_array = ffi.typeof'VkClearValue[?]'
 local VkCommandBuffer_array = ffi.typeof'VkCommandBuffer[?]'
 local VkDebugUtilsMessengerEXT = ffi.typeof'VkDebugUtilsMessengerEXT'
 local VkDescriptorBufferInfo = ffi.typeof'VkDescriptorBufferInfo'
 local VkDescriptorImageInfo = ffi.typeof'VkDescriptorImageInfo'
 local VkDescriptorPool = ffi.typeof'VkDescriptorPool'
-local VkDescriptorPoolSize_array = ffi.typeof'VkDescriptorPoolSize[?]'
 local VkDescriptorSet_array = ffi.typeof'VkDescriptorSet[?]'
 local VkDescriptorSetLayout_array = ffi.typeof'VkDescriptorSetLayout[?]'
 local VkDeviceSize_1 = ffi.typeof'VkDeviceSize[1]'
@@ -57,7 +54,6 @@ local VkFence = ffi.typeof'VkFence'
 local VkFence_array = ffi.typeof'VkFence[?]'
 local VkImageBlit = ffi.typeof'VkImageBlit'
 local VkLayerProperties = ffi.typeof'VkLayerProperties'
-local VkPipelineStageFlags_1 = ffi.typeof'VkPipelineStageFlags[1]'
 local VkRect2D = ffi.typeof'VkRect2D'
 local VkSampler = ffi.typeof'VkSampler'
 local VkSemaphore = ffi.typeof'VkSemaphore'
@@ -69,18 +65,59 @@ local VkWriteDescriptorSet_array = ffi.typeof'VkWriteDescriptorSet[?]'
 
 local makeVkDebugUtilsMessengerCreateInfoEXT = makeStructCtor'VkDebugUtilsMessengerCreateInfoEXT'
 local makeVkSamplerCreateInfo = makeStructCtor'VkSamplerCreateInfo'
-local makeVkDescriptorPoolCreateInfo = makeStructCtor'VkDescriptorPoolCreateInfo'
 local makeVkCommandBufferAllocateInfo = makeStructCtor'VkCommandBufferAllocateInfo'
 local makeVkSemaphoreCreateInfo = makeStructCtor'VkSemaphoreCreateInfo'
 local makeVkFenceCreateInfo = makeStructCtor'VkFenceCreateInfo'
 local makeVkImageMemoryBarrier = makeStructCtor'VkImageMemoryBarrier'
 local makeVkDescriptorSetAllocateInfo = makeStructCtor'VkDescriptorSetAllocateInfo'
+
 local makeVkWriteDescriptorSet = makeStructCtor'VkWriteDescriptorSet'
+
 local makeVkAcquireNextImageInfoKHR = makeStructCtor'VkAcquireNextImageInfoKHR'
-local makeVkSubmitInfo = makeStructCtor'VkSubmitInfo'
-local makeVkPresentInfoKHR = makeStructCtor'VkPresentInfoKHR'
+
+local makeVkSubmitInfo = VKQueue.makeVkSubmitInfo 
+
+local makeVkPresentInfoKHR = makeStructCtor(
+	'VkPresentInfoKHR',
+	{
+		{
+			name = 'swapchains',
+			type = 'VkSwapchainKHR',
+			gen = function(x)
+				if x.obj then x = x.obj end
+				if x.id then x = x.id end
+				return x
+			end,
+		},
+		{
+			name = 'waitSemaphores',
+			type = 'VkSemaphore',
+		},
+	}
+)
+
 local makeVkCommandBufferBeginInfo = makeStructCtor'VkCommandBufferBeginInfo'
-local makeVkRenderPassBeginInfo = makeStructCtor'VkRenderPassBeginInfo'
+
+local makeVkRenderPassBeginInfo = makeStructCtor(
+	'VkRenderPassBeginInfo',
+	{
+		{
+			name = 'clearValues',
+			type = 'VkClearValue',
+		},
+	}
+)
+
+
+local makeVkDescriptorPoolCreateInfo = makeStructCtor(
+	'VkDescriptorPoolCreateInfo',
+	{
+		{
+			name = 'poolSizes',
+			type = 'VkDescriptorPoolSize',
+		},
+	}
+)
 
 
 local UniformBufferObject = struct{
@@ -165,13 +202,19 @@ print('msaaSamples', self.msaaSamples)
 			self.enableValidationLayers,
 			indices
 		)
-		self.graphicsQueue = VKQueue{device=self.device.obj, family=indices.graphicsFamily}
-		self.presentQueue = VKQueue{device=self.device.obj, family=indices.presentFamily}
+		self.graphicsQueue = VKQueue{
+			device = self.device.obj,
+			family = indices.graphicsFamily,
+		}
+		self.presentQueue = VKQueue{
+			device = self.device.obj,
+			family = indices.presentFamily,
+		}
 	end
 
 	self:createSwapchain()
 
-	self.graphicsPipeline = VulkanGraphicsPipeline(self.physDev, self.device.obj.id, self.swapchain.renderPass, self.msaaSamples)
+	self.graphicsPipeline = VulkanGraphicsPipeline(self.physDev, self.device.obj.id, self.swapchain.renderPass.id, self.msaaSamples)
 
 	self.commandPool = VulkanCommandPool(self, self.physDev, self.device, self.surface)
 
@@ -234,12 +277,6 @@ print('msaaSamples', self.msaaSamples)
 		return VulkanBufferMemoryAndMapped(bm, mapped)
 	end)
 
-	local poolSizeCount = 2
-	local poolSizes = VkDescriptorPoolSize_array(poolSizeCount)
-	poolSizes[0].type = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
-	poolSizes[0].descriptorCount = self.maxFramesInFlight
-	poolSizes[1].type = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
-	poolSizes[1].descriptorCount = self.maxFramesInFlight
 	self.descriptorPool = vkGet(
 		VkDescriptorPool,
 		vkassert,
@@ -247,8 +284,16 @@ print('msaaSamples', self.msaaSamples)
 		self.device.obj.id,
 		makeVkDescriptorPoolCreateInfo{
 			maxSets = self.maxFramesInFlight,
-			poolSizeCount = poolSizeCount,
-			pPoolSizes = poolSizes,
+			poolSizes = {
+				{
+					type = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+					descriptorCount = self.maxFramesInFlight,
+				},
+				{
+					type = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					descriptorCount = self.maxFramesInFlight,
+				},
+			},
 		},
 		nil
 	)
@@ -319,6 +364,16 @@ print('msaaSamples', self.msaaSamples)
 			nil
 		)
 	end
+
+	-- structs used by drawFrame (so I don't have to realloc)
+	self.imageIndex = uint32_t_1()
+	self.acquireNextImageInfo = makeVkAcquireNextImageInfoKHR()
+	self.submitInfo = makeVkSubmitInfo{
+		waitDstStageMask = vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+	}
+	self.presentInfo = makeVkPresentInfoKHR{
+		swapchains = {self.swapchain},	-- gc risk?
+	}
 end
 
 function VulkanCommon:checkValidationLayerSupport()
@@ -396,9 +451,8 @@ function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, m
 		error "texture image format does not support linear blitting!"
 	end
 
-	VKSingleTimeCommand(
+	self.graphicsQueue:singleTimeCommand(
 		self.device.obj.id,
-		self.graphicsQueue.id,
 		self.commandPool.id,
 		function(commandBuffer)
 			local barrier = makeVkImageMemoryBarrier{
@@ -537,33 +591,33 @@ function VulkanCommon:createDescriptorSets()
 	--]]
 
 	for i=0,self.maxFramesInFlight-1 do
-		local bufferInfo = VkDescriptorBufferInfo()
-		bufferInfo.buffer = assert(self.uniformBuffers[i+1].bm.buffer.id)
-		bufferInfo.range = ffi.sizeof(UniformBufferObject)
-
-		local imageInfo = VkDescriptorImageInfo()
-		imageInfo.sampler = self.textureSampler
-		imageInfo.imageView = self.textureImageView
-		imageInfo.imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-
 		local numDescriptorWrites = 2
-		local descriptorWrites = VkWriteDescriptorSet_array(numDescriptorWrites)
-		descriptorWrites[0] = makeVkWriteDescriptorSet{
-			dstSet = descriptorSets[i],
-			dstBinding = 0,
-			descriptorCount = 1,
-			descriptorType = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-			pBufferInfo = bufferInfo,
-		}
-		descriptorWrites[1] = makeVkWriteDescriptorSet{
-			dstSet = descriptorSets[i],
-			dstBinding = 1,
-			descriptorCount = 1,
-			descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-			pImageInfo = imageInfo,
-		}
+		local descriptorWrites = VkWriteDescriptorSet_array(numDescriptorWrites, {
+			makeVkWriteDescriptorSet{
+				dstSet = descriptorSets[i],
+				dstBinding = 0,
+				descriptorCount = 1,
+				descriptorType = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				pBufferInfo = VkDescriptorBufferInfo{
+					buffer = assert(self.uniformBuffers[i+1].bm.buffer.id),
+					range = ffi.sizeof(UniformBufferObject),
+				},
+			},
+			makeVkWriteDescriptorSet{
+				dstSet = descriptorSets[i],
+				dstBinding = 1,
+				descriptorCount = 1,
+				descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				pImageInfo = VkDescriptorImageInfo{
+					sampler = self.textureSampler,
+					imageView = self.textureImageView,
+					imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				},
+			}
+		})
 		vk.vkUpdateDescriptorSets(
 			self.device.obj.id,
+			-- TODO use the same array conversion function in makeStructCtor
 			numDescriptorWrites,
 			descriptorWrites,
 			0,
@@ -591,17 +645,16 @@ function VulkanCommon:drawFrame()
 		error("vkWaitForRences failed: "..tostring(result))
 	end
 
-	self.imageIndex = uint32_t_1()
+	local acquireNextImageInfo = self.acquireNextImageInfo
+	--acquireNextImageInfo.pNext = nil
+	acquireNextImageInfo.swapchain = self.swapchain.obj.id
+	acquireNextImageInfo.timeout = ffi.cast(uint64_t, -1)
+	acquireNextImageInfo.semaphore = self.imageAvailableSemaphores[self.currentFrame]
+	--acquireNextImageInfo.fence = nil
+	acquireNextImageInfo.deviceMask = 1
 	local result = vk.vkAcquireNextImage2KHR(
 		assert(self.device.obj.id),
-		makeVkAcquireNextImageInfoKHR{
-			--pNext = nil,
-			swapchain = self.swapchain.obj.id,
-			timeout = ffi.cast(uint64_t, -1),
-			semaphore = self.imageAvailableSemaphores[self.currentFrame],
-			--fence = nil,
-			deviceMask = 1,
-		},
+		self.acquireNextImageInfo,
 		self.imageIndex
 	)
 	if result == vk.VK_ERROR_OUT_OF_DATE_KHR then
@@ -621,32 +674,28 @@ function VulkanCommon:drawFrame()
 
 	self:recordCommandBuffer(self.commandBuffers[self.currentFrame], self.imageIndex[0])
 
-	vkassert(
-		vk.vkQueueSubmit,
-		self.graphicsQueue.id,
-		1,
-		makeVkSubmitInfo{
-			waitSemaphoreCount = 1,
-			pWaitSemaphores = self.imageAvailableSemaphores + self.currentFrame,
-			pWaitDstStageMask = VkPipelineStageFlags_1(vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT),
-			commandBufferCount = 1,
-			pCommandBuffers = self.commandBuffers + self.currentFrame,
-			signalSemaphoreCount = 1,
-			pSignalSemaphores = self.renderFinishedSemaphores + self.currentFrame,
-		},
-		self.inFlightFences[self.currentFrame]
-	)
+	local submitInfo = self.submitInfo
+	-- don't use conversion field, just use the pointer
+	submitInfo.waitSemaphoreCount = 1
+	submitInfo.pWaitSemaphores = self.imageAvailableSemaphores + self.currentFrame
+	-- don't use conversion field, just use the pointer
+	submitInfo.commandBufferCount = 1
+	submitInfo.pCommandBuffers = self.commandBuffers + self.currentFrame
+	-- don't use conversion field, just use the pointer
+	submitInfo.signalSemaphoreCount = 1
+	submitInfo.pSignalSemaphores = self.renderFinishedSemaphores + self.currentFrame
+
+	self.graphicsQueue:submit(submitInfo, nil, self.inFlightFences[self.currentFrame])
 
 	-- TODO what's info.pResults vs the results returned from vkQueuePresentKHR ?
+	local presentInfo = self.presentInfo
+	-- don't use conversion field, just use the pointer
+	presentInfo.waitSemaphoreCount = 1
+	presentInfo.pWaitSemaphores = self.renderFinishedSemaphores + self.currentFrame
+	presentInfo.pImageIndices = self.imageIndex
 	local result = vk.vkQueuePresentKHR(
 		self.presentQueue.id,
-		makeVkPresentInfoKHR{
-			waitSemaphoreCount = 1,
-			pWaitSemaphores = self.renderFinishedSemaphores + self.currentFrame,
-			swapchainCount = 1,
-			pSwapchains = VkSwapchainKHR_1(self.swapchain.obj.id),
-			pImageIndices = self.imageIndex,
-		}
+		presentInfo
 	)
 
 	if result == vk.VK_ERROR_OUT_OF_DATE_KHR
@@ -696,21 +745,10 @@ function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 		makeVkCommandBufferBeginInfo()
 	)
 
-	local numClearValues = 2
-	local clearValues = VkClearValue_array(numClearValues)
-	local c = clearValues+0
-	c.color.float32[0] = 0
-	c.color.float32[1] = 0
-	c.color.float32[2] = 0
-	c.color.float32[3] = 1
-	local c = clearValues+1
-	c.depthStencil.depth = 1
-	c.depthStencil.stencil = 0
-
 	vk.vkCmdBeginRenderPass(
 		commandBuffer,
 		makeVkRenderPassBeginInfo{
-			renderPass = self.swapchain.renderPass,
+			renderPass = self.swapchain.renderPass.id,
 			-- TODO how do we know the framebuffer index is less than the image from teh swapchain?
 			-- framebufer[] is sized b imge of swapchain,
 			-- but her it's indexed by maxFramesInFlight which is set to 2
@@ -718,8 +756,19 @@ function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 			renderArea = {
 				extent = self.swapchain.extent,
 			},
-			clearValueCount = numClearValues,
-			pClearValues = clearValues,
+			clearValues = {
+				{
+					color = {
+						float32 = {0,0,0,1},
+					},
+				},
+				{
+					depthStencil = {
+						depth = 1,
+						stencil = 0,
+					},
+				},
+			},
 		},
 		vk.VK_SUBPASS_CONTENTS_INLINE
 	)
