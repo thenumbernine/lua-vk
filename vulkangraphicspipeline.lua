@@ -7,23 +7,22 @@ local defs = require 'vk.defs'
 local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
 local makeStructCtor = require 'vk.util'.makeStructCtor
+local VKDescriptorSetLayout = require 'vk.descriptorsetlayout'
+local VKPipelineLayout = require 'vk.pipelinelayout'
 local VKShaderModule = require 'vk.shadermodule'
 local VulkanVertex = require 'vk.vulkanmesh'.VulkanVertex
 
 defs.main = 'main'
 
-local VkDescriptorSetLayout = ffi.typeof'VkDescriptorSetLayout'
 local VkDescriptorSetLayoutBinding_array = ffi.typeof'VkDescriptorSetLayoutBinding[?]'
 local VkDynamicState_array = ffi.typeof'VkDynamicState[?]'
 local VkPipeline = ffi.typeof'VkPipeline'
 local VkPipelineColorBlendAttachmentState = ffi.typeof'VkPipelineColorBlendAttachmentState'
-local VkPipelineLayout = ffi.typeof'VkPipelineLayout'
 local VkPipelineShaderStageCreateInfo_array = ffi.typeof'VkPipelineShaderStageCreateInfo[?]'
 local VkDescriptorSetLayout_1 = ffi.typeof'VkDescriptorSetLayout[1]'
 local VkVertexInputBindingDescription_1 = ffi.typeof'VkVertexInputBindingDescription[1]'
 
 
-local makeVkDescriptorSetLayoutCreateInfo = makeStructCtor'VkDescriptorSetLayoutCreateInfo'
 local makeVkPipelineVertexInputStateCreateInfo = makeStructCtor'VkPipelineVertexInputStateCreateInfo'
 local makeVkPipelineInputAssemblyStateCreateInfo = makeStructCtor'VkPipelineInputAssemblyStateCreateInfo'
 local makeVkPipelineViewportStateCreateInfo = makeStructCtor'VkPipelineViewportStateCreateInfo'
@@ -32,7 +31,6 @@ local makeVkPipelineMultisampleStateCreateInfo = makeStructCtor'VkPipelineMultis
 local makeVkPipelineDepthStencilStateCreateInfo = makeStructCtor'VkPipelineDepthStencilStateCreateInfo'
 local makeVkPipelineColorBlendStateCreateInfo = makeStructCtor'VkPipelineColorBlendStateCreateInfo'
 local makeVkPipelineDynamicStateCreateInfo = makeStructCtor'VkPipelineDynamicStateCreateInfo'
-local makeVkPipelineLayoutCreateInfo = makeStructCtor'VkPipelineLayoutCreateInfo'
 local makeVkPipelineShaderStageCreateInfo = makeStructCtor'VkPipelineShaderStageCreateInfo'
 local makeVkGraphicsPipelineCreateInfo = makeStructCtor'VkGraphicsPipelineCreateInfo'
 
@@ -58,17 +56,11 @@ function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 	v=v+1
 	asserteq(v, bindings + numBindings)
 
-	self.descriptorSetLayout = vkGet(
-		VkDescriptorSetLayout,
-		nil,
-		vk.vkCreateDescriptorSetLayout,
-		device,
-		makeVkDescriptorSetLayoutCreateInfo{
-			bindingCount = numBindings,
-			pBindings = bindings,
-		},
-		nil
-	)
+	self.descriptorSetLayout = VKDescriptorSetLayout{
+		device = device,
+		bindingCount = numBindings,
+		pBindings = bindings,
+	}
 
 	local bindingDescription = VulkanVertex:getBindingDescription()
 	local bindingDescriptions = VkVertexInputBindingDescription_1(bindingDescription)
@@ -141,19 +133,13 @@ function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 		pDynamicStates = dynamicStates,
 	}
 
-	local descriptorSetLayouts = VkDescriptorSetLayout_1(self.descriptorSetLayout)
+	local descriptorSetLayouts = VkDescriptorSetLayout_1(self.descriptorSetLayout.id)
 
-	self.pipelineLayout = vkGet(
-		VkPipelineLayout,
-		vkassert,
-		vk.vkCreatePipelineLayout,
-		device,
-		makeVkPipelineLayoutCreateInfo{
-			setLayoutCount = 1,
-			pSetLayouts = descriptorSetLayouts,
-		},
-		nil
-	)
+	self.pipelineLayout = VKPipelineLayout{
+		device = device,
+		setLayoutCount = 1,
+		pSetLayouts = descriptorSetLayouts,
+	}
 	-- but save self.descriptorSetLayout for later
 
 	self.vertexShaderModule = VKShaderModule:fromFile{device=device, filename="shader-vert.spv"}
@@ -191,7 +177,7 @@ function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 			pDepthStencilState = depthStencil,
 			pColorBlendState = colorBlending,
 			pDynamicState = dynamicState,
-			layout = self.pipelineLayout,
+			layout = self.pipelineLayout.id,
 			renderPass = renderPass,
 			subpass = 0,
 		},
@@ -201,10 +187,10 @@ end
 
 function VulkanGraphicsPipeline:destroy(device)
 	if self.descriptorSetLayout then
-		vk.vkDestroyDescriptorSetLayout(device, self.descriptorSetLayout, nil)
+		self.descriptorSetLayout:destroy()
 	end
 	if self.pipelineLayout then
-		vk.vkDestroyPipelineLayout(device, self.pipelineLayout, nil)
+		self.pipelineLayout:destroy()
 	end
 	if self.vertexShaderModule then
 		self.vertexShaderModule:destroy()

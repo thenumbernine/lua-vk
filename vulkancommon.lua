@@ -503,7 +503,7 @@ end
 function VulkanCommon:createDescriptorSets()
 	local layouts = VkDescriptorSetLayout_array(self.maxFramesInFlight)
 	for i=0,self.maxFramesInFlight-1 do
-		layouts[i] = self.graphicsPipeline.descriptorSetLayout
+		layouts[i] = self.graphicsPipeline.descriptorSetLayout.id
 	end
 
 	--[[ vkGet just allocates one
@@ -761,7 +761,7 @@ function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 	vk.vkCmdBindDescriptorSets(
 		commandBuffer,
 		vk.VK_PIPELINE_BIND_POINT_GRAPHICS,
-		self.graphicsPipeline.pipelineLayout,
+		self.graphicsPipeline.pipelineLayout.id,
 		0,
 		1,
 		self.descriptorSets + self.currentFrame,
