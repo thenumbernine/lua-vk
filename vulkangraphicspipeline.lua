@@ -10,13 +10,13 @@ local makeStructCtor = require 'vk.util'.makeStructCtor
 local VKDescriptorSetLayout = require 'vk.descriptorsetlayout'
 local VKPipelineLayout = require 'vk.pipelinelayout'
 local VKShaderModule = require 'vk.shadermodule'
+local VKPipeline = require 'vk.pipeline'
 local VulkanVertex = require 'vk.vulkanmesh'.VulkanVertex
 
 defs.main = 'main'
 
 local VkDescriptorSetLayoutBinding_array = ffi.typeof'VkDescriptorSetLayoutBinding[?]'
 local VkDynamicState_array = ffi.typeof'VkDynamicState[?]'
-local VkPipeline = ffi.typeof'VkPipeline'
 local VkPipelineColorBlendAttachmentState = ffi.typeof'VkPipelineColorBlendAttachmentState'
 local VkPipelineShaderStageCreateInfo_array = ffi.typeof'VkPipelineShaderStageCreateInfo[?]'
 local VkDescriptorSetLayout_1 = ffi.typeof'VkDescriptorSetLayout[1]'
@@ -32,7 +32,6 @@ local makeVkPipelineDepthStencilStateCreateInfo = makeStructCtor'VkPipelineDepth
 local makeVkPipelineColorBlendStateCreateInfo = makeStructCtor'VkPipelineColorBlendStateCreateInfo'
 local makeVkPipelineDynamicStateCreateInfo = makeStructCtor'VkPipelineDynamicStateCreateInfo'
 local makeVkPipelineShaderStageCreateInfo = makeStructCtor'VkPipelineShaderStageCreateInfo'
-local makeVkGraphicsPipelineCreateInfo = makeStructCtor'VkGraphicsPipelineCreateInfo'
 
 
 local VulkanGraphicsPipeline = class()
@@ -159,33 +158,25 @@ function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 	})
 
 	--info.basePipelineHandle = {}
-	self.id = vkGet(
-		VkPipeline,
-		vkassert,
-		vk.vkCreateGraphicsPipelines,
-		device,
-		nil,
-		1,
-		makeVkGraphicsPipelineCreateInfo{
-			stageCount = numShaderStages,
-			pStages = shaderStages,
-			pVertexInputState = vertexInputInfo,
-			pInputAssemblyState = inputAssembly,
-			pViewportState = viewportState,
-			pRasterizationState = rasterizer,
-			pMultisampleState = multisampling,
-			pDepthStencilState = depthStencil,
-			pColorBlendState = colorBlending,
-			pDynamicState = dynamicState,
-			layout = self.pipelineLayout.id,
-			renderPass = renderPass,
-			subpass = 0,
-		},
-		nil
-	)
+	self.obj = VKPipeline{
+		device = device,
+		stageCount = numShaderStages,
+		pStages = shaderStages,
+		pVertexInputState = vertexInputInfo,
+		pInputAssemblyState = inputAssembly,
+		pViewportState = viewportState,
+		pRasterizationState = rasterizer,
+		pMultisampleState = multisampling,
+		pDepthStencilState = depthStencil,
+		pColorBlendState = colorBlending,
+		pDynamicState = dynamicState,
+		layout = self.pipelineLayout.id,
+		renderPass = renderPass,
+		subpass = 0,
+	}
 end
 
-function VulkanGraphicsPipeline:destroy(device)
+function VulkanGraphicsPipeline:destroy()
 	if self.descriptorSetLayout then
 		self.descriptorSetLayout:destroy()
 	end
@@ -198,14 +189,14 @@ function VulkanGraphicsPipeline:destroy(device)
 	if self.fragmentShaderModule then
 		self.fragmentShaderModule:destroy()
 	end
-	if self.id then
-		vk.vkDestroyPipeline(device, self.id, nil)
+	if self.obj then
+		self.obj:destroy()
 	end
 	self.descriptorSetLayout = nil
 	self.pipelineLayout = nil
 	self.vertexShaderModule = nil
 	self.fragmentShaderModule = nil
-	self.id = nil
+	self.obj = nil
 end
 
 return VulkanGraphicsPipeline 

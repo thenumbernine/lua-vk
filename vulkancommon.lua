@@ -726,7 +726,7 @@ function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 	vk.vkCmdBindPipeline(
 		commandBuffer,
 		vk.VK_PIPELINE_BIND_POINT_GRAPHICS,
-		self.graphicsPipeline.id
+		self.graphicsPipeline.obj.id
 	)
 
 	local viewports = VkViewport()
@@ -853,13 +853,6 @@ function VulkanCommon:exit()
 		if self.commandPool then
 			self.commandPool:destroy(device_id)
 		end
-		if self.graphicsPipeline then
-			self.graphicsPipeline:destroy(device_id)
-		end
-		if self.swapchain then
-			self.swapchain:destroy(device_id)
-		end
-		self.device.obj:destroy()
 	end
 	self.imageAvailableSemaphores = nil
 	self.renderFinishedSemaphores = nil
@@ -874,8 +867,20 @@ function VulkanCommon:exit()
 	self.descriptorPool = nil
 	self.textureSampler = nil
 	self.commandPool = nil
+		
+	if self.graphicsPipeline then
+		self.graphicsPipeline:destroy()
+	end
 	self.graphicsPipeline = nil
+
+	if self.swapchain then
+		self.swapchain:destroy()
+	end
 	self.swapchain = nil
+	
+	if self.device then
+		self.device.obj:destroy()
+	end
 	self.device = nil
 
 	if self.surface then
