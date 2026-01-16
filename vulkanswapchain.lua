@@ -1,9 +1,10 @@
 -- helper not wrapper
 local ffi = require 'ffi'
 local class = require 'ext.class'
+local table = require 'ext.table'
 local asserteq = require 'ext.assert'.eq
-local vector = require 'ffi.cpp.vector-lua'
 local vk = require 'vk'
+local countof = require 'vk.util'.countof
 local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
 local VulkanDeviceMemoryImage = require 'vk.vulkandevicememoryimage'
@@ -11,10 +12,12 @@ local VKSwapchain = require 'vk.swapchain'
 
 
 local uint32_t = ffi.typeof'uint32_t'
+local uint32_t_array = ffi.typeof'uint32_t[?]'
 local VkAttachmentDescription_array = ffi.typeof'VkAttachmentDescription[?]'
 local VkAttachmentReference = ffi.typeof'VkAttachmentReference'
 local VkExtent2D = ffi.typeof'VkExtent2D'
 local VkFramebuffer = ffi.typeof'VkFramebuffer'
+local VkFramebuffer_array = ffi.typeof'VkFramebuffer[?]'
 local VkFramebufferCreateInfo = ffi.typeof'VkFramebufferCreateInfo'
 local VkImageView = ffi.typeof'VkImageView'
 local VkImageView_array = ffi.typeof'VkImageView[?]'
@@ -46,6 +49,13 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 	local surfaceFormat = self:chooseSwapSurfaceFormat(swapChainSupport.formats)
 	local presentMode = self:chooseSwapPresentMode(swapChainSupport.presentModes)
 
+	local indices = physDev:findQueueFamilies(nil, surface)
+	indices = table.keys{
+		[indices.graphicsFamily] = true,
+		[indices.presentFamily] = true,
+	}
+	local queueFamilyIndices = uint32_t_array(#indices, indices)
+
 	local info = {}
 	info.surface = surface.id
 	info.minImageCount = imageCount
@@ -58,30 +68,21 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 	info.compositeAlpha = vk.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR
 	info.presentMode = presentMode
 	info.clipped = vk.VK_TRUE
-	local indices = physDev:findQueueFamilies(nil, surface)
-	self.queueFamilyIndices = vector(uint32_t)
-	for index in pairs{
-		[indices.graphicsFamily] = true,
-		[indices.presentFamily] = true,
-	} do
-		self.queueFamilyIndices:emplace_back()[0] = index
-	end
 	if indices.graphicsFamily ~= indices.presentFamily then
 		info.imageSharingMode = vk.VK_SHARING_MODE_CONCURRENT
-		info.queueFamilyIndexCount = #self.queueFamilyIndices
-		info.pQueueFamilyIndices = self.queueFamilyIndices.v
+		info.queueFamilyIndexCount = countof(queueFamilyIndices)
+		info.pQueueFamilyIndices = queueFamilyIndices
 	else
 		info.imageSharingMode = vk.VK_SHARING_MODE_EXCLUSIVE
 	end
 	info.device = device
 	self.obj = VKSwapchain(info)
-	self.queueFamilyIndices = nil
 
 	self.images = self.obj:getImages()
 
 	local numImageViews = #self.images
 	self.imageViews = VkImageView_array(numImageViews)
-	for i=0,#self.images-1 do
+	for i=0,numImageViews-1 do
 		self.imageViews[i] = self:createImageView(
 			device,
 			self.images.v[i],
@@ -138,31 +139,29 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 		1
 	)
 
-	self.framebuffers = vector(VkFramebuffer, numImageViews)
+	self.framebuffers = VkFramebuffer_array(numImageViews)
 	for i=0,numImageViews-1 do
 		local numAttachments = 3
-		self.attachments = VkImageView_array(numAttachments)
-		self.attachments[0] = self.colorImageView
-		self.attachments[1] = self.depthImageView
-		self.attachments[2] = self.imageViews[i]
-		self.info = VkFramebufferCreateInfo()
-		self.info.sType = vk.VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO
-		self.info.renderPass = self.renderPass
-		self.info.attachmentCount = numAttachments
-		self.info.pAttachments = self.attachments
-		self.info.width = width
-		self.info.height = height
-		self.info.layers = 1
-		self.framebuffers.v[i] = vkGet(
+		local attachments = VkImageView_array(numAttachments)
+		attachments[0] = self.colorImageView
+		attachments[1] = self.depthImageView
+		attachments[2] = self.imageViews[i]
+		local info = VkFramebufferCreateInfo()
+		info.sType = vk.VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO
+		info.renderPass = self.renderPass
+		info.attachmentCount = numAttachments
+		info.pAttachments = attachments
+		info.width = width
+		info.height = height
+		info.layers = 1
+		self.framebuffers[i] = vkGet(
 			VkFramebuffer,
 			vkassert,
 			vk.vkCreateFramebuffer,
 			device,
-			self.info,
+			info,
 			nil
 		)
-		self.info = nil
-		self.attachments = nil
 	end
 end
 
@@ -201,32 +200,31 @@ function VulkanSwapchain:chooseSwapPresentMode(availablePresentModes)
 end
 
 function VulkanSwapchain:createImageView(device, image, format, aspectFlags, mipLevels)
-	self.info = VkImageViewCreateInfo()
-	self.info.sType = vk.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO
-	self.info.image = image
-	self.info.viewType = vk.VK_IMAGE_VIEW_TYPE_2D
-	self.info.format = format
-	self.info.subresourceRange.aspectMask = aspectFlags
-	self.info.subresourceRange.levelCount = mipLevels
-	self.info.subresourceRange.layerCount = 1
+	local info = VkImageViewCreateInfo()
+	info.sType = vk.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO
+	info.image = image
+	info.viewType = vk.VK_IMAGE_VIEW_TYPE_2D
+	info.format = format
+	info.subresourceRange.aspectMask = aspectFlags
+	info.subresourceRange.levelCount = mipLevels
+	info.subresourceRange.layerCount = 1
 	local result = vkGet(
 		VkImageView,
 		vkassert,
 		vk.vkCreateImageView,
 		device,
-		self.info,
+		info,
 		nil
 	)
-	self.info = nil
 	return result
 end
 
 function VulkanSwapchain:createRenderPass(physDev, device, swapChainImageFormat, msaaSamples)
 	-- need to keep these from gc'ing until the function is through ...
 	local numAttachments = 3
-	self.attachments = VkAttachmentDescription_array(numAttachments)
+	local attachments = VkAttachmentDescription_array(numAttachments)
 	-- colorAttachment
-	local v = self.attachments+0
+	local v = attachments+0
 	v.format = swapChainImageFormat
 	v.samples = msaaSamples
 	v.loadOp = vk.VK_ATTACHMENT_LOAD_OP_CLEAR
@@ -256,81 +254,72 @@ function VulkanSwapchain:createRenderPass(physDev, device, swapChainImageFormat,
 	v.initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED
 	v.finalLayout = vk.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
 	v=v+1
-	asserteq(v, self.attachments + numAttachments)
+	asserteq(v, attachments + numAttachments)
 
-	self.colorAttachmentRef = VkAttachmentReference()
-	self.colorAttachmentRef.attachment = 0
-	self.colorAttachmentRef.layout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-	self.depthAttachmentRef = VkAttachmentReference()
-	self.depthAttachmentRef.attachment = 1
-	self.depthAttachmentRef.layout = vk.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-	self.colorAttachmentResolveRef = VkAttachmentReference()
-	self.colorAttachmentResolveRef.attachment = 2
-	self.colorAttachmentResolveRef.layout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+	local colorAttachmentRef = VkAttachmentReference()
+	colorAttachmentRef.attachment = 0
+	colorAttachmentRef.layout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+	local depthAttachmentRef = VkAttachmentReference()
+	depthAttachmentRef.attachment = 1
+	depthAttachmentRef.layout = vk.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+	local colorAttachmentResolveRef = VkAttachmentReference()
+	colorAttachmentResolveRef.attachment = 2
+	colorAttachmentResolveRef.layout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
 
-	self.subpasses = VkSubpassDescription()
-	self.subpasses.pipelineBindPoint = vk.VK_PIPELINE_BIND_POINT_GRAPHICS
-	self.subpasses.colorAttachmentCount = 1
-	self.subpasses.pColorAttachments = self.colorAttachmentRef
-	self.subpasses.pResolveAttachments = self.colorAttachmentResolveRef
-	self.subpasses.pDepthStencilAttachment = self.depthAttachmentRef
+	local subpasses = VkSubpassDescription()
+	subpasses.pipelineBindPoint = vk.VK_PIPELINE_BIND_POINT_GRAPHICS
+	subpasses.colorAttachmentCount = 1
+	subpasses.pColorAttachments = colorAttachmentRef
+	subpasses.pResolveAttachments = colorAttachmentResolveRef
+	subpasses.pDepthStencilAttachment = depthAttachmentRef
 
-	self.dependencies = VkSubpassDependency()
-	self.dependencies.srcSubpass = vk.VK_SUBPASS_EXTERNAL
-	self.dependencies.dstSubpass = 0
-	self.dependencies.srcStageMask = bit.bor(
+	local dependencies = VkSubpassDependency()
+	dependencies.srcSubpass = vk.VK_SUBPASS_EXTERNAL
+	dependencies.dstSubpass = 0
+	dependencies.srcStageMask = bit.bor(
 		vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 		vk.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
 	)
-	self.dependencies.dstStageMask = bit.bor(
+	dependencies.dstStageMask = bit.bor(
 		vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 		vk.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
 	)
-	self.dependencies.srcAccessMask = 0
-	self.dependencies.dstAccessMask = bit.bor(
+	dependencies.srcAccessMask = 0
+	dependencies.dstAccessMask = bit.bor(
 		vk.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 		vk.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT
 	)
 
-	self.info = VkRenderPassCreateInfo()
-	self.info.sType = vk.VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO
-	self.info.attachmentCount = numAttachments
-	self.info.pAttachments = self.attachments
-	self.info.subpassCount = 1
-	self.info.pSubpasses = self.subpasses
-	self.info.dependencyCount = 1
-	self.info.pDependencies = self.dependencies
-
+	local info = VkRenderPassCreateInfo()
+	info.sType = vk.VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO
+	info.attachmentCount = numAttachments
+	info.pAttachments = attachments
+	info.subpassCount = 1
+	info.pSubpasses = subpasses
+	info.dependencyCount = 1
+	info.pDependencies = dependencies
 	local result = vkGet(
 		VkRenderPass,
 		vkassert,
 		vk.vkCreateRenderPass,
 		device,
-		self.info,
+		info,
 		nil
 	)
-
-	self.info = nil
-	self.dependencies = nil
-	self.subpasses = nil
-	self.colorAttachmentResolveRef = nil
-	self.depthAttachmentRef = nil
-	self.colorAttachmentRef = nil
-	self.attachments = nil
 
 	return result
 end
 
 function VulkanSwapchain:destroy()
 	if self.framebuffers then
-		for i=0,#self.framebuffers-1 do
-			vk.vkDestroyFramebuffer(self.device, self.framebuffers.v[i], nil)
+		for i=0,countof(self.framebuffers)-1 do
+			vk.vkDestroyFramebuffer(self.device, self.framebuffers[i], nil)
 		end
 	end
 	self.framebuffers = nil
 
-	if self.images then
-		for i=0,#self.images-1 do
+	if self.imageViews then
+		for i=0,countof(self.imageViews)-1 do
 			vk.vkDestroyImageView(self.device, self.imageViews[i], nil)
 		end
 	end

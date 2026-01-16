@@ -9,6 +9,10 @@ local vector = require 'ffi.cpp.vector-lua'
 local uint32_t_1 = ffi.typeof'uint32_t[1]'
 
 
+local function countof(array)
+	return ffi.sizeof(array) / (ffi.cast('uint8_t*', array+1) - ffi.cast('uint8_t*', array+0))
+end
+
 local function vkassert(f, ...)
 	local res = f(...)
 	if res ~= vk.VK_SUCCESS then
@@ -28,7 +32,6 @@ local function vkGet(ctype, check, f, ...)
 	ctype = ffi.typeof(ctype)
 	local resultType = ffi.typeof('$[1]', ctype)
 	local result = resultType()
-_G.vkGetRetain = result
 	if check then
 		check(f, addlast(result, ...))
 	else
@@ -39,14 +42,12 @@ end
 
 local function vkGetVector(ctype, check, f, ...)
 	local count = uint32_t_1()
-_G.vkGetVectorRetainCount = count
 	if check then
 		check(f, addlast(nil, addlast(count, ...)))
 	else
 		f(addlast(nil, addlast(count, ...)))
 	end
 	local vec = vector(ctype)
-_G.vkGetVectorRetainVec = vec
 	vec:resize(count[0])
 	if check then
 		check(f, addlast(vec.v, addlast(count, ...)))
@@ -103,6 +104,7 @@ local function addInitFromArgs(cl)
 end
 
 return {
+	countof = countof,
 	vkassert = vkassert,
 	vkGet = vkGet,
 	vkGetVector = vkGetVector,

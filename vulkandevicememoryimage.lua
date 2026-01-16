@@ -28,44 +28,41 @@ function VulkanDeviceMemoryImage:createImage(
 	usage,
 	properties
 )
-	self.info = VkImageCreateInfo()
-	self.info.sType = vk.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO
-	self.info.imageType = vk.VK_IMAGE_TYPE_2D
-	self.info.format = format
-	self.info.extent.width = width
-	self.info.extent.height = height
-	self.info.extent.depth = 1
-	self.info.mipLevels = mipLevels
-	self.info.arrayLayers = 1
-	self.info.samples = numSamples
-	self.info.tiling = tiling
-	self.info.usage = usage
-	self.info.sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE
-	self.info.initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED
-	local image = vkGet(VkImage, vkassert, vk.vkCreateImage, device, self.info, nil)
-	self.info = nil
+	local info = VkImageCreateInfo()
+	info.sType = vk.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO
+	info.imageType = vk.VK_IMAGE_TYPE_2D
+	info.format = format
+	info.extent.width = width
+	info.extent.height = height
+	info.extent.depth = 1
+	info.mipLevels = mipLevels
+	info.arrayLayers = 1
+	info.samples = numSamples
+	info.tiling = tiling
+	info.usage = usage
+	info.sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE
+	info.initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED
+	local image = vkGet(VkImage, vkassert, vk.vkCreateImage, device, info, nil)
 
-	self.memReq = vkGet(
+	local memReq = vkGet(
 		VkMemoryRequirements,
 		nil,
 		vk.vkGetImageMemoryRequirements,
 		device,
 		image
 	)
-	self.info = VkMemoryAllocateInfo()
-	self.info.sType = vk.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO
-	self.info.allocationSize = self.memReq.size
-	self.info.memoryTypeIndex = physDev:findMemoryType(self.memReq.memoryTypeBits, properties)
+	local info = VkMemoryAllocateInfo()
+	info.sType = vk.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO
+	info.allocationSize = memReq.size
+	info.memoryTypeIndex = physDev:findMemoryType(memReq.memoryTypeBits, properties)
 	local imageMemory = vkGet(
 		VkDeviceMemory,
 		vkassert,
 		vk.vkAllocateMemory,
 		device,
-		self.info,
+		info,
 		nil
 	)
-	self.info = nil
-	self.memReq = nil
 
 	vkassert(vk.vkBindImageMemory, device, image, imageMemory, 0)
 

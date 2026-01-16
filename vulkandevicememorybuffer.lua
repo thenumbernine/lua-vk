@@ -26,19 +26,18 @@ function VulkanDeviceMemoryBuffer:init(physDev, device, size, usage, properties)
 
 	local memReq = vkGet(VkMemoryRequirements, nil, vk.vkGetBufferMemoryRequirements, device, self.buffer.id)
 
-	self.info = VkMemoryAllocateInfo()
-	self.info.sType = vk.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO
-	self.info.allocationSize = memReq.size
-	self.info.memoryTypeIndex = physDev:findMemoryType(memReq.memoryTypeBits, properties)
+	local info = VkMemoryAllocateInfo()
+	info.sType = vk.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO
+	info.allocationSize = memReq.size
+	info.memoryTypeIndex = physDev:findMemoryType(memReq.memoryTypeBits, properties)
 	self.memory = vkGet(
 		VkDeviceMemory,
 		vkassert,
 		vk.vkAllocateMemory,
 		device,
-		self.info,
+		info,
 		nil
 	)
-	self.info = nil
 
 	vkassert(vk.vkBindBufferMemory, device, self.buffer.id, self.memory, 0)
 end

@@ -17,21 +17,19 @@ local VulkanShaderModule = class()
 -- glslangValidator -V shader.vert -o shader-vert.spv
 -- glslangValidator -V shader.frag -o shader-frag.spv
 function VulkanShaderModule:fromFile(device, filename)
-	self.code = assert(path(filename):read())
-	self.info = VkShaderModuleCreateInfo()
-	self.info.sType = vk.VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO
-	self.info.codeSize = #self.code
-	self.info.pCode = ffi.cast(uint32_t_ptr, self.code)
+	local code = assert(path(filename):read())
+	local info = VkShaderModuleCreateInfo()
+	info.sType = vk.VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO
+	info.codeSize = #code
+	info.pCode = ffi.cast(uint32_t_ptr, code)
 	local result = vkGet(
 		VkShaderModule,
 		vkassert,
 		vk.vkCreateShaderModule,
 		device,
-		self.info,
+		info,
 		nil
 	)
-	self.info = nil
-	self.code = nil
 	return result
 end
 

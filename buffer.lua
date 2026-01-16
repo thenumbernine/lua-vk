@@ -26,16 +26,14 @@ function VKBuffer:init(args)
 	
 	self.device = device
 
-	self.info = self:initFromArgs(args)
-	self.id = vkGet(VkBuffer, vkassert, vk.vkCreateBuffer, device, self.info, nil)
-	self.info = nil
+	self.id = vkGet(VkBuffer, vkassert, vk.vkCreateBuffer, device, self:initFromArgs(args), nil)
 end
 
 function VKBuffer:destroy()
-	if self.device == nil or self.id == nil then return end
-	vk.vkDestroyBuffer(self.device, self.id, nil)
+	if self.id then
+		vk.vkDestroyBuffer(self.device, self.id, nil)
+	end
 	self.id = nil
-	self.device = nil
 end
 
 return VKBuffer

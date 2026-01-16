@@ -10,46 +10,40 @@ local VkSubmitInfo = ffi.typeof'VkSubmitInfo'
 
 
 local self = {}	-- cuz i guess I need an object and I'm too lazy to rename it to a scope var name
-_G.retainVKSingleTimeCommand = self
 local function VKSingleTimeCommand(device, queue, commandPool, callback)
-	self.info = VkCommandBufferAllocateInfo()
-	self.info.sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO
-	self.info.commandPool = commandPool
-	self.info.level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY
-	self.info.commandBufferCount = 1
+	local info = VkCommandBufferAllocateInfo()
+	info.sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO
+	info.commandPool = commandPool
+	info.level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY
+	info.commandBufferCount = 1
 	--[[
 	local vkGet = require 'vk.util'.vkGet
 	local VkCommandBuffer = ffi.typeof'VkCommandBuffer'
-	local cmds = vkGet(VkCommandBuffer, vkassert, vk.vkAllocateCommandBuffers, device, self.info)
+	local cmds = vkGet(VkCommandBuffer, vkassert, vk.vkAllocateCommandBuffers, device, info)
 	--]]
 	-- [[ I want to keep the pointer so ...
-	self.cmds = VkCommandBuffer_1()
-	vkassert(vk.vkAllocateCommandBuffers, device, self.info, self.cmds)
+	local cmds = VkCommandBuffer_1()
+	vkassert(vk.vkAllocateCommandBuffers, device, info, cmds)
 	--]]
-	self.info = nil
 
-	self.info = VkCommandBufferBeginInfo()
-	self.info.sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO
-	self.info.flags = vk.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
-	vkassert(vk.vkBeginCommandBuffer, self.cmds[0], self.info)
-	self.info = nil
+	local info = VkCommandBufferBeginInfo()
+	info.sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO
+	info.flags = vk.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
+	vkassert(vk.vkBeginCommandBuffer, cmds[0], info)
 
-	callback(self.cmds[0])
+	callback(cmds[0])
 
-	vkassert(vk.vkEndCommandBuffer, self.cmds[0])
+	vkassert(vk.vkEndCommandBuffer, cmds[0])
 
-	self.info = VkSubmitInfo()
-	self.info.sType = vk.VK_STRUCTURE_TYPE_SUBMIT_INFO
-	self.info.commandBufferCount = 1
-	self.info.pCommandBuffers = self.cmds
-	vkassert(vk.vkQueueSubmit, queue, 1, self.info, nil)
-	self.info = nil
+	local info = VkSubmitInfo()
+	info.sType = vk.VK_STRUCTURE_TYPE_SUBMIT_INFO
+	info.commandBufferCount = 1
+	info.pCommandBuffers = cmds
+	vkassert(vk.vkQueueSubmit, queue, 1, info, nil)
 
 	vkassert(vk.vkQueueWaitIdle, queue)
 
-	vk.vkFreeCommandBuffers(device, commandPool, 1, self.cmds)
-
-	self.cmds = nil
+	vk.vkFreeCommandBuffers(device, commandPool, 1, cmds)
 end
 
 return VKSingleTimeCommand

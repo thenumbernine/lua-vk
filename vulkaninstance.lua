@@ -51,32 +51,28 @@ function VulkanInstance:init(common)
 	end
 
 	-- how to prevent gc until a variable is done?
-	self.info = VkApplicationInfo()
-	self.info.sType = vk.VK_STRUCTURE_TYPE_APPLICATION_INFO
-	self.info.pApplicationName = app.title
-	self.info.applicationVersion = VK_MAKE_API_VERSION(0, 1, 0, 0)
-	self.info.pEngineName = defs.engineName
-	self.info.engineVersion = VK_MAKE_API_VERSION(0, 1, 0, 0)
-	self.info.apiVersion = VK_API_VERISON_1_0
+	local info = VkApplicationInfo()
+	info.sType = vk.VK_STRUCTURE_TYPE_APPLICATION_INFO
+	info.pApplicationName = app.title
+	info.applicationVersion = VK_MAKE_API_VERSION(0, 1, 0, 0)
+	info.pEngineName = defs.engineName
+	info.engineVersion = VK_MAKE_API_VERSION(0, 1, 0, 0)
+	info.apiVersion = VK_API_VERISON_1_0
 
-	self.layerNames = vector(char_const_ptr)
+	local layerNames = vector(char_const_ptr)
 	if enableValidationLayers then
-		self.layerNames:emplace_back()[0] = defs.VK_LAYER_KHRONOS_VALIDATION_NAME
+		layerNames:emplace_back()[0] = defs.VK_LAYER_KHRONOS_VALIDATION_NAME
 	end
 
-	self.extensions = self:getRequiredExtensions(common)
+	local extensions = self:getRequiredExtensions(common)
 
 	self.obj = VKInstance{
-		pApplicationInfo = self.info,
-		enabledLayerCount = #self.layerNames,
-		ppEnabledLayerNames = self.layerNames.v,
-		enabledExtensionCount = #self.extensions,
-		ppEnabledExtensionNames = self.extensions.v,
+		pApplicationInfo = info,
+		enabledLayerCount = #layerNames,
+		ppEnabledLayerNames = layerNames.v,
+		enabledExtensionCount = #extensions,
+		ppEnabledExtensionNames = extensions.v,
 	}
-
-	self.extensions = nil
-	self.layerNames = nil
-	self.info = nil
 end
 
 function VulkanInstance:getRequiredExtensions(common)

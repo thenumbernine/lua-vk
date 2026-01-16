@@ -27,7 +27,6 @@ VulkanVertex = struct{
 			result.binding = 0
 			result.stride = ffi.sizeof(VulkanVertex)
 			resultinputRate = vk.VK_VERTEX_INPUT_RATE_VERTEX
-_G.VertexRetainBiningDescription = result			
 			return result
 		end
 
@@ -48,7 +47,6 @@ _G.VertexRetainBiningDescription = result
 			v.binding = 0
 			v.format = vk.VK_FORMAT_R32G32B32_SFLOAT
 			v.offset = ffi.offsetof(VulkanVertex, 'texCoord')
-_G.VertexRetainAttributeDescriptions = result			
 			return result
 		end
 	end,
@@ -59,16 +57,16 @@ local VulkanMesh = class()
 VulkanMesh.VulkanVertex = VulkanVertex
 
 function VulkanMesh:init(physDev, device, commandPool)
-	self.mesh = ObjLoader():load"viking_room.obj";
+	local mesh = ObjLoader():load"viking_room.obj";
 
-	self.indices = self.mesh.triIndexes	-- vector'int32_t'
-	asserteq(self.indices.type, ffi.typeof'int32_t') 	-- well, uint, but whatever
+	local indices = mesh.triIndexes	-- vector'int32_t'
+	asserteq(indices.type, ffi.typeof'int32_t') 	-- well, uint, but whatever
 	-- copy from MeshVertex_t to VulkanVertex ... TODO why bother ...
-	self.vertices = vector(VulkanVertex)
-	self.vertices:resize(#self.mesh.vtxs)
-	for i=0,#self.mesh.vtxs-1 do
-		local srcv = self.mesh.vtxs.v[i]
-		local dstv = self.vertices.v[i]
+	local vertices = vector(VulkanVertex)
+	vertices:resize(#mesh.vtxs)
+	for i=0,#mesh.vtxs-1 do
+		local srcv = mesh.vtxs.v[i]
+		local dstv = vertices.v[i]
 		dstv.pos = srcv.pos
 		dstv.texCoord = srcv.texcoord	-- TODO y-flip?
 		dstv.color:set(1, 1, 1)	-- do our objects have normal properties?  nope, just v vt vn ... why doesn't the demo use normals? does it bake lighting?
@@ -83,30 +81,26 @@ function VulkanMesh:init(physDev, device, commandPool)
 		physDev,
 		device,
 		commandPool,
-		self.vertices.v,
-		#self.vertices * ffi.sizeof(self.vertices.type),
+		vertices.v,
+		vertices:getNumBytes(),
 		bit.bor(
 			vk.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 			vk.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
 		)
 	)
 
-	self.numIndices = #self.indices
+	self.numIndices = #indices
 	self.indexBufferAndMemory = VulkanDeviceMemoryBuffer:makeBufferFromStaged(
 		physDev,
 		device,
 		commandPool,
-		self.indices.v,
-		#self.indices * ffi.sizeof(self.indices.type),
+		indices.v,
+		indices:getNumBytes(),
 		bit.bor(
 			vk.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 			vk.VK_BUFFER_USAGE_INDEX_BUFFER_BIT
 		)
 	)
-
-	self.vertices = nil
-	self.indices = nil
-	self.mesh = nil
 end
 
 function VulkanMesh:destroy()

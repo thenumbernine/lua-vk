@@ -42,13 +42,11 @@ function VKSurface:init(args)
 end
 
 function VKSurface:destroy()
-	if self.instance == nil and self.id == nil then return end
-	assertne(self.instance, nil)
-	assertne(self.id, nil)
-	vk.vkDestroySurfaceKHR(self.instance, self.id, nil)
-	-- what about SDL_Vulkan_DestroySurface?  same? both?
+	if self.id then 
+		vk.vkDestroySurfaceKHR(self.instance, self.id, nil)
+		-- what about SDL_Vulkan_DestroySurface?  same? both?
+	end
 	self.id = nil
-	self.instance = nil
 end
 
 VKSurface.__gc = VKSurface.destroy
