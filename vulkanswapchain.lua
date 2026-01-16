@@ -12,9 +12,6 @@ local VulkanDeviceMemoryImage = require 'vk.vulkandevicememoryimage'
 local VKSwapchain = require 'vk.swapchain'
 
 
-local uint32_t = ffi.typeof'uint32_t'
-local uint32_t_array = ffi.typeof'uint32_t[?]'
-local VkAttachmentDescription_array = ffi.typeof'VkAttachmentDescription[?]'
 local VkAttachmentReference = ffi.typeof'VkAttachmentReference'
 local VkExtent2D = ffi.typeof'VkExtent2D'
 local VkFramebuffer = ffi.typeof'VkFramebuffer'
@@ -22,13 +19,64 @@ local VkFramebuffer_array = ffi.typeof'VkFramebuffer[?]'
 local VkImageView = ffi.typeof'VkImageView'
 local VkImageView_array = ffi.typeof'VkImageView[?]'
 local VkRenderPass = ffi.typeof'VkRenderPass'
-local VkSubpassDependency = ffi.typeof'VkSubpassDependency'
-local VkSubpassDescription = ffi.typeof'VkSubpassDescription'
 
+local makeVkSubpassDescription = makeStructCtor(
+	'VkSubpassDescription',
+	{
+		{
+			name = 'colorAttachments',
+			type = 'VkAttachmentReference',
+		},
+		{
+			-- NOTICE there's no matching Count field for this ...
+			-- ... should it always match colorAttachmentCount ?
+			name = 'resolveAttachments',
+			type = 'VkAttachmentReference',
+		},
+--[[ TODO the arg gen would be nice for non-array types		
+		{
+			name = 'depthStencilAttachment',
+			dstname = 'pDepthStencilAttachment',
+			gen = ffi.typeof'VkAttachmentReference',
+		},
+--]]
+	},
+	true	-- no sType
+)
 
-local makeVkFramebufferCreateInfo = makeStructCtor'VkFramebufferCreateInfo'
+local makeVkFramebufferCreateInfo = makeStructCtor(
+	'VkFramebufferCreateInfo',
+	{
+		{
+			name = 'attachments',
+			type = VkImageView
+		},
+	}
+)
+
 local makeVkImageViewCreateInfo = makeStructCtor'VkImageViewCreateInfo'
-local makeVkRenderPassCreateInfo = makeStructCtor'VkRenderPassCreateInfo'
+local makeVkRenderPassCreateInfo = makeStructCtor(
+	'VkRenderPassCreateInfo',
+	{
+		{
+			name = 'attachments',
+			type = 'VkAttachmentDescription',
+		},
+		{
+			name = 'subpasses',
+			ptrname = 'pSubpasses',
+			countname = 'subpassCount',
+			type = 'VkSubpassDescription',
+			gen = makeVkSubpassDescription,
+		},
+		{
+			name = 'dependencies',
+			ptrname = 'pDependencies',
+			countname = 'dependencyCount',
+			type = 'VkSubpassDependency',
+		},
+	}
+)
 
 
 local VulkanSwapchain = class()
@@ -57,7 +105,6 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 		[indices.graphicsFamily] = true,
 		[indices.presentFamily] = true,
 	}
-	local queueFamilyIndices = uint32_t_array(#indices, indices)
 
 	local familiesDiffer = (indices.graphicsFamily ~= indices.presentFamily) or nil
 	self.obj = VKSwapchain{
@@ -74,8 +121,7 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 		presentMode = presentMode,
 		clipped = vk.VK_TRUE,
 		imageSharingMode = familiesDiffer and vk.VK_SHARING_MODE_CONCURRENT or vk.VK_SHARING_MODE_EXCLUSIVE,
-		queueFamilyIndexCount = familiesDiffer and countof(queueFamilyIndices),
-		pQueueFamilyIndices = familiesDiffer and queueFamilyIndices,
+		queueFamilyIndices = familiesDiffer and indices,
 	}
 
 	self.images = self.obj:getImages()
@@ -142,10 +188,6 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 	self.framebuffers = VkFramebuffer_array(numImageViews)
 	for i=0,numImageViews-1 do
 		local numAttachments = 3
-		local attachments = VkImageView_array(numAttachments)
-		attachments[0] = self.colorImageView
-		attachments[1] = self.depthImageView
-		attachments[2] = self.imageViews[i]
 		self.framebuffers[i] = vkGet(
 			VkFramebuffer,
 			vkassert,
@@ -153,8 +195,11 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 			device,
 			makeVkFramebufferCreateInfo{
 				renderPass = self.renderPass,
-				attachmentCount = numAttachments,
-				pAttachments = attachments,
+				attachments = {
+					self.colorImageView,
+					self.depthImageView,
+					self.imageViews[i],
+				},
 				width = width,
 				height = height,
 				layers = 1,
@@ -219,88 +264,85 @@ function VulkanSwapchain:createImageView(device, image, format, aspectFlags, mip
 end
 
 function VulkanSwapchain:createRenderPass(physDev, device, swapChainImageFormat, msaaSamples)
-	-- need to keep these from gc'ing until the function is through ...
-	local numAttachments = 3
-	local attachments = VkAttachmentDescription_array(numAttachments)
-	-- colorAttachment
-	local v = attachments+0
-	v.format = swapChainImageFormat
-	v.samples = msaaSamples
-	v.loadOp = vk.VK_ATTACHMENT_LOAD_OP_CLEAR
-	v.storeOp = vk.VK_ATTACHMENT_STORE_OP_STORE
-	v.stencilLoadOp = vk.VK_ATTACHMENT_LOAD_OP_DONT_CARE
-	v.stencilStoreOp = vk.VK_ATTACHMENT_STORE_OP_DONT_CARE
-	v.initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED
-	v.finalLayout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-	v=v+1
-	-- depthAttachment
-	v.format = physDev:findDepthFormat()
-	v.samples = msaaSamples
-	v.loadOp = vk.VK_ATTACHMENT_LOAD_OP_CLEAR
-	v.storeOp = vk.VK_ATTACHMENT_STORE_OP_DONT_CARE
-	v.stencilLoadOp = vk.VK_ATTACHMENT_LOAD_OP_DONT_CARE
-	v.stencilStoreOp = vk.VK_ATTACHMENT_STORE_OP_DONT_CARE
-	v.initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED
-	v.finalLayout = vk.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-	v=v+1
-	-- colorAttachmentResolve
-	v.format = swapChainImageFormat
-	v.samples = vk.VK_SAMPLE_COUNT_1_BIT
-	v.loadOp = vk.VK_ATTACHMENT_LOAD_OP_DONT_CARE
-	v.storeOp = vk.VK_ATTACHMENT_STORE_OP_STORE
-	v.stencilLoadOp = vk.VK_ATTACHMENT_LOAD_OP_DONT_CARE
-	v.stencilStoreOp = vk.VK_ATTACHMENT_STORE_OP_DONT_CARE
-	v.initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED
-	v.finalLayout = vk.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-	v=v+1
-	asserteq(v, attachments + numAttachments)
-
-	local colorAttachmentRef = VkAttachmentReference()
-	colorAttachmentRef.attachment = 0
-	colorAttachmentRef.layout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-	local depthAttachmentRef = VkAttachmentReference()
-	depthAttachmentRef.attachment = 1
-	depthAttachmentRef.layout = vk.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-	local colorAttachmentResolveRef = VkAttachmentReference()
-	colorAttachmentResolveRef.attachment = 2
-	colorAttachmentResolveRef.layout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-
-	local subpasses = VkSubpassDescription()
-	subpasses.pipelineBindPoint = vk.VK_PIPELINE_BIND_POINT_GRAPHICS
-	subpasses.colorAttachmentCount = 1
-	subpasses.pColorAttachments = colorAttachmentRef
-	subpasses.pResolveAttachments = colorAttachmentResolveRef
-	subpasses.pDepthStencilAttachment = depthAttachmentRef
-
-	local dependencies = VkSubpassDependency()
-	dependencies.srcSubpass = vk.VK_SUBPASS_EXTERNAL
-	dependencies.dstSubpass = 0
-	dependencies.srcStageMask = bit.bor(
-		vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-		vk.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
-	)
-	dependencies.dstStageMask = bit.bor(
-		vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-		vk.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
-	)
-	dependencies.srcAccessMask = 0
-	dependencies.dstAccessMask = bit.bor(
-		vk.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-		vk.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT
-	)
-
 	return vkGet(
 		VkRenderPass,
 		vkassert,
 		vk.vkCreateRenderPass,
 		device,
 		makeVkRenderPassCreateInfo{
-			attachmentCount = numAttachments,
-			pAttachments = attachments,
-			subpassCount = 1,
-			pSubpasses = subpasses,
+			attachments = {
+				{	-- colorAttachment
+					format = swapChainImageFormat,
+					samples = msaaSamples,
+					loadOp = vk.VK_ATTACHMENT_LOAD_OP_CLEAR,
+					storeOp = vk.VK_ATTACHMENT_STORE_OP_STORE,
+					stencilLoadOp = vk.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+					stencilStoreOp = vk.VK_ATTACHMENT_STORE_OP_DONT_CARE,
+					initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED,
+					finalLayout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				},
+				{	-- depthAttachment
+					format = physDev:findDepthFormat(),
+					samples = msaaSamples,
+					loadOp = vk.VK_ATTACHMENT_LOAD_OP_CLEAR,
+					storeOp = vk.VK_ATTACHMENT_STORE_OP_DONT_CARE,
+					stencilLoadOp = vk.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+					stencilStoreOp = vk.VK_ATTACHMENT_STORE_OP_DONT_CARE,
+					initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED,
+					finalLayout = vk.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+				},
+				{	-- colorAttachmentResolve
+					format = swapChainImageFormat,
+					samples = vk.VK_SAMPLE_COUNT_1_BIT,
+					loadOp = vk.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+					storeOp = vk.VK_ATTACHMENT_STORE_OP_STORE,
+					stencilLoadOp = vk.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+					stencilStoreOp = vk.VK_ATTACHMENT_STORE_OP_DONT_CARE,
+					initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED,
+					finalLayout = vk.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+				},
+			},
+			subpasses = {
+				{
+					pipelineBindPoint = vk.VK_PIPELINE_BIND_POINT_GRAPHICS,
+					colorAttachments = {
+						{
+							attachment = 0,
+							layout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+						},
+					},
+					resolveAttachments = {
+						{
+							attachment = 2,
+							layout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+						},
+					},
+					pDepthStencilAttachment = VkAttachmentReference{
+						attachment = 1,
+						layout = vk.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+					},
+				},
+			},
 			dependencyCount = 1,
-			pDependencies = dependencies,
+			dependencies = {
+				{
+					srcSubpass = vk.VK_SUBPASS_EXTERNAL,
+					dstSubpass = 0,
+					srcStageMask = bit.bor(
+						vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+						vk.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
+					),
+					dstStageMask = bit.bor(
+						vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+						vk.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
+					),
+					srcAccessMask = 0,
+					dstAccessMask = bit.bor(
+						vk.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+						vk.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT
+					),
+				},
+			},
 		},
 		nil
 	)

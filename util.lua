@@ -93,17 +93,22 @@ also replace any tables keys with p / Count
 --]]
 local function makeStructCtor(
 	createType,
-	replaceTableFields
+	replaceTableFields,
+	skipSType
 )
 	createType = ffi.typeof(createType)
-	local sType = getSTypeForCType(createType)
+	local sType 
+	if not skipSType then
+		sType = getSTypeForCType(createType)
+	end
 	
 	if replaceTableFields then
 		for _,info in ipairs(replaceTableFields) do
+			-- needs either .name and it to end it s or .ptrname and .countname...
 			local fieldName = info.name
-			local baseName = assert(fieldName:match'^(.*)s$', "expected field to end with a 's'")
-			info.ptrfield = 'p'..fieldName:sub(1,1):upper()..fieldName:sub(2)
-			info.countfield = baseName..'Count'
+			local baseName = fieldName and fieldName:match'^(.*)s$'
+			info.ptrname = info.ptrname or 'p'..fieldName:sub(1,1):upper()..fieldName:sub(2)
+			info.countname = info.countname or baseName..'Count'
 			info.gen = info.gen or ident
 			info.type = ffi.typeof(info.type)
 		end
@@ -111,15 +116,17 @@ local function makeStructCtor(
 
 	return function(args)
 		args = args or {}
-		args.sType = sType
-
+		if not skipSType then
+			args.sType = sType
+		end
 		if replaceTableFields then
 			for _,info in ipairs(replaceTableFields) do
 				local fieldName = info.name
 				local fieldType = info.type
 				local gen = info.gen
 				local v = args[fieldName]
-				if type(v) == 'table' then
+				local tp = type(v)
+				if tp == 'table' then
 					local count = #v
 				
 					-- convert to array
@@ -128,9 +135,18 @@ local function makeStructCtor(
 						arr[i] = gen(v[i+1])
 					end
 
-					args[info.ptrfield] = arr
-					args[info.countfield] = count
+					args[info.ptrname] = arr
+					args[info.countname] = count
 					args[fieldName] = nil
+				elseif tp == 'cdata' 
+				and ffi.typeof(v) == ffi.typeof('$[?]', fieldType)
+				then
+					args[info.ptrname] = v
+					args[info.countname] = countof(v)
+					args[fieldName] = nil
+				elseif tp == 'nil' then
+				else
+					error('idk how to handle type '..tp)
 				end
 			end
 		end
@@ -151,6 +167,7 @@ local function addInitFromArgs(cl)
 	local sType = cl.sType or getSTypeForCType(createType)
 	--]]
 
+	-- phasing this out in favor of makeStructCtor?
 	function cl:initFromArgs(args)
 		if type(args) == 'cdata' then
 			return args

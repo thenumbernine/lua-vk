@@ -9,16 +9,25 @@ local VKDevice = require 'vk.device'
 local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
 local vkGetVector = require 'vk.util'.vkGetVector
+local makeStructCtor = require 'vk.util'.makeStructCtor
 
 
 local VkImage = ffi.typeof'VkImage'
 local VkSwapchainKHR = ffi.typeof'VkSwapchainKHR'
+local makeVkSwapchainCreateInfoKHR = makeStructCtor(
+	'VkSwapchainCreateInfoKHR',
+	{
+		{
+			name = 'queueFamilyIndices',
+			ptrname = 'pQueueFamilyIndices',
+			countname = 'queueFamilyIndexCount',
+			type = 'uint32_t',
+		},
+	}
+)
 
 
 local VKSwapchain = class()
-
-VKSwapchain.createType = 'VkSwapchainCreateInfoKHR'	-- for vk create
-require 'vk.util'.addInitFromArgs(VKSwapchain)
 
 function VKSwapchain:init(args)
 	local device = assertindex(args, 'device')
@@ -29,13 +38,19 @@ function VKSwapchain:init(args)
 		vkassert,
 		vk.vkCreateSwapchainKHR,
 		device,
-		self:initFromArgs(args),
+		makeVkSwapchainCreateInfoKHR(args),
 		nil
 	)
 end
 
 function VKSwapchain:getImages()
-	return vkGetVector(VkImage, vkassert, vk.vkGetSwapchainImagesKHR, self.device, self.id)
+	return vkGetVector(
+		VkImage,
+		vkassert,
+		vk.vkGetSwapchainImagesKHR,
+		self.device,
+		self.id
+	)
 end
 
 function VKSwapchain:destroy()
