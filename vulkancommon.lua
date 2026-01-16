@@ -752,7 +752,7 @@ function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 			-- TODO how do we know the framebuffer index is less than the image from teh swapchain?
 			-- framebufer[] is sized b imge of swapchain,
 			-- but her it's indexed by maxFramesInFlight which is set to 2
-			framebuffer = self.swapchain.framebuffers[imageIndex],
+			framebuffer = self.swapchain.framebuffers[1+imageIndex].id,
 			renderArea = {
 				extent = self.swapchain.extent,
 			},
