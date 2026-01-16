@@ -22,11 +22,10 @@ return function(args)
 	
 	-- create might ask for extra arguments.
 	-- rather than provide how to describe them here, I'll let each subclass perform the call.
-	--local create = assertindex(args, 'create')
-	--local createType = assertindex(args, 'createType')
 	local create = args.create
 	
 	-- I think all destroy functions have just one arg + allocator ...
+	-- wait, not all ... some take device first.
 	local destroy = assertindex(args, 'destroy')
 
 	local cl = class()

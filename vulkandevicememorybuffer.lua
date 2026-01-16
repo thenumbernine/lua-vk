@@ -16,6 +16,7 @@ local VkMemoryAllocateInfo = ffi.typeof'VkMemoryAllocateInfo'
 local VulkanDeviceMemoryBuffer = class()
 
 function VulkanDeviceMemoryBuffer:init(physDev, device, size, usage, properties)
+	self.device = device
 	self.buffer = VKBuffer{
 		device = device,
 		size = size,
@@ -69,6 +70,17 @@ function VulkanDeviceMemoryBuffer:makeBufferFromStaged(physDev, device, commandP
 	stagingBufferAndMemory.buffer:destroy()
 
 	return bufferAndMemory
+end
+
+function VulkanDeviceMemoryBuffer:destroy()
+	if self.memory then
+		vk.vkFreeMemory(self.device, self.memory, nil)
+	end
+	if self.buffer then
+		self.buffer:destroy()
+	end
+	self.memory = nil
+	self.buffer = nil
 end
 
 return VulkanDeviceMemoryBuffer

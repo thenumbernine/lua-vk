@@ -74,9 +74,14 @@ function VulkanMesh:init(physDev, device, commandPool)
 		dstv.color:set(1, 1, 1)	-- do our objects have normal properties?  nope, just v vt vn ... why doesn't the demo use normals? does it bake lighting?
 	end
 
+	local VulkanDevice = require 'vk.vulkandevice'
+	if VulkanDevice:isa(device) then device = device.obj end
+	local VKDevice = require 'vk.device'
+	if VKDevice:isa(device) then device = device.id end
+
 	self.vertexBufferAndMemory = VulkanDeviceMemoryBuffer:makeBufferFromStaged(
 		physDev,
-		device.obj.id,
+		device,
 		commandPool,
 		self.vertices.v,
 		#self.vertices * ffi.sizeof(self.vertices.type),
@@ -89,7 +94,7 @@ function VulkanMesh:init(physDev, device, commandPool)
 	self.numIndices = #self.indices
 	self.indexBufferAndMemory = VulkanDeviceMemoryBuffer:makeBufferFromStaged(
 		physDev,
-		device.obj.id,
+		device,
 		commandPool,
 		self.indices.v,
 		#self.indices * ffi.sizeof(self.indices.type),
@@ -102,6 +107,17 @@ function VulkanMesh:init(physDev, device, commandPool)
 	self.vertices = nil
 	self.indices = nil
 	self.mesh = nil
+end
+
+function VulkanMesh:destroy()
+	if self.vertexBufferAndMemory then
+		self.vertexBufferAndMemory:destroy()
+	end
+	if self.indexBufferAndMemory then
+		self.indexBufferAndMemory:destroy()
+	end
+	self.vertexBufferAndMemory = nil
+	self.indexBufferAndMemory = nil
 end
 
 return VulkanMesh

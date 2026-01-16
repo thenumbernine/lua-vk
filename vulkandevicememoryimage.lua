@@ -69,10 +69,11 @@ function VulkanDeviceMemoryImage:createImage(
 
 	vkassert(vk.vkBindImageMemory, device, image, imageMemory, 0)
 
-	return {
+	return setmetatable({
+		device = device,
 		image = image,
 		imageMemory = imageMemory,
-	}
+	}, VulkanDeviceMemoryImage)
 end
 
 function VulkanDeviceMemoryImage:makeTextureFromStaged(
@@ -127,6 +128,17 @@ function VulkanDeviceMemoryImage:makeTextureFromStaged(
 	stagingBufferAndMemory.buffer:destroy()
 
 	return imageAndMemory
+end
+
+function VulkanDeviceMemoryImage:destroy()
+	if self.imageMemory then
+		vk.vkFreeMemory(self.device, self.imageMemory, nil)
+	end
+	if self.image then
+		vk.vkDestroyImage(self.device, self.image, nil)
+	end
+	self.imageMemory = nil
+	self.image = nil
 end
 
 return VulkanDeviceMemoryImage

@@ -31,6 +31,10 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 	self.width = width
 	self.height = height
 
+	local VKDevice = require 'vk.device'
+	if VKDevice:isa(device) then device = device.id end
+	self.device = device
+
 	local swapChainSupport = physDev:querySwapChainSupport(nil, surface)
 	self.extent = self:chooseSwapExtent(width, height, swapChainSupport.capabilities)
 
@@ -73,13 +77,13 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 	self.obj = VKSwapchain(info)
 	self.queueFamilyIndices = nil
 
-	self.images = self.obj:getImages(device)
+	self.images = self.obj:getImages()
 
 	local numImageViews = #self.images
 	self.imageViews = VkImageView_array(numImageViews)
 	for i=0,#self.images-1 do
 		self.imageViews[i] = self:createImageView(
-			device.id,
+			device,
 			self.images.v[i],
 			surfaceFormat.format,
 			vk.VK_IMAGE_ASPECT_COLOR_BIT,
@@ -87,13 +91,13 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 		)
 	end
 
-	self.renderPass = self:createRenderPass(physDev, device.id, surfaceFormat.format, msaaSamples)
+	self.renderPass = self:createRenderPass(physDev, device, surfaceFormat.format, msaaSamples)
 
 	local colorFormat = surfaceFormat.format
 
 	self.colorImageAndMemory = VulkanDeviceMemoryImage:createImage(
 		physDev,
-		device.id,
+		device,
 		width,
 		height,
 		1,
@@ -105,7 +109,7 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 	)
 
 	self.colorImageView = self:createImageView(
-		device.id,
+		device,
 		self.colorImageAndMemory.image,
 		colorFormat,
 		vk.VK_IMAGE_ASPECT_COLOR_BIT,
@@ -116,7 +120,7 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 
 	self.depthImageAndMemory = VulkanDeviceMemoryImage:createImage(
 		physDev,
-		device.id,
+		device,
 		width,
 		height,
 		1,
@@ -127,7 +131,7 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 		vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	)
 	self.depthImageView = self:createImageView(
-		device.id,
+		device,
 		self.depthImageAndMemory.image,
 		depthFormat,
 		vk.VK_IMAGE_ASPECT_DEPTH_BIT,
@@ -153,7 +157,7 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 			VkFramebuffer,
 			vkassert,
 			vk.vkCreateFramebuffer,
-			device.id,
+			device,
 			self.info,
 			nil
 		)
@@ -317,29 +321,42 @@ function VulkanSwapchain:createRenderPass(physDev, device, swapChainImageFormat,
 	return result
 end
 
-function VulkanSwapchain:destroy(device)
-	for i=0,#self.framebuffers-1 do
-		vk.vkDestroyFramebuffer(device, self.framebuffers.v[i], nil)
+function VulkanSwapchain:destroy()
+	if self.framebuffers then
+		for i=0,#self.framebuffers-1 do
+			vk.vkDestroyFramebuffer(self.device, self.framebuffers.v[i], nil)
+		end
 	end
 	self.framebuffers = nil
 
-	for i=0,#self.images-1 do
-		vk.vkDestroyImageView(device, self.imageViews[i], nil)
+	if self.images then
+		for i=0,#self.images-1 do
+			vk.vkDestroyImageView(self.device, self.imageViews[i], nil)
+		end
 	end
 	self.imageViews = nil
 	self.images = nil
 
-	vk.vkDestroyRenderPass(device, self.renderPass, nil)
+	if self.renderPass then
+		vk.vkDestroyRenderPass(self.device, self.renderPass, nil)
+	end
 	self.renderPass = nil
 
-	vk.vkDestroyImageView(device, self.colorImageView, nil)
-	vk.vkFreeMemory(device, self.colorImageAndMemory.imageMemory, nil)
-	vk.vkDestroyImage(device, self.colorImageAndMemory.image, nil)
+	if self.colorImageView then
+		vk.vkDestroyImageView(self.device, self.colorImageView, nil)
+	end
+	self.colorImageView = nil
+	if self.colorImageAndMemory then
+		self.colorImageAndMemory:destroy()
+	end
 	self.colorImageAndMemory = nil
 	
-	vk.vkDestroyImageView(device, self.depthImageView, nil)
-	vk.vkFreeMemory(device, self.depthImageAndMemory.imageMemory, nil)
-	vk.vkDestroyImage(device, self.depthImageAndMemory.image, nil)
+	if self.depthImageView then
+		vk.vkDestroyImageView(self.device, self.depthImageView, nil)
+	end
+	if self.depthImageAndMemory then
+		self.depthImageAndMemory:destroy()
+	end
 	self.depthImageAndMemory = nil
 	
 	self.obj:destroy()

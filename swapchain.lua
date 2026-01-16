@@ -4,7 +4,6 @@ require 'ext.gc'	-- make sure luajit can __gc lua-tables
 local ffi = require 'ffi'
 local class = require 'ext.class'
 local assertindex = require 'ext.assert'.index
-local assertne = require 'ext.assert'.ne
 local vk = require 'vk'
 local VKDevice = require 'vk.device'
 local vkassert = require 'vk.util'.vkassert
@@ -35,18 +34,15 @@ function VKSwapchain:init(args)
 	)
 end
 
-function VKSwapchain:getImages(device)
-	if VKDevice:isa(device) then device = device.id end
-	return vkGetVector(VkImage, vkassert, vk.vkGetSwapchainImagesKHR, device, self.id)
+function VKSwapchain:getImages()
+	return vkGetVector(VkImage, vkassert, vk.vkGetSwapchainImagesKHR, self.device, self.id)
 end
 
 function VKSwapchain:destroy()
-	if self.device == nil and self.id == nil then return end
-	assertne(self.device, nil)
-	assertne(self.id, nil)
-	vk.vkDestroySwapchainKHR(self.device, self.id, nil)
+	if self.id then
+		vk.vkDestroySwapchainKHR(self.device, self.id, nil)
+	end
 	self.id = nil
-	self.device = nil
 end
 
 VKSwapchain.__gc = VKSwapchain.destroy

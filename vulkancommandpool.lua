@@ -130,9 +130,8 @@ function VulkanCommandPool:copyBufferToImage(buffer, image, width, height)
 end
 
 function VulkanCommandPool:destroy(device)
-	if self.id then
-		vk.vkDestroyCommandPool(device, self.id, nil)
-	end
+	if self.id == nil then return end
+	vk.vkDestroyCommandPool(device, self.id, nil)
 	self.id = nil
 end
 

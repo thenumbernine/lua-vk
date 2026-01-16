@@ -827,23 +827,18 @@ function VulkanCommon:exit()
 			end
 		end
 		if self.textureImageAndMemory then
-			vk.vkFreeMemory(device_id, self.textureImageAndMemory.imageMemory, nil)
-			vk.vkDestroyImage(device_id, self.textureImageAndMemory.image, nil)
+			self.textureImageAndMemory:destroy()
 		end
 		if self.uniformBuffers then
 			for _,ub in ipairs(self.uniformBuffers) do
-				vk.vkFreeMemory(device_id, ub.bm.memory, nil)
-				ub.bm.buffer:destroy()
+				ub.bm:destroy()
 			end
 		end
 		if self.descriptorPool then
 			vk.vkDestroyDescriptorPool(device_id, self.descriptorPool, nil)
 		end
 		if self.mesh then
-			vk.vkFreeMemory(device_id, self.mesh.vertexBufferAndMemory.memory, nil)
-			self.mesh.vertexBufferAndMemory.buffer:destroy()
-			vk.vkFreeMemory(device_id, self.mesh.indexBufferAndMemory.memory, nil)
-			self.mesh.indexBufferAndMemory.buffer:destroy()
+			self.mesh:destroy()
 		end
 		if self.textureSampler then
 			vk.vkDestroySampler(device_id, self.textureSampler, nil)

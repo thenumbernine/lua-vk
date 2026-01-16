@@ -91,13 +91,12 @@ local function addInitFromArgs(cl)
 	end
 	--]]
 
-	local infoType = ffi.typeof('$[1]', createType)
 	function cl:initFromArgs(args)
 		if type(args) == 'cdata' then
 			return args
 		else
 			args.sType = sType
-			self.initArgs = infoType{args}
+			self.initArgs = createType(args)
 			return self.initArgs
 		end
 	end
