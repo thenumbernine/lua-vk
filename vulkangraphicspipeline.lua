@@ -2,6 +2,7 @@
 local ffi = require 'ffi'
 local class = require 'ext.class'
 local asserteq = require 'ext.assert'.eq
+local vector = require 'ffi.cpp.vector-lua'
 local vk = require 'vk'
 local defs = require 'vk.defs'
 local vkassert = require 'vk.util'.vkassert
@@ -15,7 +16,6 @@ local VulkanVertex = require 'vk.vulkanmesh'.VulkanVertex
 
 defs.main = 'main'
 
-local VkDescriptorSetLayoutBinding_array = ffi.typeof'VkDescriptorSetLayoutBinding[?]'
 local VkDynamicState_array = ffi.typeof'VkDynamicState[?]'
 local VkPipelineColorBlendAttachmentState = ffi.typeof'VkPipelineColorBlendAttachmentState'
 local VkPipelineShaderStageCreateInfo_array = ffi.typeof'VkPipelineShaderStageCreateInfo[?]'
@@ -37,32 +37,29 @@ local makeVkPipelineShaderStageCreateInfo = makeStructCtor'VkPipelineShaderStage
 local VulkanGraphicsPipeline = class()
 
 function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
-	-- descriptorSetLayout is only used by graphicsPipeline
-	local numBindings = 2
-	local bindings = VkDescriptorSetLayoutBinding_array(numBindings)
-	local v = bindings+0
-	--uboLayoutBinding
-	v.binding = 0
-	v.descriptorType = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
-	v.descriptorCount = 1
-	v.stageFlags = vk.VK_SHADER_STAGE_VERTEX_BIT
-	v=v+1
-		--samplerLayoutBinding
-	v.binding = 1
-	v.descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
-	v.descriptorCount = 1
-	v.stageFlags = vk.VK_SHADER_STAGE_FRAGMENT_BIT
-	v=v+1
-	asserteq(v, bindings + numBindings)
-
 	self.descriptorSetLayout = VKDescriptorSetLayout{
 		device = device,
-		bindingCount = numBindings,
-		pBindings = bindings,
+		bindings = {
+			--uboLayoutBinding
+			{
+				binding = 0,
+				descriptorType = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				descriptorCount = 1,
+				stageFlags = vk.VK_SHADER_STAGE_VERTEX_BIT,
+			},
+			--samplerLayoutBinding
+			{
+				binding = 1,
+				descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				descriptorCount = 1,
+				stageFlags = vk.VK_SHADER_STAGE_FRAGMENT_BIT,
+			},
+		},
 	}
 
-	local bindingDescription = VulkanVertex:getBindingDescription()
-	local bindingDescriptions = VkVertexInputBindingDescription_1(bindingDescription)
+	local bindingDescriptions = VkVertexInputBindingDescription_1(
+		VulkanVertex:getBindingDescription()
+	)
 
 	local attributeDescriptions = VulkanVertex:getAttributeDescriptions()
 	local vertexInputInfo = makeVkPipelineVertexInputStateCreateInfo{
@@ -139,10 +136,15 @@ function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 		setLayoutCount = 1,
 		pSetLayouts = descriptorSetLayouts,
 	}
-	-- but save self.descriptorSetLayout for later
 
-	self.vertexShaderModule = VKShaderModule:fromFile{device=device, filename="shader-vert.spv"}
-	self.fragmentShaderModule = VKShaderModule:fromFile{device=device, filename="shader-frag.spv"}
+	self.vertexShaderModule = VKShaderModule{
+		device = device,
+		filename = "shader-vert.spv",
+	}
+	self.fragmentShaderModule = VKShaderModule{
+		device = device,
+		filename = "shader-frag.spv",
+	}
 	local numShaderStages = 2
 	local shaderStages = VkPipelineShaderStageCreateInfo_array(numShaderStages, {
 		makeVkPipelineShaderStageCreateInfo{

@@ -1,6 +1,7 @@
 require 'ext.gc'
 local ffi = require 'ffi'
 local class = require 'ext.class'
+local path = require 'ext.path'
 local assert = require 'ext.assert'
 local vk = require 'vk'
 local vkGet = require 'vk.util'.vkGet
@@ -15,9 +16,20 @@ local makeVkShaderModuleCreateInfo = makeStructCtor'VkShaderModuleCreateInfo'
 
 local VKShaderModule = class()
 
+--[[
+args:
+	.device
+	.code -or- .filename
+--]]
 function VKShaderModule:init(args)
 	self.device = assert.index(args, 'device')
-	local code = assert.index(args, 'code')
+
+	local code = args.code
+	if not code and args.filename then
+		code = assert(path(args.filename):read())
+	end
+	assert(code, "failed to find code, you must provide a .code or a .filename")
+
 	self.id = vkGet(
 		VkShaderModule,
 		vkassert,
@@ -31,19 +43,6 @@ function VKShaderModule:init(args)
 	)
 end
 
---[[
-static generator method
-args:
-	device
-	filename
---]]
-function VKShaderModule:fromFile(args)
-	local path = require 'ext.path'
-	return VKShaderModule{
-		device = args.device,
-		code = assert(path(assert.index(args, 'filename')):read()),
-	}
-end
 -- TODO in a wrapping .obj or something, use lua.make
 -- glslangValidator -V shader.vert -o shader-vert.spv
 -- glslangValidator -V shader.frag -o shader-frag.spv
