@@ -10,7 +10,6 @@ local VulkanDeviceMemoryBuffer = require 'vk.vulkandevicememorybuffer'
 
 local vk = require 'vk'
 local VkVertexInputBindingDescription = ffi.typeof'VkVertexInputBindingDescription'
-local VkVertexInputAttributeDescription = ffi.typeof'VkVertexInputAttributeDescription'
 local struct = require 'struct'
 local vec3f = require 'vec-ffi.vec3f'
 local VulkanVertex
@@ -23,31 +22,34 @@ VulkanVertex = struct{
 	},
 	metatable = function(mt)
 		mt.getBindingDescription = function()
-			local result = VkVertexInputBindingDescription()
-			result.binding = 0
-			result.stride = ffi.sizeof(VulkanVertex)
-			resultinputRate = vk.VK_VERTEX_INPUT_RATE_VERTEX
-			return result
+			return VkVertexInputBindingDescription{
+				binding = 0,
+				stride = ffi.sizeof(VulkanVertex),
+				inputRate = vk.VK_VERTEX_INPUT_RATE_VERTEX,
+			}
 		end
 
 		mt.getAttributeDescriptions = function()
-			local result = vector(VkVertexInputAttributeDescription)
-			local v = result:emplace_back()
-			v.location = 0
-			v.binding = 0
-			v.format = vk.VK_FORMAT_R32G32B32_SFLOAT
-			v.offset = ffi.offsetof(VulkanVertex, 'pos')
-			local v = result:emplace_back()
-			v.location = 1
-			v.binding = 0
-			v.format = vk.VK_FORMAT_R32G32B32_SFLOAT
-			v.offset = ffi.offsetof(VulkanVertex, 'color')
-			local v = result:emplace_back()
-			v.location = 2
-			v.binding = 0
-			v.format = vk.VK_FORMAT_R32G32B32_SFLOAT
-			v.offset = ffi.offsetof(VulkanVertex, 'texCoord')
-			return result
+			return {
+				{
+					location = 0,
+					binding = 0,
+					format = vk.VK_FORMAT_R32G32B32_SFLOAT,
+					offset = ffi.offsetof(VulkanVertex, 'pos'),
+				},
+				{
+					location = 1,
+					binding = 0,
+					format = vk.VK_FORMAT_R32G32B32_SFLOAT,
+					offset = ffi.offsetof(VulkanVertex, 'color'),
+				},
+				{
+					location = 2,
+					binding = 0,
+					format = vk.VK_FORMAT_R32G32B32_SFLOAT,
+					offset = ffi.offsetof(VulkanVertex, 'texCoord'),
+				}
+			}
 		end
 	end,
 }

@@ -84,12 +84,57 @@ local function getSTypeForCType(createType)
 	return assertindex(vk, enumName)
 end
 
-local function makeStructCtor(createType)
+local function ident(...) return ... end
+
+--[[
+automatically set .sType based on the struct ctype name
+
+also replace any tables keys with p / Count
+--]]
+local function makeStructCtor(
+	createType,
+	replaceTableFields
+)
 	createType = ffi.typeof(createType)
 	local sType = getSTypeForCType(createType)
+	
+	if replaceTableFields then
+		for _,info in ipairs(replaceTableFields) do
+			local fieldName = info.name
+			local baseName = assert(fieldName:match'^(.*)s$', "expected field to end with a 's'")
+			info.ptrfield = 'p'..fieldName:sub(1,1):upper()..fieldName:sub(2)
+			info.countfield = baseName..'Count'
+			info.gen = info.gen or ident
+			info.type = ffi.typeof(info.type)
+		end
+	end
+
 	return function(args)
 		args = args or {}
 		args.sType = sType
+
+		if replaceTableFields then
+			for _,info in ipairs(replaceTableFields) do
+				local fieldName = info.name
+				local fieldType = info.type
+				local gen = info.gen
+				local v = args[fieldName]
+				if type(v) == 'table' then
+					local count = #v
+				
+					-- convert to array
+					local arr = ffi.new(ffi.typeof('$[?]', fieldType), count)
+					for i=0,count-1 do
+						arr[i] = gen(v[i+1])
+					end
+
+					args[info.ptrfield] = arr
+					args[info.countfield] = count
+					args[fieldName] = nil
+				end
+			end
+		end
+
 		return createType(args)
 	end
 end

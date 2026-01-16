@@ -20,19 +20,18 @@ function VKDescriptorSetLayout:init(args)
 	self.device = assert.index(args, 'device')
 	args.device = nil
 
-	if args.bindings then
+	if type(args.bindings) == 'table' then
 		if vector:isa(args.bindings) then
 			-- if it's a vector
 			args.bindingCount = #args.bindings
 			args.pBindings = args.bindings.v
-			args.bindings = nil
 		else
 			-- if it's just a table
 			args.bindings = vector(VkDescriptorSetLayoutBinding, args.bindings)
 			args.bindingCount = #args.bindings
 			args.pBindings = args.bindings.v
-			args.bindings = nil
 		end
+		args.bindings = nil
 	end
 
 	self.id = vkGet(

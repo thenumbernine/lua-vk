@@ -9,13 +9,26 @@ local makeStructCtor = require 'vk.util'.makeStructCtor
 
 
 local VkPipeline = ffi.typeof'VkPipeline'
-local makeVkGraphicsPipelineCreateInfo = makeStructCtor'VkGraphicsPipelineCreateInfo'
+
+local makeVkPipelineShaderStageCreateInfo = makeStructCtor'VkPipelineShaderStageCreateInfo'
+local makeVkGraphicsPipelineCreateInfo = makeStructCtor(
+	'VkGraphicsPipelineCreateInfo',
+	{
+		{
+			name = 'stages',
+			type = ffi.typeof'VkPipelineShaderStageCreateInfo',
+			gen = makeVkPipelineShaderStageCreateInfo,
+		},
+	}
+)
 
 
 local VKPipeline = class()
 
 function VKPipeline:init(args)
 	self.device = assert.index(args, 'device')
+	args.device = nil
+
 	self.id = vkGet(
 		VkPipeline,
 		vkassert,

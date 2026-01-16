@@ -9,13 +9,27 @@ local makeStructCtor = require 'vk.util'.makeStructCtor
 
 
 local VkPipelineLayout = ffi.typeof'VkPipelineLayout'
-local makeVkPipelineLayoutCreateInfo = makeStructCtor'VkPipelineLayoutCreateInfo'
+local makeVkPipelineLayoutCreateInfo = makeStructCtor(
+	'VkPipelineLayoutCreateInfo',
+	{
+		{
+			name = 'setLayouts',
+			type = 'VkDescriptorSetLayout',
+			gen = function(x)
+				-- convert VKDescriptorSetLayout's to VkDescriptorSetLayout's
+				return x.id or x
+			end,
+		},
+	}
+)
 
 
 local VKPipelineLayout = class()
 
 function VKPipelineLayout:init(args)
 	self.device = assert.index(args, 'device')
+	args.device = nil
+
 	self.id = vkGet(
 		VkPipelineLayout,
 		vkassert,
