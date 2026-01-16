@@ -78,7 +78,7 @@ end
 
 -- static method
 function VulkanPhysicalDevice:checkDeviceExtensionSupport(physDev, deviceExtensions)
-	local requiredExtensions = deviceExtensions:totable():mapi(function(v)
+	local requiredExtensions = deviceExtensions:mapi(function(v)
 		return true, ffi.string(v)
 	end):setmetatable(nil)
 

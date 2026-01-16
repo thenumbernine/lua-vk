@@ -33,13 +33,12 @@ local makeVkSubpassDescription = makeStructCtor(
 			name = 'resolveAttachments',
 			type = 'VkAttachmentReference',
 		},
---[[ TODO the arg gen would be nice for non-array types		
 		{
+			notarray = true,	-- because most the time it's an array I'm permuting
 			name = 'depthStencilAttachment',
-			dstname = 'pDepthStencilAttachment',
-			gen = ffi.typeof'VkAttachmentReference',
+			ptrname = 'pDepthStencilAttachment',
+			type = 'VkAttachmentReference',
 		},
---]]
 	},
 	true	-- no sType
 )
@@ -317,7 +316,7 @@ function VulkanSwapchain:createRenderPass(physDev, device, swapChainImageFormat,
 							layout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 						},
 					},
-					pDepthStencilAttachment = VkAttachmentReference{
+					depthStencilAttachment = {
 						attachment = 1,
 						layout = vk.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 					},

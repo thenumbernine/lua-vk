@@ -4,6 +4,7 @@ local asserteq = require 'ext.assert'.eq
 local assertindex = require 'ext.assert'.index
 local math = require 'ext.math'	-- clamp
 local class = require 'ext.class'
+local table = require 'ext.table'
 local range = require 'ext.range'
 local timer = require 'ext.timer'
 local struct = require 'struct'
@@ -148,8 +149,8 @@ function VulkanCommon:init(app)
 		instance = self.instance.obj,
 	}
 
-	local deviceExtensions = vector(char_const_ptr)
-	deviceExtensions:emplace_back()[0] = assertindex(defs, 'VK_KHR_SWAPCHAIN_EXTENSION_NAME')
+	local deviceExtensions = table()
+	deviceExtensions:insert((assertindex(defs, 'VK_KHR_SWAPCHAIN_EXTENSION_NAME')))
 
 	self.physDev = VulkanPhysicalDevice(self, deviceExtensions)
 

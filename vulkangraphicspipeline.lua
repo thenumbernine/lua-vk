@@ -39,7 +39,16 @@ local makeVkPipelineViewportStateCreateInfo = makeStructCtor'VkPipelineViewportS
 local makeVkPipelineRasterizationStateCreateInfo = makeStructCtor'VkPipelineRasterizationStateCreateInfo'
 local makeVkPipelineMultisampleStateCreateInfo = makeStructCtor'VkPipelineMultisampleStateCreateInfo'
 local makeVkPipelineDepthStencilStateCreateInfo = makeStructCtor'VkPipelineDepthStencilStateCreateInfo'
-local makeVkPipelineColorBlendStateCreateInfo = makeStructCtor'VkPipelineColorBlendStateCreateInfo'
+
+local makeVkPipelineColorBlendStateCreateInfo = makeStructCtor(
+	'VkPipelineColorBlendStateCreateInfo',
+	{
+		{
+			name = 'attachments',
+			type = 'VkPipelineColorBlendAttachmentState',
+		},
+	}
+)
 
 local makeVkPipelineDynamicStateCreateInfo = makeStructCtor(
 	'VkPipelineDynamicStateCreateInfo',
@@ -145,15 +154,16 @@ function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
 		pColorBlendState = 	makeVkPipelineColorBlendStateCreateInfo{
 			logicOpEnable = vk.VK_FALSE,
 			logicOp = vk.VK_LOGIC_OP_COPY,
-			attachmentCount = 1,
-			pAttachments = 	VkPipelineColorBlendAttachmentState{
-				blendEnable = vk.VK_FALSE,
-				colorWriteMask = bit.bor(
-					vk.VK_COLOR_COMPONENT_R_BIT,
-					vk.VK_COLOR_COMPONENT_G_BIT,
-					vk.VK_COLOR_COMPONENT_B_BIT,
-					vk.VK_COLOR_COMPONENT_A_BIT
-				)
+			attachments = {
+				{
+					blendEnable = vk.VK_FALSE,
+					colorWriteMask = bit.bor(
+						vk.VK_COLOR_COMPONENT_R_BIT,
+						vk.VK_COLOR_COMPONENT_G_BIT,
+						vk.VK_COLOR_COMPONENT_B_BIT,
+						vk.VK_COLOR_COMPONENT_A_BIT
+					)
+				},
 			},
 			blendConstants = {0,0,0,0},
 		},

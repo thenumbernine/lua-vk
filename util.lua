@@ -106,11 +106,17 @@ local function makeStructCtor(
 		for _,info in ipairs(replaceTableFields) do
 			-- needs either .name and it to end it s or .ptrname and .countname...
 			local fieldName = info.name
-			local baseName = fieldName and fieldName:match'^(.*)s$'
-			info.ptrname = info.ptrname or 'p'..fieldName:sub(1,1):upper()..fieldName:sub(2)
-			info.countname = info.countname or baseName..'Count'
-			info.gen = info.gen or ident
 			info.type = ffi.typeof(info.type)
+
+			if info.notarray then
+				info.gen = info.gen or info.type
+			else
+				info.gen = info.gen or ident
+				-- for handling arrays
+				local baseName = fieldName and fieldName:match'^(.*)s$'
+				info.ptrname = info.ptrname or 'p'..fieldName:sub(1,1):upper()..fieldName:sub(2)
+				info.countname = info.countname or baseName..'Count'
+			end
 		end
 	end
 
@@ -125,28 +131,34 @@ local function makeStructCtor(
 				local fieldType = info.type
 				local gen = info.gen
 				local v = args[fieldName]
-				local tp = type(v)
-				if tp == 'table' then
-					local count = #v
-				
-					-- convert to array
-					local arr = ffi.new(ffi.typeof('$[?]', fieldType), count)
-					for i=0,count-1 do
-						arr[i] = gen(v[i+1])
-					end
-
-					args[info.ptrname] = arr
-					args[info.countname] = count
+				if info.notarray then
 					args[fieldName] = nil
-				elseif tp == 'cdata' 
-				and ffi.typeof(v) == ffi.typeof('$[?]', fieldType)
-				then
-					args[info.ptrname] = v
-					args[info.countname] = countof(v)
-					args[fieldName] = nil
-				elseif tp == 'nil' then
+					args[info.ptrname] = gen(v)
 				else
-					error('idk how to handle type '..tp)
+					local tp = type(v)
+					if tp == 'table' then
+						local count = #v
+					
+						-- convert to array
+						local arr = ffi.new(ffi.typeof('$[?]', fieldType), count)
+						for i=0,count-1 do
+							arr[i] = gen(v[i+1])
+						end
+
+						args[fieldName] = nil
+						args[info.ptrname] = arr
+						args[info.countname] = count
+					elseif tp == 'cdata' 
+					and ffi.typeof(v) == ffi.typeof('$[?]', fieldType)
+					then
+						args[fieldName] = nil
+						args[info.ptrname] = v
+						args[info.countname] = countof(v)
+					elseif tp == 'nil' then
+						-- fall through
+					else
+						error('idk how to handle type '..tp)
+					end
 				end
 			end
 		end
