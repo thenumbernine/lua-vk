@@ -118,8 +118,9 @@ function VulkanCommon:init(app)
 		instance = self.instance.obj,
 	}
 
-	local deviceExtensions = table()
-	deviceExtensions:insert'VK_KHR_swapchain'
+	local deviceExtensions = table{
+		'VK_KHR_swapchain',
+	}
 
 	self.physDev = VulkanPhysicalDevice(self, deviceExtensions)
 

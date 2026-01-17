@@ -158,6 +158,4 @@ function VulkanPhysicalDevice:findMemoryType(mask, props)
 	error "failed to find suitable memory type!"
 end
 
-
-
 return VulkanPhysicalDevice 
