@@ -11,7 +11,6 @@ local struct = require 'struct'
 local vector = require 'ffi.cpp.vector-lua'
 local matrix_ffi = require 'matrix.ffi'
 local vk = require 'vk'
-local defs = require 'vk.defs'
 local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
 local vkGetVector = require 'vk.util'.vkGetVector
@@ -114,6 +113,10 @@ asserteq(ffi.sizeof(UniformBufferObject), ffi.sizeof(float) * 4 * 4 * 3)
 local UniformBufferObject_ptr = ffi.typeof('$*', UniformBufferObject)
 
 
+local validationLayerNames = {
+	'VK_LAYER_KHRONOS_validation'
+}
+
 local VulkanCommon = class()
 
 VulkanCommon.enableValidationLayers = true
@@ -166,7 +169,7 @@ function VulkanCommon:init(app)
 	}
 
 	local deviceExtensions = table()
-	deviceExtensions:insert((assertindex(defs, 'VK_KHR_SWAPCHAIN_EXTENSION_NAME')))
+	deviceExtensions:insert'VK_KHR_swapchain'
 
 	self.physDev = VulkanPhysicalDevice(self, deviceExtensions)
 
@@ -178,7 +181,7 @@ print('msaaSamples', self.msaaSamples)
 		self.device = VulkanDevice(
 			self.physDev.obj,
 			deviceExtensions,
-			self.enableValidationLayers,
+			self.enableValidationLayers and validationLayerNames or nil,
 			indices
 		)
 		self.graphicsQueue = VKQueue{
@@ -326,7 +329,7 @@ end
 
 function VulkanCommon:checkValidationLayerSupport()
 	local availableLayers = vkGetVector(VkLayerProperties, vkassert, vk.vkEnumerateInstanceLayerProperties)
-	local layerName = assertindex(defs, 'validationLayer')
+	local layerName = validationLayerNames[1]
 	for i=0,#availableLayers-1 do
 		local layerProperties = availableLayers.v + i
 		-- hmm, why does vulkan hpp use array<char> instead of string?

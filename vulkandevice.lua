@@ -5,7 +5,6 @@ local table = require 'ext.table'
 local assertindex = require 'ext.assert'.index
 local vector = require 'ffi.cpp.vector-lua'
 local vk = require 'vk'
-local defs = require 'vk.defs'
 local makeStructCtor = require 'vk.util'.makeStructCtor
 local VKDevice = require 'vk.device'
 
@@ -13,7 +12,7 @@ local float_1 = ffi.typeof'float[1]'
 
 local VulkanDevice = class()
 
-function VulkanDevice:init(physDev, deviceExtensions, enableValidationLayers, indices)
+function VulkanDevice:init(physDev, deviceExtensions, enabledLayers, indices)
 	self.obj = VKDevice{
 		physDev = physDev,
 		queueCreateInfos = table.keys{
@@ -25,9 +24,7 @@ function VulkanDevice:init(physDev, deviceExtensions, enableValidationLayers, in
 				queuePriorities = {1},
 			}
 		end),
-		enabledLayers = table{
-			enableValidationLayers and assertindex(defs, 'validationLayer') or nil
-		},
+		enabledLayers = enabledLayers,
 		enabledExtensions = deviceExtensions,
 		enabledFeatures = {
 			samplerAnisotropy = vk.VK_TRUE,

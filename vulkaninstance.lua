@@ -5,7 +5,6 @@ local table = require 'ext.table'
 local assertne = require 'ext.assert'.ne
 local vector = require 'ffi.cpp.vector-lua'
 local vk = require 'vk'
-local defs = require 'vk.defs'
 local vkassert = require 'vk.util'.vkassert
 local vkGetVector = require 'vk.util'.vkGetVector
 local makeStructCtor = require 'vk.util'.makeStructCtor
@@ -24,7 +23,6 @@ local VkApplicationInfo = ffi.typeof'VkApplicationInfo'
 
 
 
-
 -- TODO move to vk?
 local function VK_MAKE_VERSION(major, minor, patch)
 	return bit.bor(bit.lshift(major, 22), bit.lshift(minor, 12), patch)
@@ -34,9 +32,6 @@ local function VK_MAKE_API_VERSION(variant, major, minor, patch)
 end
 -- but why not just use bitfields? meh
 local VK_API_VERISON_1_0 = VK_MAKE_API_VERSION(0, 1, 0, 0)
-
-
-defs.engineName ="No Engine"
 
 
 local VulkanInstance = class()
@@ -55,12 +50,12 @@ function VulkanInstance:init(common)
 		applicationInfo = {
 			pApplicationName = common.app.title,
 			applicationVersion = VK_MAKE_API_VERSION(0, 1, 0, 0),
-			pEngineName = defs.engineName,
+			pEngineName = 'no engine',
 			engineVersion = VK_MAKE_API_VERSION(0, 1, 0, 0),
 			apiVersion = VK_API_VERISON_1_0,
 		},
 		enabledLayers = table{
-			common.enableValidationLayers and defs.VK_LAYER_KHRONOS_VALIDATION_NAME or nil,
+			common.enableValidationLayers and 'VK_LAYER_KHRONOS_validation' or nil,
 		},
 		enabledExtensions = self:getRequiredExtensions(common),
 	}
@@ -86,12 +81,12 @@ function VulkanInstance:getRequiredExtensions(common)
 	--]]
 
 	print'vulkan extensions:'
-	for i=0,#extensions-1 do
-		print('', extensions[i])
+	for _,s in ipairs(extensions) do
+		print('', s)
 	end
 
 	if common.enableValidationLayers then
-		extensions:insert(defs.VK_EXT_DEBUG_UTILS_EXTENSION_NAME)
+		extensions:insert'VK_EXT_debug_utils'
 	end
 
 	return extensions
