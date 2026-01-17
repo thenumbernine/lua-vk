@@ -2,6 +2,7 @@
 local ffi = require 'ffi'
 local class = require 'ext.class'
 local table = require 'ext.table'
+local range = require 'ext.range'
 local asserteq = require 'ext.assert'.eq
 local vk = require 'vk'
 local countof = require 'vk.util'.countof
@@ -12,15 +13,13 @@ local VulkanDeviceMemoryImage = require 'vk.vulkandevicememoryimage'
 local VKSwapchain = require 'vk.swapchain'
 local VKRenderPass = require 'vk.renderpass'
 local VKFramebuffer = require 'vk.framebuffer'
+local VKImageView = require 'vk.imageview'
 
 
 local VkAttachmentReference = ffi.typeof'VkAttachmentReference'
 local VkExtent2D = ffi.typeof'VkExtent2D'
-local VkImageView = ffi.typeof'VkImageView'
 local VkImageView_array = ffi.typeof'VkImageView[?]'
 local VkRenderPass = ffi.typeof'VkRenderPass'
-
-local makeVkImageViewCreateInfo = makeStructCtor'VkImageViewCreateInfo'
 
 
 
@@ -72,16 +71,15 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 	self.images = self.obj:getImages()
 
 	local numImageViews = #self.images
-	self.imageViews = VkImageView_array(numImageViews)
-	for i=0,numImageViews-1 do
-		self.imageViews[i] = self:createImageView(
+	self.imageViews = range(numImageViews):mapi(function(i)
+		return self:createImageView(
 			device,
-			self.images.v[i],
+			self.images.v[i-1],
 			surfaceFormat.format,
 			vk.VK_IMAGE_ASPECT_COLOR_BIT,
 			1
 		)
-	end
+	end)
 
 	local swapChainImageFormat = surfaceFormat.format
 	self.renderPass = VKRenderPass{
@@ -211,9 +209,9 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 				device = device,
 				renderPass = self.renderPass.id,
 				attachments = {
-					self.colorImageView,
-					self.depthImageView,
-					self.imageViews[i],
+					self.colorImageView.id,
+					self.depthImageView.id,
+					self.imageViews[1+i].id,
 				},
 				width = width,
 				height = height,
@@ -258,23 +256,17 @@ function VulkanSwapchain:chooseSwapPresentMode(availablePresentModes)
 end
 
 function VulkanSwapchain:createImageView(device, image, format, aspectFlags, mipLevels)
-	return vkGet(
-		VkImageView,
-		vkassert,
-		vk.vkCreateImageView,
-		device,
-		makeVkImageViewCreateInfo{
-			image = image,
-			viewType = vk.VK_IMAGE_VIEW_TYPE_2D,
-			format = format,
-			subresourceRange = {
-				aspectMask = aspectFlags,
-				levelCount = mipLevels,
-				layerCount = 1,
-			},
+	return VKImageView{
+		device = device,
+		image = image,
+		viewType = vk.VK_IMAGE_VIEW_TYPE_2D,
+		format = format,
+		subresourceRange = {
+			aspectMask = aspectFlags,
+			levelCount = mipLevels,
+			layerCount = 1,
 		},
-		nil
-	)
+	}
 end
 
 function VulkanSwapchain:destroy()
@@ -286,11 +278,12 @@ function VulkanSwapchain:destroy()
 	self.framebuffers = nil
 
 	if self.imageViews then
-		for i=0,countof(self.imageViews)-1 do
-			vk.vkDestroyImageView(self.device, self.imageViews[i], nil)
+		for _,imageView in ipairs(self.imageViews) do
+			imageView:destroy()
 		end
 	end
 	self.imageViews = nil
+
 	self.images = nil
 
 	if self.renderPass then
@@ -299,7 +292,7 @@ function VulkanSwapchain:destroy()
 	self.renderPass = nil
 
 	if self.colorImageView then
-		vk.vkDestroyImageView(self.device, self.colorImageView, nil)
+		self.colorImageView:destroy()
 	end
 	self.colorImageView = nil
 	if self.colorImageAndMemory then
@@ -308,7 +301,7 @@ function VulkanSwapchain:destroy()
 	self.colorImageAndMemory = nil
 	
 	if self.depthImageView then
-		vk.vkDestroyImageView(self.device, self.depthImageView, nil)
+		self.depthImageView:destroy()
 	end
 	if self.depthImageAndMemory then
 		self.depthImageAndMemory:destroy()

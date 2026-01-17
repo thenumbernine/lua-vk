@@ -546,7 +546,7 @@ function VulkanCommon:createDescriptorSets()
 				descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 				pImageInfo = VkDescriptorImageInfo{
 					sampler = self.textureSampler.id,
-					imageView = self.textureImageView,
+					imageView = self.textureImageView.id,
 					imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				},
 			}
@@ -815,18 +815,7 @@ function VulkanCommon:exit()
 			end
 		end
 
-		if self.textureImageView then
-			vk.vkDestroyImageView(device_id, self.textureImageView, nil)
-		end
-		if self.textureImageAndMemory then
-			self.textureImageAndMemory:destroy()
-		end
 
-		if self.uniformBuffers then
-			for _,ub in ipairs(self.uniformBuffers) do
-				ub.bm:destroy()
-			end
-		end
 	end
 	self.imageAvailableSemaphores = nil
 	self.renderFinishedSemaphores = nil
@@ -834,8 +823,22 @@ function VulkanCommon:exit()
 	self.commandBuffers = nil
 	self.descriptorSets = nil
 	self.layouts = nil
+	
+	if self.textureImageView then
+		self.textureImageView:destroy()
+	end
 	self.textureImageView = nil
+	
+	if self.textureImageAndMemory then
+		self.textureImageAndMemory:destroy()
+	end
 	self.textureImageAndMemory = nil
+
+	if self.uniformBuffers then
+		for _,ub in ipairs(self.uniformBuffers) do
+			ub.bm:destroy()
+		end
+	end
 	self.uniformBuffers = nil
 	
 	if self.descriptorPool then
