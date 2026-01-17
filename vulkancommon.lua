@@ -267,10 +267,11 @@ print('msaaSamples', self.msaaSamples)
 
 	self.descriptorSets = self:createDescriptorSets()
 
-	self.commandBuffers = self.commandPool.obj:makeCmds{
-		level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-		commandBufferCount = self.maxFramesInFlight,
-	}
+	self.commandBuffers = range(self.maxFramesInFlight):mapi(function(i)
+		return self.commandPool.obj:makeCmds{
+			level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+		}
+	end)
 
 	self.imageAvailableSemaphores = range(self.maxFramesInFlight):mapi(function(i)
 		return VKSemaphore{
@@ -561,10 +562,10 @@ function VulkanCommon:drawFrame()
 
 	vkassert(vk.vkResetFences, self.device.obj.id, 1, self.inFlightFences[1+self.currentFrame].idptr)
 
-	vkassert(vk.vkResetCommandBuffer, self.commandBuffers.idptr[self.currentFrame], 0)
+	self.commandBuffers[1+self.currentFrame]:reset()
 
 	self:recordCommandBuffer(
-		self.commandBuffers.idptr[self.currentFrame],
+		self.commandBuffers[1+self.currentFrame],
 		self.imageIndex[0]
 	)
 
@@ -574,7 +575,7 @@ function VulkanCommon:drawFrame()
 	submitInfo.pWaitSemaphores = self.imageAvailableSemaphores[1+self.currentFrame].idptr
 	-- don't use conversion field, just use the pointer
 	submitInfo.commandBufferCount = 1
-	submitInfo.pCommandBuffers = self.commandBuffers.idptr + self.currentFrame
+	submitInfo.pCommandBuffers = self.commandBuffers[1+self.currentFrame].idptr
 	-- don't use conversion field, just use the pointer
 	submitInfo.signalSemaphoreCount = 1
 	submitInfo.pSignalSemaphores = self.renderFinishedSemaphores[1+self.currentFrame].idptr
@@ -633,14 +634,10 @@ end
 
 function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 	-- TODO per vulkan api, if we just have null info, can we pass null?
-	vkassert(
-		vk.vkBeginCommandBuffer,
-		commandBuffer,
-		makeVkCommandBufferBeginInfo()
-	)
+	commandBuffer:begin()
 
 	vk.vkCmdBeginRenderPass(
-		commandBuffer,
+		commandBuffer.id,
 		makeVkRenderPassBeginInfo{
 			renderPass = self.swapchain.renderPass.id,
 			-- TODO how do we know the framebuffer index is less than the image from teh swapchain?
@@ -668,7 +665,7 @@ function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 	)
 
 	vk.vkCmdBindPipeline(
-		commandBuffer,
+		commandBuffer.id,
 		vk.VK_PIPELINE_BIND_POINT_GRAPHICS,
 		self.graphicsPipeline.obj.id
 	)
@@ -678,17 +675,17 @@ function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 	viewports.height = self.swapchain.extent.height
 	viewports.minDepth = 0
 	viewports.maxDepth = 1
-	vk.vkCmdSetViewport(commandBuffer, 0, 1, viewports)
+	vk.vkCmdSetViewport(commandBuffer.id, 0, 1, viewports)
 
 	local scissors = VkRect2D()
 	scissors.extent.width = self.swapchain.extent.width
 	scissors.extent.height = self.swapchain.extent.height
-	vk.vkCmdSetScissor(commandBuffer, 0, 1, scissors)
+	vk.vkCmdSetScissor(commandBuffer.id, 0, 1, scissors)
 
 	local vertexBuffers = VkBuffer_1((assert(self.mesh.vertexBufferAndMemory.buffer.id)))
 	local vertexOffsets = VkDeviceSize_1(0)
 	vk.vkCmdBindVertexBuffers(
-		commandBuffer,
+		commandBuffer.id,
 		0,
 		1,
 		vertexBuffers,
@@ -696,14 +693,14 @@ function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 	)
 
 	vk.vkCmdBindIndexBuffer(
-		commandBuffer,
+		commandBuffer.id,
 		assert(self.mesh.indexBufferAndMemory.buffer.id),
 		0,
 		vk.VK_INDEX_TYPE_UINT32
 	)
 
 	vk.vkCmdBindDescriptorSets(
-		commandBuffer,
+		commandBuffer.id,
 		vk.VK_PIPELINE_BIND_POINT_GRAPHICS,
 		self.graphicsPipeline.pipelineLayout.id,
 		0,
@@ -714,7 +711,7 @@ function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 	)
 
 	vk.vkCmdDrawIndexed(
-		commandBuffer,
+		commandBuffer.id,
 		self.mesh.numIndices,
 		1,
 		0,
@@ -722,8 +719,8 @@ function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 		0
 	)
 
-	vk.vkCmdEndRenderPass(commandBuffer)
-	vk.vkEndCommandBuffer(commandBuffer)
+	vk.vkCmdEndRenderPass(commandBuffer.id)
+	commandBuffer:done()
 end
 
 function VulkanCommon:recreateSwapchain()
@@ -759,7 +756,9 @@ function VulkanCommon:exit()
 			end
 		end
 		if self.commandBuffers then
-			self.commandBuffers:destroy()
+			for _,cmds in ipairs(self.commandBuffers) do
+				cmds:destroy()
+			end
 		end
 
 		-- gives "descriptorPool must have been created with the VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT flag"

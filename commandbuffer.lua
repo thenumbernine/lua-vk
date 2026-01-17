@@ -41,7 +41,6 @@ function VKCommandBuffer:init(args)
 		makeVkCommandBufferAllocateInfo(args),
 		self.idptr
 	)
-	-- for convenience
 	self.id = self.idptr[0]
 end
 
@@ -52,6 +51,14 @@ function VKCommandBuffer:begin(args)
 		self.id,
 		makeVkCommandBufferBeginInfo(args)
 	)
+end
+
+function VKCommandBuffer:done()	-- "end"
+	vkassert(vk.vkEndCommandBuffer, self.id)
+end
+
+function VKCommandBuffer:reset()
+	vkassert(vk.vkResetCommandBuffer, self.id, 0)
 end
 
 function VKCommandBuffer:destroy()

@@ -72,7 +72,7 @@ function VKQueue:singleTimeCommand(commandPool, callback)
 
 	callback(cmds.id)
 
-	vkassert(vk.vkEndCommandBuffer, cmds.id)
+	cmds:done()
 
 	self:submit(
 		makeVkSubmitInfo{
