@@ -1,18 +1,14 @@
 --helper
 local ffi = require 'ffi'
-local asserteq = require 'ext.assert'.eq
-local assertindex = require 'ext.assert'.index
-local math = require 'ext.math'	-- clamp
+local assert = require 'ext.assert'
 local class = require 'ext.class'
 local table = require 'ext.table'
 local range = require 'ext.range'
 local timer = require 'ext.timer'
 local struct = require 'struct'
-local vector = require 'ffi.cpp.vector-lua'
 local matrix_ffi = require 'matrix.ffi'
 local vk = require 'vk'
 local vkassert = require 'vk.util'.vkassert
-local vkGet = require 'vk.util'.vkGet
 local vkGetVector = require 'vk.util'.vkGetVector
 local makeStructCtor = require 'vk.util'.makeStructCtor
 local VKSurface = require 'vk.surface'
@@ -39,8 +35,6 @@ local VulkanBufferMemoryAndMapped = require 'vk.vulkanbuffermemoryandmapped'
 local VulkanMesh = require 'vk.vulkanmesh'
 
 local float = ffi.typeof'float'
-local void_ptr = ffi.typeof'void*'
-local char_const_ptr = ffi.typeof'char const *'
 local uint32_t_1 = ffi.typeof'uint32_t[1]'
 local uint64_t = ffi.typeof'uint64_t'
 local VkBuffer_1 = ffi.typeof'VkBuffer[1]'
@@ -48,11 +42,9 @@ local VkDescriptorBufferInfo = ffi.typeof'VkDescriptorBufferInfo'
 local VkDescriptorImageInfo = ffi.typeof'VkDescriptorImageInfo'
 local VkDescriptorSetLayout_array = ffi.typeof'VkDescriptorSetLayout[?]'
 local VkDeviceSize_1 = ffi.typeof'VkDeviceSize[1]'
-local VkFence_array = ffi.typeof'VkFence[?]'
 local VkImageBlit = ffi.typeof'VkImageBlit'
 local VkLayerProperties = ffi.typeof'VkLayerProperties'
 local VkRect2D = ffi.typeof'VkRect2D'
-local VkSwapchainKHR_1 = ffi.typeof'VkSwapchainKHR[1]'
 local VkViewport = ffi.typeof'VkViewport'
 local VkWriteDescriptorSet_array = ffi.typeof'VkWriteDescriptorSet[?]'
 
@@ -106,7 +98,7 @@ local UniformBufferObject = struct{
 		{name = 'proj', type = 'float[16]'},
 	},
 }
-asserteq(ffi.sizeof(UniformBufferObject), ffi.sizeof(float) * 4 * 4 * 3)
+assert.eq(ffi.sizeof(UniformBufferObject), ffi.sizeof(float) * 4 * 4 * 3)
 local UniformBufferObject_ptr = ffi.typeof('$*', UniformBufferObject)
 
 
@@ -237,17 +229,10 @@ print('msaaSamples', self.msaaSamples)
 				vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 			)
 		)
-		local mapped = vkGet(
-			void_ptr,
-			vkassert,
-			vk.vkMapMemory,
-			self.device.obj.id,
-			bm.memory.id,
-			0,
-			size,
-			0
+		return VulkanBufferMemoryAndMapped(
+			bm,
+			bm.memory:map(size)
 		)
-		return VulkanBufferMemoryAndMapped(bm, mapped)
 	end)
 
 	self.descriptorPool = VKDescriptorPool{

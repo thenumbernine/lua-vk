@@ -26,7 +26,7 @@ function VKFramebuffer:init(args)
 	self.device = assert.index(args, 'device')
 	args.device = nil
 
-	self.id = vkGet(
+	self.id, self.idptr = vkGet(
 		VkFramebuffer,
 		vkassert,
 		vk.vkCreateFramebuffer,
@@ -43,6 +43,8 @@ function VKFramebuffer:destroy()
 	self.id = nil
 end
 
-VKFramebuffer.__gc = VKFramebuffer.destroy
+function VKFramebuffer:__gc()
+	return self:destroy()
+end
 
 return VKFramebuffer 

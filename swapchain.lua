@@ -3,7 +3,7 @@
 require 'ext.gc'	-- make sure luajit can __gc lua-tables
 local ffi = require 'ffi'
 local class = require 'ext.class'
-local assertindex = require 'ext.assert'.index
+local assert = require 'ext.assert'
 local vk = require 'vk'
 local VKDevice = require 'vk.device'
 local vkassert = require 'vk.util'.vkassert
@@ -30,10 +30,10 @@ local makeVkSwapchainCreateInfoKHR = makeStructCtor(
 local VKSwapchain = class()
 
 function VKSwapchain:init(args)
-	local device = assertindex(args, 'device')
+	local device = assert.index(args, 'device')
 	if VKDevice:isa(device) then device = device.id end
 	self.device = device
-	self.id = vkGet(
+	self.id, self.idptr = vkGet(
 		VkSwapchainKHR,
 		vkassert,
 		vk.vkCreateSwapchainKHR,
@@ -60,6 +60,8 @@ function VKSwapchain:destroy()
 	self.id = nil
 end
 
-VKSwapchain.__gc = VKSwapchain.destroy
+function VKSwapchain:__gc()
+	return self:destroy()
+end
 
 return VKSwapchain

@@ -54,6 +54,8 @@ function VKFence:destroy()
 	self.id = nil
 end
 
-VKFence.__gc = VKFence.destroy
+function VKFence:__gc()
+	return self:destroy()
+end
 
 return VKFence

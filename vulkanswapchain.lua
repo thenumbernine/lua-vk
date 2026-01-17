@@ -1,14 +1,10 @@
--- helper not wrapper
+require 'ext.gc'
 local ffi = require 'ffi'
+local math = require 'ext.math'	-- clamp
 local class = require 'ext.class'
 local table = require 'ext.table'
 local range = require 'ext.range'
-local asserteq = require 'ext.assert'.eq
 local vk = require 'vk'
-local countof = require 'vk.util'.countof
-local vkassert = require 'vk.util'.vkassert
-local vkGet = require 'vk.util'.vkGet
-local makeStructCtor = require 'vk.util'.makeStructCtor
 local VulkanDeviceMemoryImage = require 'vk.vulkandevicememoryimage'
 local VKSwapchain = require 'vk.swapchain'
 local VKRenderPass = require 'vk.renderpass'
@@ -16,11 +12,7 @@ local VKFramebuffer = require 'vk.framebuffer'
 local VKImageView = require 'vk.imageview'
 
 
-local VkAttachmentReference = ffi.typeof'VkAttachmentReference'
 local VkExtent2D = ffi.typeof'VkExtent2D'
-local VkImageView_array = ffi.typeof'VkImageView[?]'
-local VkRenderPass = ffi.typeof'VkRenderPass'
-
 
 
 local VulkanSwapchain = class()
@@ -309,6 +301,10 @@ function VulkanSwapchain:destroy()
 	self.depthImageAndMemory = nil
 	
 	self.obj:destroy()
+end
+
+function VulkanSwapchain:__gc()
+	return self:destroy()
 end
 
 return VulkanSwapchain

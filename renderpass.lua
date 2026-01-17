@@ -63,7 +63,7 @@ function VKRenderPass:init(args)
 	self.device = assert.index(args, 'device')
 	args.device = nil
 
-	self.id = vkGet(
+	self.id, self.idptr = vkGet(
 		VkRenderPass,
 		vkassert,
 		vk.vkCreateRenderPass,
@@ -80,6 +80,8 @@ function VKRenderPass:destroy()
 	self.id = nil
 end
 
-VKRenderPass.__gc = VKRenderPass.destroy
+function VKRenderPass:__gc()
+	return self:destroy()
+end
 
 return VKRenderPass

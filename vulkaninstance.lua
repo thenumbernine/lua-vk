@@ -1,17 +1,15 @@
--- helper, not wrapper
 local ffi = require 'ffi'
 local class = require 'ext.class'
 local table = require 'ext.table'
-local assertne = require 'ext.assert'.ne
-local vector = require 'ffi.cpp.vector-lua'
+local assert = require 'ext.assert'
 local vk = require 'vk'
 local vkassert = require 'vk.util'.vkassert
 local vkGetVector = require 'vk.util'.vkGetVector
-local makeStructCtor = require 'vk.util'.makeStructCtor
 local VKInstance = require 'vk.instance'
 local sdl = require 'sdl'
 
 
+-- TODO actually generate SDL/vulkan and put it in the SDL header, or in a separate 'sdl.ffi.sdl3.vulkan' or something
 ffi.cdef[[
 char const * const * SDL_Vulkan_GetInstanceExtensions(uint32_t * count);
 ]]
@@ -73,7 +71,7 @@ function VulkanInstance:getRequiredExtensions(common)
 	local extensions = table()
 	do
 		local count = uint32_t_1()
-		local extstrs = assertne(sdl.SDL_Vulkan_GetInstanceExtensions(count), ffi.null)
+		local extstrs = assert.ne(sdl.SDL_Vulkan_GetInstanceExtensions(count), ffi.null)
 		for i=0,count[0]-1 do
 			extensions:insert(ffi.string(extstrs[i]))
 		end

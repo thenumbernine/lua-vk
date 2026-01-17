@@ -30,7 +30,7 @@ function VKPipelineLayout:init(args)
 	self.device = assert.index(args, 'device')
 	args.device = nil
 
-	self.id = vkGet(
+	self.id, self.idptr = vkGet(
 		VkPipelineLayout,
 		vkassert,
 		vk.vkCreatePipelineLayout,
@@ -47,7 +47,8 @@ function VKPipelineLayout:destroy()
 	self.id = nil
 end
 
-VKPipelineLayout.__gc = VKPipelineLayout.destroy
-
+function VKPipelineLayout:__gc()
+	return self:destroy()
+end
 
 return VKPipelineLayout

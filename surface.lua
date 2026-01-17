@@ -1,8 +1,7 @@
 require 'ext.gc'	-- make sure luajit can __gc lua-tables
 local ffi = require 'ffi'
 local class = require 'ext.class'
-local assertindex = require 'ext.assert'.index
-local assertne = require 'ext.assert'.ne
+local assert = require 'ext.assert'
 local sdl = require 'sdl'
 local sdlAssert = require 'sdl.assert'.assert
 local vk = require 'vk'
@@ -19,25 +18,25 @@ bool SDL_Vulkan_CreateSurface(
 ]]
 
 
-local VkSurfaceKHR = ffi.typeof'VkSurfaceKHR'
 local VkSurfaceKHR_1 = ffi.typeof'VkSurfaceKHR[1]'
 
 
 local VKSurface = class()
 
 function VKSurface:init(args)
-	local window = assertindex(args, 'window')
-	local instance = assertindex(args, 'instance')
-	if VKInstance:isa(instance) then instance = assertindex(instance, 'id') end
+	local window = assert.index(args, 'window')
+	local instance = assert.index(args, 'instance')
+	if VKInstance:isa(instance) then instance = assert.index(instance, 'id') end
 	self.instance = instance
 
 --[[ check() has the responsibility of passing the args to the function, which sdlAssert doesn't do
+	local VkSurfaceKHR = ffi.typeof'VkSurfaceKHR'
 	self.id = vkGet(VkSurfaceKHR, sdlAssert, sdl.SDL_Vulkan_CreateSurface, window, instance, nil)
 --]]
 -- [[
-	local ptr = VkSurfaceKHR_1()
-	sdlAssert(sdl.SDL_Vulkan_CreateSurface(window, instance, nil, ptr), 'SDL_Vulkan_CreateSurface')
-	self.id = ptr[0]
+	self.idptr = VkSurfaceKHR_1()
+	sdlAssert(sdl.SDL_Vulkan_CreateSurface(window, instance, nil, self.idptr), 'SDL_Vulkan_CreateSurface')
+	self.id = self.idptr[0]
 --]]
 end
 
@@ -49,6 +48,8 @@ function VKSurface:destroy()
 	self.id = nil
 end
 
-VKSurface.__gc = VKSurface.destroy
+function VKSurface:__gc()
+	return self:destroy()
+end
 
 return VKSurface

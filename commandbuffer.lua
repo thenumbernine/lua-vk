@@ -6,7 +6,6 @@ local class = require 'ext.class'
 local assert = require 'ext.assert'
 local vk = require 'vk'
 local vkassert = require 'vk.util'.vkassert
-local vkGet = require 'vk.util'.vkGet
 local vkResult = require 'vk.util'.vkResult
 local makeStructCtor = require 'vk.util'.makeStructCtor
 

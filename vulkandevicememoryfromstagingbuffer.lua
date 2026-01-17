@@ -1,14 +1,8 @@
--- helper class, not wrapper class
 local ffi = require 'ffi'
 local class = require 'ext.class'
 local vk = require 'vk'
-local vkassert = require 'vk.util'.vkassert
-local vkGet = require 'vk.util'.vkGet
 local VKBuffer = require 'vk.buffer'
 local VKMemory = require 'vk.memory'
-
-
-local void_ptr = ffi.typeof'void*'
 
 
 local VulkanDeviceMemoryFromStagingBuffer = class()
@@ -36,10 +30,10 @@ function VulkanDeviceMemoryFromStagingBuffer:create(physDev, device, srcData, bu
 
 	assert(buffer:bindMemory(memory.id))
 
-	local dstData = vkGet(void_ptr, vkassert, vk.vkMapMemory, device, memory.id, 0, bufferSize, 0)
+	local dstData = memory:map(bufferSize)
 	ffi.copy(dstData, srcData, bufferSize)
 
-	vk.vkUnmapMemory(device, memory.id)
+	memory:unmap()
 
 	return {
 		buffer = buffer,

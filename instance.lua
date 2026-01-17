@@ -10,6 +10,7 @@ local vkGetVector = require 'vk.util'.vkGetVector
 local makeStructCtor = require 'vk.util'.makeStructCtor
 
 
+local VkInstance = ffi.typeof'VkInstance'
 local VkPhysicalDevice = ffi.typeof'VkPhysicalDevice'
 
 local makeVkApplicationInfo = makeStructCtor'VkApplicationInfo'
@@ -50,8 +51,8 @@ local makeVkInstanceCreateInfo = makeStructCtor(
 local VKInstance = class() 
 
 function VKInstance:init(args)
-	self.id = vkGet(
-		'VkInstance',
+	self.id, self.idptr = vkGet(
+		VkInstance,
 		vkassert,
 		vk.vkCreateInstance,
 		makeVkInstanceCreateInfo(args),
@@ -88,6 +89,8 @@ function VKInstance:destroy()
 	self.id = nil
 end
 
-VKInstance.__gc = VKInstance.destroy
+function VKInstance:__gc()
+	return self:destroy()
+end
 
 return VKInstance

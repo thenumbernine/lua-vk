@@ -118,7 +118,7 @@ function VKPipeline:init(args)
 	self.device = assert.index(args, 'device')
 	args.device = nil
 
-	self.id = vkGet(
+	self.id, self.idptr = vkGet(
 		VkPipeline,
 		vkassert,
 		vk.vkCreateGraphicsPipelines,
@@ -137,6 +137,8 @@ function VKPipeline:destroy()
 	self.id = nil
 end
 
-VKPipeline.__gc = VKPipeline.destroy
+function VKPipeline:__gc()
+	return self:destroy()
+end
 
 return VKPipeline

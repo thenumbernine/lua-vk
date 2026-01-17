@@ -1,8 +1,6 @@
--- helper class, not wrapper class
-local ffi = require 'ffi'
+require 'ext.gc'
 local class = require 'ext.class'
 local vk = require 'vk'
-local vkassert = require 'vk.util'.vkassert
 local VKBuffer = require 'vk.buffer'
 local VKMemory = require 'vk.memory'
 local VulkanDeviceMemoryFromStagingBuffer = require 'vk.vulkandevicememoryfromstagingbuffer'
@@ -23,7 +21,10 @@ function VulkanDeviceMemoryBuffer:init(physDev, device, size, usage, properties)
 	self.memory = VKMemory{
 		device = device,
 		allocationSize = memReq.size,
-		memoryTypeIndex = physDev:findMemoryType(memReq.memoryTypeBits, properties),
+		memoryTypeIndex = physDev:findMemoryType(
+			memReq.memoryTypeBits,
+			properties
+		),
 	}
 
 	assert(self.buffer:bindMemory(self.memory.id))
@@ -68,6 +69,10 @@ function VulkanDeviceMemoryBuffer:destroy()
 		self.buffer:destroy()
 	end
 	self.buffer = nil
+end
+
+function VulkanDeviceMemoryBuffer:__gc()
+	return self:destroy()
 end
 
 return VulkanDeviceMemoryBuffer

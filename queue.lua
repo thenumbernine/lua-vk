@@ -2,14 +2,12 @@ local ffi = require 'ffi'
 local class = require 'ext.class'
 local assert = require 'ext.assert'
 local vk = require 'vk'
-local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
 local vkResult = require 'vk.util'.vkResult
 local makeStructCtor = require 'vk.util'.makeStructCtor
 local VKCommandBuffer = require 'vk.commandbuffer'
 
 
-local VkCommandBuffer_1 = ffi.typeof'VkCommandBuffer[1]'
 local VkQueue = ffi.typeof'VkQueue'
 
 local makeVkSubmitInfo = makeStructCtor(

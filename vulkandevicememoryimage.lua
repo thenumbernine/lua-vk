@@ -1,5 +1,4 @@
--- helper class, not wrapper class
-local ffi = require 'ffi'
+require 'ext.gc'
 local class = require 'ext.class'
 local vk = require 'vk'
 local VKImage = require 'vk.image'
@@ -43,7 +42,10 @@ function VulkanDeviceMemoryImage:createImage(
 	local imageMemory = VKMemory{
 		device = device,
 		allocationSize = memReq.size,
-		memoryTypeIndex = physDev:findMemoryType(memReq.memoryTypeBits, properties),
+		memoryTypeIndex = physDev:findMemoryType(
+			memReq.memoryTypeBits,
+			properties
+		),
 	}
 	assert(image:bindMemory(imageMemory.id))
 
@@ -118,6 +120,10 @@ function VulkanDeviceMemoryImage:destroy()
 		self.image:destroy()
 	end
 	self.image = nil
+end
+
+function VulkanDeviceMemoryImage:__gc()
+	return self:destroy()
 end
 
 return VulkanDeviceMemoryImage

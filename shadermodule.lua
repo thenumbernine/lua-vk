@@ -8,6 +8,7 @@ local vkGet = require 'vk.util'.vkGet
 local vkassert = require 'vk.util'.vkassert
 local makeStructCtor = require 'vk.util'.makeStructCtor
 
+
 local uint32_t_ptr = ffi.typeof'uint32_t*'
 local VkShaderModule = ffi.typeof'VkShaderModule'
 
@@ -31,7 +32,7 @@ function VKShaderModule:init(args)
 	end
 	assert(code, "failed to find code, you must provide a .code or a .filename")
 
-	self.id = vkGet(
+	self.id, self.idptr = vkGet(
 		VkShaderModule,
 		vkassert,
 		vk.vkCreateShaderModule,
@@ -56,6 +57,8 @@ function VKShaderModule:destroy()
 	self.id = nil
 end
 
-VKShaderModule.__gc = VKShaderModule.destroy
+function VKShaderModule:__gc()
+	return self:destroy()
+end
 
 return VKShaderModule 

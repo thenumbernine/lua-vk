@@ -21,7 +21,7 @@ function VKSampler:init(args)
 	device = device.id or device
 	self.device = device
 
-	self.id = vkGet(
+	self.id, self.idptr = vkGet(
 		VkSampler,
 		vkassert,
 		vk.vkCreateSampler,
@@ -38,6 +38,8 @@ function VKSampler:destroy()
 	self.id = nil
 end
 
-VKSampler.__gc = VKSampler.destroy
+function VKSampler:__gc()
+	return self:destroy()
+end
 
 return VKSampler

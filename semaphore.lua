@@ -39,6 +39,8 @@ function VKSemaphore:destroy()
 	self.id = nil
 end
 
-VKSemaphore.__gc = VKSemaphore.destroy
+function VKSemaphore:__gc()
+	return self:destroy()
+end
 
 return VKSemaphore

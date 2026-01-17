@@ -29,7 +29,7 @@ function VKDescriptorPool:init(args)
 	device = device.id or device
 	self.device = device
 
-	self.id = vkGet(
+	self.id, self.idptr = vkGet(
 		VkDescriptorPool,
 		vkassert,
 		vk.vkCreateDescriptorPool,
@@ -46,6 +46,8 @@ function VKDescriptorPool:destroy()
 	self.id = nil
 end
 
-VKDescriptorPool.__gc = VKDescriptorPool.destroy
+function VKDescriptorPool:__gc()
+	return self:destroy()
+end
 
 return VKDescriptorPool

@@ -8,6 +8,7 @@ local vkGet = require 'vk.util'.vkGet
 local makeStructCtor = require 'vk.util'.makeStructCtor
 
 
+local void_ptr = ffi.typeof'void*'
 local VkDeviceMemory = ffi.typeof'VkDeviceMemory'
 local makeVkMemoryAllocateInfo = makeStructCtor'VkMemoryAllocateInfo'
 
@@ -31,6 +32,22 @@ function VKMemory:init(args)
 		makeVkMemoryAllocateInfo(args),
 		nil
 	)
+end
+
+function VKMemory:map(bufferSize)
+	return vkGet(
+		void_ptr,
+		vkassert,
+		vk.vkMapMemory,
+		self.device,
+		self.id,
+		0,
+		bufferSize, 
+		0)
+end
+
+function VKMemory:unmap()
+	vk.vkUnmapMemory(self.device, self.id)
 end
 
 function VKMemory:destroy()

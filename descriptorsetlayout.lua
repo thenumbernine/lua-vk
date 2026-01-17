@@ -25,7 +25,7 @@ function VKDescriptorSetLayout:init(args)
 	self.device = assert.index(args, 'device')
 	args.device = nil
 
-	self.id = vkGet(
+	self.id, self.idptr = vkGet(
 		VkDescriptorSetLayout,
 		nil,
 		vk.vkCreateDescriptorSetLayout,
@@ -42,6 +42,8 @@ function VKDescriptorSetLayout:destroy()
 	self.id = nil
 end
 
-VKDescriptorSetLayout.__gc = VKDescriptorSetLayout.destroy 
+function VKDescriptorSetLayout:__gc()
+	return self:destroy()
+end
 
 return VKDescriptorSetLayout 
