@@ -20,6 +20,7 @@ local VKSurface = require 'vk.surface'
 local VKQueue = require 'vk.queue'
 local VKDebugUtilsMessenger = require 'vk.debugutilsmessenger'
 local VKSampler = require 'vk.sampler'
+local VKDescriptorPool = require 'vk.descriptorpool'
 require 'ffi.req' 'c.string'	-- debug: strcmp
 require 'ffi.req' 'c.stdio'		-- debug: fprintf(stderr, ...)
 
@@ -44,7 +45,6 @@ local VkBuffer_1 = ffi.typeof'VkBuffer[1]'
 local VkCommandBuffer_array = ffi.typeof'VkCommandBuffer[?]'
 local VkDescriptorBufferInfo = ffi.typeof'VkDescriptorBufferInfo'
 local VkDescriptorImageInfo = ffi.typeof'VkDescriptorImageInfo'
-local VkDescriptorPool = ffi.typeof'VkDescriptorPool'
 local VkDescriptorSet_array = ffi.typeof'VkDescriptorSet[?]'
 local VkDescriptorSetLayout_array = ffi.typeof'VkDescriptorSetLayout[?]'
 local VkDeviceSize_1 = ffi.typeof'VkDeviceSize[1]'
@@ -99,17 +99,6 @@ local makeVkRenderPassBeginInfo = makeStructCtor(
 		{
 			name = 'clearValues',
 			type = 'VkClearValue',
-		},
-	}
-)
-
-
-local makeVkDescriptorPoolCreateInfo = makeStructCtor(
-	'VkDescriptorPoolCreateInfo',
-	{
-		{
-			name = 'poolSizes',
-			type = 'VkDescriptorPoolSize',
 		},
 	}
 )
@@ -264,26 +253,20 @@ print('msaaSamples', self.msaaSamples)
 		return VulkanBufferMemoryAndMapped(bm, mapped)
 	end)
 
-	self.descriptorPool = vkGet(
-		VkDescriptorPool,
-		vkassert,
-		vk.vkCreateDescriptorPool,
-		self.device.obj.id,
-		makeVkDescriptorPoolCreateInfo{
-			maxSets = self.maxFramesInFlight,
-			poolSizes = {
-				{
-					type = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					descriptorCount = self.maxFramesInFlight,
-				},
-				{
-					type = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-					descriptorCount = self.maxFramesInFlight,
-				},
+	self.descriptorPool = VKDescriptorPool{
+		device = self.device,
+		maxSets = self.maxFramesInFlight,
+		poolSizes = {
+			{
+				type = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				descriptorCount = self.maxFramesInFlight,
+			},
+			{
+				type = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				descriptorCount = self.maxFramesInFlight,
 			},
 		},
-		nil
-	)
+	}
 
 	self.descriptorSets = self:createDescriptorSets()
 
@@ -557,7 +540,7 @@ function VulkanCommon:createDescriptorSets()
 		vk.vkAllocateDescriptorSets,
 		self.device.obj.id,
 		makeVkDescriptorSetAllocateInfo{
-			descriptorPool = self.descriptorPool,
+			descriptorPool = self.descriptorPool.id,
 			descriptorSetCount = self.maxFramesInFlight,
 			pSetLayouts = layouts,	-- length matches descriptorSetCount I think?
 		},
@@ -845,7 +828,7 @@ function VulkanCommon:exit()
 
 		-- gives "descriptorPool must have been created with the VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT flag"
 		if self.descriptorSets then
---			vk.vkFreeDescriptorSets(device_id, self.descriptorPool, self.maxFramesInFlight, self.descriptorSets)
+--			vk.vkFreeDescriptorSets(device_id, self.descriptorPool.id, self.maxFramesInFlight, self.descriptorSets)
 		end
 
 		if self.layouts then
@@ -866,9 +849,6 @@ function VulkanCommon:exit()
 				ub.bm:destroy()
 			end
 		end
-		if self.descriptorPool then
-			vk.vkDestroyDescriptorPool(device_id, self.descriptorPool, nil)
-		end
 	end
 	self.imageAvailableSemaphores = nil
 	self.renderFinishedSemaphores = nil
@@ -879,8 +859,12 @@ function VulkanCommon:exit()
 	self.textureImageView = nil
 	self.textureImageAndMemory = nil
 	self.uniformBuffers = nil
-	self.descriptorPool = nil
 	
+	if self.descriptorPool then
+		self.descriptorPool:destroy()
+	end
+	self.descriptorPool = nil
+
 	if self.mesh then
 		self.mesh:destroy()
 	end
