@@ -479,7 +479,7 @@ function VulkanCommon:createDescriptorSets()
 		device = self.device,
 		descriptorPool = self.descriptorPool.id,
 		descriptorSetCount = self.maxFramesInFlight,
-		pSetLayouts = layouts,	-- length matches descriptorSetCount I think?
+		pSetLayouts = layouts,
 	}
 
 	for i=0,self.maxFramesInFlight-1 do
@@ -488,8 +488,8 @@ function VulkanCommon:createDescriptorSets()
 			makeVkWriteDescriptorSet{
 				dstSet = descriptorSets.idptr[i],
 				dstBinding = 0,
-				descriptorCount = 1,
 				descriptorType = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				descriptorCount = 1,
 				pBufferInfo = VkDescriptorBufferInfo{
 					buffer = assert(self.uniformBuffers[i+1].bm.buffer.id),
 					range = ffi.sizeof(UniformBufferObject),
@@ -498,8 +498,8 @@ function VulkanCommon:createDescriptorSets()
 			makeVkWriteDescriptorSet{
 				dstSet = descriptorSets.idptr[i],
 				dstBinding = 1,
-				descriptorCount = 1,
 				descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				descriptorCount = 1,
 				pImageInfo = VkDescriptorImageInfo{
 					sampler = self.textureSampler.id,
 					imageView = self.textureImageView.id,
