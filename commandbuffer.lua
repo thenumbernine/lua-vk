@@ -12,6 +12,7 @@ local makeStructCtor = require 'vk.util'.makeStructCtor
 
 local VkCommandBuffer_array = ffi.typeof'VkCommandBuffer[?]'
 local makeVkCommandBufferAllocateInfo = makeStructCtor'VkCommandBufferAllocateInfo'
+local makeVkCommandBufferBeginInfo = makeStructCtor'VkCommandBufferBeginInfo'
 
 
 local VKCommandBuffer = class()
@@ -42,6 +43,15 @@ function VKCommandBuffer:init(args)
 	)
 	-- for convenience
 	self.id = self.idptr[0]
+end
+
+-- only runs on the first one i.e. .id
+function VKCommandBuffer:begin(args)
+	vkassert(
+		vk.vkBeginCommandBuffer,
+		self.id,
+		makeVkCommandBufferBeginInfo(args)
+	)
 end
 
 function VKCommandBuffer:destroy()

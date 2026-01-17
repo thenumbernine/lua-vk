@@ -366,7 +366,6 @@ function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, m
 	end
 
 	self.graphicsQueue:singleTimeCommand(
-		self.device.obj.id,
 		self.commandPool.obj,
 		function(commandBuffer)
 			local barrier = makeVkImageMemoryBarrier{

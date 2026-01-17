@@ -19,7 +19,6 @@ local makeVkImageMemoryBarrier = makeStructCtor'VkImageMemoryBarrier'
 local VulkanCommandPool = class()
 
 function VulkanCommandPool:init(common, physDev, device, surface)
-	self.device = device.obj.id
 	self.obj = VKCommandPool{
 		device = device,
 		flags = vk.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
@@ -30,7 +29,6 @@ end
 
 function VulkanCommandPool:transitionImageLayout(image, oldLayout, newLayout, mipLevels)
 	self.graphicsQueue:singleTimeCommand(
-		self.device,
 		self.obj,
 		function(commandBuffer)
 			local barrier = makeVkImageMemoryBarrier{
@@ -83,7 +81,6 @@ end
 
 function VulkanCommandPool:copyBuffer(srcBuffer, dstBuffer, size)
 	self.graphicsQueue:singleTimeCommand(
-		self.device,
 		self.obj,
 		function(commandBuffer)
 			vk.vkCmdCopyBuffer(
@@ -101,7 +98,6 @@ end
 
 function VulkanCommandPool:copyBufferToImage(buffer, image, width, height)
 	self.graphicsQueue:singleTimeCommand(
-		self.device,
 		self.obj,
 		function(commandBuffer)
 			vk.vkCmdCopyBufferToImage(
