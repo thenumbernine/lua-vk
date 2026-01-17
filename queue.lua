@@ -1,17 +1,17 @@
 local ffi = require 'ffi'
 local class = require 'ext.class'
-local assertindex = require 'ext.assert'.index
+local assert = require 'ext.assert'
 local vk = require 'vk'
 local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
 local makeStructCtor = require 'vk.util'.makeStructCtor
 local VKDevice = require 'vk.device'
+local VKCommandBuffers = require 'vk.commandbuffers'
 
 
 local VkCommandBuffer_1 = ffi.typeof'VkCommandBuffer[1]'
 local VkQueue = ffi.typeof'VkQueue'
 
-local makeVkCommandBufferAllocateInfo = makeStructCtor'VkCommandBufferAllocateInfo'
 local makeVkCommandBufferBeginInfo = makeStructCtor'VkCommandBufferBeginInfo'
 
 local makeVkSubmitInfo = makeStructCtor(
@@ -33,16 +33,24 @@ local makeVkSubmitInfo = makeStructCtor(
 
 
 local VKQueue = class()
+
 VKQueue.makeVkSubmitInfo = makeVkSubmitInfo 
+
 function VKQueue:init(args)
-	local device = assertindex(args, 'device')
+	local device = assert.index(args, 'device')
 	if VKDevice:isa(device) then device = device.id end
 	
-	local queueFamilyIndex = assertindex(args, 'family')
+	local queueFamilyIndex = assert.index(args, 'family')
 	local queueIndex = args.index or 0
 
-	-- queues don't get gc'd so ...
-	self.id = vkGet(VkQueue, nil, vk.vkGetDeviceQueue, device, queueFamilyIndex, queueIndex)
+	self.id, self.idptr = vkGet(
+		VkQueue,
+		nil,
+		vk.vkGetDeviceQueue,
+		device,
+		queueFamilyIndex,
+		queueIndex
+	)
 end
 
 function VKQueue:submit(submitInfo, numInfo, fences)
@@ -56,60 +64,36 @@ function VKQueue:submit(submitInfo, numInfo, fences)
 end
 
 function VKQueue:singleTimeCommand(device, commandPool, callback)
-	--[[
-	local vkGet = require 'vk.util'.vkGet
-	local VkCommandBuffer = ffi.typeof'VkCommandBuffer'
-	local cmds = vkGet(
-		VkCommandBuffer,
-		vkassert,
-		vk.vkAllocateCommandBuffers,
-		device,
-		makeVkCommandBufferAllocateInfo{
-			commandPool = commandPool,
-			level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-			commandBufferCount = 1,
-		}
-	)
-	--]]
-	-- [[ I want to keep the pointer so ...
-	local cmds = VkCommandBuffer_1()
-	vkassert(
-		vk.vkAllocateCommandBuffers,
-		device,
-		makeVkCommandBufferAllocateInfo{
-			commandPool = commandPool,
-			level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-			commandBufferCount = 1,
-		},
-		cmds
-	)
-	--]]
+	local cmds = VKCommandBuffers{
+		device = device,
+		commandPool = commandPool,
+		level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+		commandBufferCount = 1,
+	}
 
 	vkassert(
 		vk.vkBeginCommandBuffer,
-		cmds[0],
+		cmds.id,
 		makeVkCommandBufferBeginInfo{
 			flags = vk.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
 		}
 	)
 
-	callback(cmds[0])
+	callback(cmds.id)
 
-	vkassert(vk.vkEndCommandBuffer, cmds[0])
+	vkassert(vk.vkEndCommandBuffer, cmds.id)
 
 	self:submit(
 		makeVkSubmitInfo{
 			-- don't use conversion field, just use the pointer
 			commandBufferCount = 1,
-			pCommandBuffers = cmds,
+			pCommandBuffers = cmds.idptr,
 		}
 	)
 
 	vkassert(vk.vkQueueWaitIdle, self.id)
-
-	vk.vkFreeCommandBuffers(device, commandPool, 1, cmds)
+	
+	cmds:destroy()
 end
-
-
 
 return VKQueue

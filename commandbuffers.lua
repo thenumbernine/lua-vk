@@ -1,0 +1,56 @@
+local ffi = require 'ffi'
+local class = require 'ext.class'
+local assert = require 'ext.assert'
+local vk = require 'vk'
+local vkassert = require 'vk.util'.vkassert
+local vkGet = require 'vk.util'.vkGet
+local makeStructCtor = require 'vk.util'.makeStructCtor
+local VKDevice = require 'vk.device'
+
+
+local VkCommandBuffer = ffi.typeof'VkCommandBuffer'
+local VkCommandBuffer_array = ffi.typeof'VkCommandBuffer[?]'
+local makeVkCommandBufferAllocateInfo = makeStructCtor'VkCommandBufferAllocateInfo'
+
+
+local VKCommandBuffers = class()
+
+function VKCommandBuffers:init(args)
+	local device = assert.index(args, 'device')
+	args.device = nil
+	local VulkanDevice = require 'vk.vulkandevice'
+	if VulkanDevice:isa(device) then device = device.obj end
+	local VKDevice = require 'vk.device'
+	if VKDevice:isa(device) then device = device.id end
+	self.device = device
+
+	-- needed for destroy
+	self.commandPool = assert.index(args, 'commandPool')
+
+	self.count = assert.index(args, 'commandBufferCount')
+
+	-- not sure what to call this, .id, .ids, .idptr ...
+	self.idptr = VkCommandBuffer_array(self.count)
+	vkassert(
+		vk.vkAllocateCommandBuffers,
+		device,
+		makeVkCommandBufferAllocateInfo(args),
+		self.idptr
+	)
+	-- for convenience
+	self.id = self.idptr[0]
+end
+
+function VKCommandBuffers:destroy()
+	if self.idptr then
+		vk.vkFreeCommandBuffers(self.device, self.commandPool, self.count, self.idptr)
+	end
+	self.id = nil
+	self.idptr = nil
+end
+
+function VKCommandBuffers:__gc()
+	return self:destroy()
+end
+
+return VKCommandBuffers

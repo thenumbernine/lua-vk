@@ -22,6 +22,7 @@ local VKSampler = require 'vk.sampler'
 local VKDescriptorPool = require 'vk.descriptorpool'
 local VKSemaphore = require 'vk.semaphore'
 local VKFence = require 'vk.fence'
+local VKCommandBuffers = require 'vk.commandbuffers'
 require 'ffi.req' 'c.string'	-- debug: strcmp
 require 'ffi.req' 'c.stdio'		-- debug: fprintf(stderr, ...)
 
@@ -58,7 +59,6 @@ local VkViewport = ffi.typeof'VkViewport'
 local VkWriteDescriptorSet_array = ffi.typeof'VkWriteDescriptorSet[?]'
 
 
-local makeVkCommandBufferAllocateInfo = makeStructCtor'VkCommandBufferAllocateInfo'
 local makeVkImageMemoryBarrier = makeStructCtor'VkImageMemoryBarrier'
 local makeVkDescriptorSetAllocateInfo = makeStructCtor'VkDescriptorSetAllocateInfo'
 
@@ -270,32 +270,12 @@ print('msaaSamples', self.msaaSamples)
 
 	self.descriptorSets = self:createDescriptorSets()
 
-	--[[
-	self.commandBuffers = vkGet(
-		VkCommandBuffer,
-		vkassert,
-		vk.vkAllocateCommandBuffers,
-		self.device.obj.id,
-		makeVkCommandBufferAllocateInfo{
-			commandPool = self.commandPool.obj.id,
-			level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-			commandBufferCount = self.maxFramesInFlight,
-		}
-	)
-	--]]
-	-- [[ can't use vkGet and can't use vkGetVector ...
-	self.commandBuffers = VkCommandBuffer_array(self.maxFramesInFlight)
-	vkassert(
-		vk.vkAllocateCommandBuffers,
-		self.device.obj.id,
-		makeVkCommandBufferAllocateInfo{
-			commandPool = self.commandPool.obj.id,
-			level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-			commandBufferCount = self.maxFramesInFlight,
-		},
-		self.commandBuffers
-	)
-	--]]
+	self.commandBuffers = VKCommandBuffers{
+		device = self.device,
+		commandPool = self.commandPool.obj.id,
+		level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+		commandBufferCount = self.maxFramesInFlight,
+	}
 
 	self.imageAvailableSemaphores = range(self.maxFramesInFlight):mapi(function(i)
 		return VKSemaphore{
@@ -609,9 +589,9 @@ function VulkanCommon:drawFrame()
 
 	vkassert(vk.vkResetFences, self.device.obj.id, 1, self.inFlightFences[1+self.currentFrame].idptr)
 
-	vkassert(vk.vkResetCommandBuffer, self.commandBuffers[self.currentFrame], 0)
+	vkassert(vk.vkResetCommandBuffer, self.commandBuffers.idptr[self.currentFrame], 0)
 
-	self:recordCommandBuffer(self.commandBuffers[self.currentFrame], self.imageIndex[0])
+	self:recordCommandBuffer(self.commandBuffers.idptr[self.currentFrame], self.imageIndex[0])
 
 	local submitInfo = self.submitInfo
 	-- don't use conversion field, just use the pointer
@@ -619,7 +599,7 @@ function VulkanCommon:drawFrame()
 	submitInfo.pWaitSemaphores = self.imageAvailableSemaphores[1+self.currentFrame].idptr
 	-- don't use conversion field, just use the pointer
 	submitInfo.commandBufferCount = 1
-	submitInfo.pCommandBuffers = self.commandBuffers + self.currentFrame
+	submitInfo.pCommandBuffers = self.commandBuffers.idptr + self.currentFrame
 	-- don't use conversion field, just use the pointer
 	submitInfo.signalSemaphoreCount = 1
 	submitInfo.pSignalSemaphores = self.renderFinishedSemaphores[1+self.currentFrame].idptr
@@ -804,7 +784,7 @@ function VulkanCommon:exit()
 			end
 		end
 		if self.commandBuffers then
-			vk.vkFreeCommandBuffers(device_id, self.commandPool.obj.id, self.maxFramesInFlight, self.commandBuffers)
+			self.commandBuffers:destroy()
 		end
 
 		-- gives "descriptorPool must have been created with the VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT flag"
@@ -817,8 +797,6 @@ function VulkanCommon:exit()
 				vk.vkDestroyDescriptorSetLayout(device_id, self.layouts[i], nil)
 			end
 		end
-
-
 	end
 	self.imageAvailableSemaphores = nil
 	self.renderFinishedSemaphores = nil
