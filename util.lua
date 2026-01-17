@@ -116,6 +116,7 @@ local function makeStructCtor(
 				local baseName = fieldName and fieldName:match'^(.*)s$'
 				info.ptrname = info.ptrname or 'p'..fieldName:sub(1,1):upper()..fieldName:sub(2)
 				info.countname = info.countname or baseName..'Count'
+				info.arrayType = ffi.typeof('$[?]', info.type)
 			end
 		end
 	end
@@ -141,7 +142,7 @@ local function makeStructCtor(
 							local count = #v
 						
 							-- convert to array
-							local arr = ffi.new(ffi.typeof('$[?]', fieldType), count)
+							local arr = info.arrayType(count)
 							for i=0,count-1 do
 								arr[i] = gen(v[i+1])
 							end
