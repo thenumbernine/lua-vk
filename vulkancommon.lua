@@ -203,7 +203,7 @@ print('msaaSamples', self.msaaSamples)
 	self.textureImageAndMemory = self:createTextureImage()
 	self.textureImageView = self.swapchain:createImageView(
 		self.device.obj.id,
-		self.textureImageAndMemory.image,
+		self.textureImageAndMemory.image.id,
 		vk.VK_FORMAT_R8G8B8A8_SRGB,
 		vk.VK_IMAGE_ASPECT_COLOR_BIT,
 		self.mipLevels
@@ -245,7 +245,7 @@ print('msaaSamples', self.msaaSamples)
 			vkassert,
 			vk.vkMapMemory,
 			self.device.obj.id,
-			bm.memory,
+			bm.memory.id,
 			0,
 			size,
 			0
@@ -373,7 +373,7 @@ function VulkanCommon:createTextureImage()
 	)
 
 	self:generateMipmaps(
-		textureImageAndMemory.image,
+		textureImageAndMemory.image.id,
 		vk.VK_FORMAT_R8G8B8A8_SRGB,
 		image.width,
 		image.height,

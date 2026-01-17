@@ -174,7 +174,7 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 	)
 	self.colorImageView = self:createImageView(
 		device,
-		self.colorImageAndMemory.image,
+		self.colorImageAndMemory.image.id,
 		colorFormat,
 		vk.VK_IMAGE_ASPECT_COLOR_BIT,
 		1
@@ -195,7 +195,7 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 	)
 	self.depthImageView = self:createImageView(
 		device,
-		self.depthImageAndMemory.image,
+		self.depthImageAndMemory.image.id,
 		depthFormat,
 		vk.VK_IMAGE_ASPECT_DEPTH_BIT,
 		1

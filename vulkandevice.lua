@@ -2,13 +2,9 @@
 local ffi = require 'ffi'
 local class = require 'ext.class'
 local table = require 'ext.table'
-local assertindex = require 'ext.assert'.index
-local vector = require 'ffi.cpp.vector-lua'
 local vk = require 'vk'
-local makeStructCtor = require 'vk.util'.makeStructCtor
 local VKDevice = require 'vk.device'
 
-local float_1 = ffi.typeof'float[1]'
 
 local VulkanDevice = class()
 

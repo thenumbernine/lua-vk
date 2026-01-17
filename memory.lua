@@ -8,40 +8,40 @@ local vkGet = require 'vk.util'.vkGet
 local makeStructCtor = require 'vk.util'.makeStructCtor
 
 
-local VkImageView = ffi.typeof'VkImageView'
-local makeVkImageViewCreateInfo = makeStructCtor'VkImageViewCreateInfo'
+local VkDeviceMemory = ffi.typeof'VkDeviceMemory'
+local makeVkMemoryAllocateInfo = makeStructCtor'VkMemoryAllocateInfo'
 
 
-local VKImageView = class()
+local VKMemory = class()
 
-function VKImageView:init(args)
+function VKMemory:init(args)
 	local device = assert.index(args, 'device')
 	args.device = nil
-	local VulkanDevice = require 'vk.device'
+	local VulkanDevice = require 'vk.vulkandevice'
 	if VulkanDevice:isa(device) then device = device.obj end
 	local VKDevice = require 'vk.device'
 	if VKDevice:isa(device) then device = device.id end
 	self.device = device
 
 	self.id, self.idptr = vkGet(
-		VkImageView,
+		VkDeviceMemory,
 		vkassert,
-		vk.vkCreateImageView,
+		vk.vkAllocateMemory,
 		device,
-		makeVkImageViewCreateInfo(args),
+		makeVkMemoryAllocateInfo(args),
 		nil
 	)
 end
 
-function VKImageView:destroy()
+function VKMemory:destroy()
 	if self.id then
-		vk.vkDestroyImageView(self.device, self.id, nil)
+		vk.vkFreeMemory(self.device, self.id, nil)
 	end
 	self.id = nil
 end
 
-function VKImageView:__gc()
+function VKMemory:__gc()
 	return self:destroy()
 end
 
-return VKImageView
+return VKMemory

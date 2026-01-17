@@ -35,6 +35,17 @@ function VKBuffer:init(args)
 	)
 end
 
+-- here or memory.lua?
+function VKBuffer:bindMemory(mem)
+	vkassert(
+		vk.vkBindBufferMemory,
+		self.device,
+		self.id,
+		mem,
+		0
+	)
+end
+
 function VKBuffer:destroy()
 	if self.id then
 		vk.vkDestroyBuffer(self.device, self.id, nil)

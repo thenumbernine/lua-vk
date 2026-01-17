@@ -6,14 +6,11 @@ local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
 local makeStructCtor = require 'vk.util'.makeStructCtor
 local VKBuffer = require 'vk.buffer'
+local VKMemory = require 'vk.memory'
 local VulkanDeviceMemoryFromStagingBuffer = require 'vk.vulkandevicememoryfromstagingbuffer'
 
 
-local VkDeviceMemory = ffi.typeof'VkDeviceMemory'
 local VkMemoryRequirements = ffi.typeof'VkMemoryRequirements'
-
-
-local makeVkMemoryAllocateInfo = makeStructCtor'VkMemoryAllocateInfo'
 
 
 local VulkanDeviceMemoryBuffer = class()
@@ -27,21 +24,20 @@ function VulkanDeviceMemoryBuffer:init(physDev, device, size, usage, properties)
 		sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE,
 	}
 
-	local memReq = vkGet(VkMemoryRequirements, nil, vk.vkGetBufferMemoryRequirements, device, self.buffer.id)
-
-	self.memory = vkGet(
-		VkDeviceMemory,
-		vkassert,
-		vk.vkAllocateMemory,
+	local memReq = vkGet(
+		VkMemoryRequirements,
+		nil,
+		vk.vkGetBufferMemoryRequirements,
 		device,
-		makeVkMemoryAllocateInfo{
-			allocationSize = memReq.size,
-			memoryTypeIndex = physDev:findMemoryType(memReq.memoryTypeBits, properties),
-		},
-		nil
+		self.buffer.id
 	)
+	self.memory = VKMemory{
+		device = device,
+		allocationSize = memReq.size,
+		memoryTypeIndex = physDev:findMemoryType(memReq.memoryTypeBits, properties),
+	}
 
-	vkassert(vk.vkBindBufferMemory, device, self.buffer.id, self.memory, 0)
+	self.buffer:bindMemory(self.memory.id)
 end
 
 function VulkanDeviceMemoryBuffer:makeBufferFromStaged(physDev, device, commandPool, srcData, bufferSize, usage)
@@ -67,7 +63,7 @@ function VulkanDeviceMemoryBuffer:makeBufferFromStaged(physDev, device, commandP
 		bufferSize
 	)
 
-	vk.vkFreeMemory(device, stagingBufferAndMemory.memory, nil)
+	stagingBufferAndMemory.memory:destroy()
 	stagingBufferAndMemory.buffer:destroy()
 
 	return bufferAndMemory
@@ -75,12 +71,13 @@ end
 
 function VulkanDeviceMemoryBuffer:destroy()
 	if self.memory then
-		vk.vkFreeMemory(self.device, self.memory, nil)
+		self.memory:destroy()
 	end
+	self.memory = nil
+
 	if self.buffer then
 		self.buffer:destroy()
 	end
-	self.memory = nil
 	self.buffer = nil
 end
 

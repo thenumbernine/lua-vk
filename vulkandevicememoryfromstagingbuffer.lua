@@ -6,14 +6,12 @@ local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
 local makeStructCtor = require 'vk.util'.makeStructCtor
 local VKBuffer = require 'vk.buffer'
+local VKMemory = require 'vk.memory'
 
 
 local void_ptr = ffi.typeof'void*'
 local VkDeviceMemory = ffi.typeof'VkDeviceMemory'
 local VkMemoryRequirements = ffi.typeof'VkMemoryRequirements'
-
-
-local makeVkMemoryAllocateInfo = makeStructCtor'VkMemoryAllocateInfo'
 
 
 local VulkanDeviceMemoryFromStagingBuffer = class()
@@ -34,30 +32,24 @@ function VulkanDeviceMemoryFromStagingBuffer:create(physDev, device, srcData, bu
 		buffer.id
 	)
 
-	local memory = vkGet(
-		VkDeviceMemory,
-		vkassert,
-		vk.vkAllocateMemory,
-		device,
-		makeVkMemoryAllocateInfo{
-			allocationSize = memReq.size,
-			memoryTypeIndex = physDev:findMemoryType(
-				memReq.memoryTypeBits,
-				bit.bor(
-					vk.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-					vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-				)
-			),
-		},
-		nil
-	)
+	local memory = VKMemory{
+		device = device,
+		allocationSize = memReq.size,
+		memoryTypeIndex = physDev:findMemoryType(
+			memReq.memoryTypeBits,
+			bit.bor(
+				vk.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+				vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+			)
+		),
+	}
 
-	vkassert(vk.vkBindBufferMemory, device, buffer.id, memory, 0)
+	buffer:bindMemory(memory.id)
 
-	local dstData = vkGet(void_ptr, vkassert, vk.vkMapMemory, device, memory, 0, bufferSize, 0)
+	local dstData = vkGet(void_ptr, vkassert, vk.vkMapMemory, device, memory.id, 0, bufferSize, 0)
 	ffi.copy(dstData, srcData, bufferSize)
 
-	vk.vkUnmapMemory(device, memory)
+	vk.vkUnmapMemory(device, memory.id)
 
 	return {
 		buffer = buffer,
