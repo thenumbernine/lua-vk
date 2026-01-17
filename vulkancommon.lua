@@ -22,6 +22,7 @@ local VKDebugUtilsMessenger = require 'vk.debugutilsmessenger'
 local VKSampler = require 'vk.sampler'
 local VKDescriptorPool = require 'vk.descriptorpool'
 local VKSemaphore = require 'vk.semaphore'
+local VKFence = require 'vk.fence'
 require 'ffi.req' 'c.string'	-- debug: strcmp
 require 'ffi.req' 'c.stdio'		-- debug: fprintf(stderr, ...)
 
@@ -49,7 +50,6 @@ local VkDescriptorImageInfo = ffi.typeof'VkDescriptorImageInfo'
 local VkDescriptorSet_array = ffi.typeof'VkDescriptorSet[?]'
 local VkDescriptorSetLayout_array = ffi.typeof'VkDescriptorSetLayout[?]'
 local VkDeviceSize_1 = ffi.typeof'VkDeviceSize[1]'
-local VkFence = ffi.typeof'VkFence'
 local VkFence_array = ffi.typeof'VkFence[?]'
 local VkImageBlit = ffi.typeof'VkImageBlit'
 local VkLayerProperties = ffi.typeof'VkLayerProperties'
@@ -60,7 +60,6 @@ local VkWriteDescriptorSet_array = ffi.typeof'VkWriteDescriptorSet[?]'
 
 
 local makeVkCommandBufferAllocateInfo = makeStructCtor'VkCommandBufferAllocateInfo'
-local makeVkFenceCreateInfo = makeStructCtor'VkFenceCreateInfo'
 local makeVkImageMemoryBarrier = makeStructCtor'VkImageMemoryBarrier'
 local makeVkDescriptorSetAllocateInfo = makeStructCtor'VkDescriptorSetAllocateInfo'
 
@@ -307,19 +306,12 @@ print('msaaSamples', self.msaaSamples)
 		}
 	end)
 
-	self.inFlightFences = VkFence_array(self.maxFramesInFlight)
-	for i=0,self.maxFramesInFlight-1 do
-		self.inFlightFences[i] = vkGet(
-			VkFence,
-			vkassert,
-			vk.vkCreateFence,
-			self.device.obj.id,
-			makeVkFenceCreateInfo{
-				flags = vk.VK_FENCE_CREATE_SIGNALED_BIT,
-			},
-			nil
-		)
-	end
+	self.inFlightFences = range(self.maxFramesInFlight):mapi(function(i)
+		return VKFence{
+			device = self.device,
+			flags = vk.VK_FENCE_CREATE_SIGNALED_BIT,
+		}
+	end)
 
 	-- structs used by drawFrame (so I don't have to realloc)
 	self.imageIndex = uint32_t_1()
@@ -581,7 +573,7 @@ function VulkanCommon:drawFrame()
 	local result = vk.vkWaitForFences(
 		self.device.obj.id,
 		1,
-		self.inFlightFences + self.currentFrame,
+		self.inFlightFences[1+self.currentFrame].idptr,
 		vk.VK_TRUE,
 		ffi.cast(uint64_t, -1)	-- UINT64_MAX
 	)
@@ -612,7 +604,7 @@ function VulkanCommon:drawFrame()
 
 	self:updateUniformBuffer()
 
-	vkassert(vk.vkResetFences, self.device.obj.id, 1, self.inFlightFences + self.currentFrame)
+	vkassert(vk.vkResetFences, self.device.obj.id, 1, self.inFlightFences[1+self.currentFrame].idptr)
 
 	vkassert(vk.vkResetCommandBuffer, self.commandBuffers[self.currentFrame], 0)
 
@@ -629,7 +621,7 @@ function VulkanCommon:drawFrame()
 	submitInfo.signalSemaphoreCount = 1
 	submitInfo.pSignalSemaphores = self.renderFinishedSemaphores[1+self.currentFrame].idptr
 
-	self.graphicsQueue:submit(submitInfo, nil, self.inFlightFences[self.currentFrame])
+	self.graphicsQueue:submit(submitInfo, nil, self.inFlightFences[1+self.currentFrame].id)
 
 	-- TODO what's info.pResults vs the results returned from vkQueuePresentKHR ?
 	local presentInfo = self.presentInfo
@@ -804,8 +796,8 @@ function VulkanCommon:exit()
 			end
 		end
 		if self.inFlightFences then
-			for i=0,self.maxFramesInFlight-1 do
-				vk.vkDestroyFence(device_id, self.inFlightFences[i], nil)
+			for _,fence in ipairs(self.inFlightFences) do
+				fence:destroy()
 			end
 		end
 		if self.commandBuffers then
