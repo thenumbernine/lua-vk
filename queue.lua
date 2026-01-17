@@ -26,10 +26,28 @@ local makeVkSubmitInfo = makeStructCtor(
 	}
 )
 
+local makeVkPresentInfoKHR = makeStructCtor(
+	'VkPresentInfoKHR',
+	{
+		{
+			name = 'swapchains',
+			type = 'VkSwapchainKHR',
+			gen = function(x)
+				if x.obj then x = x.obj end
+				if x.id then x = x.id end
+				return x
+			end,
+		},
+		{
+			name = 'waitSemaphores',
+			type = 'VkSemaphore',
+		},
+	}
+)
+
+
 
 local VKQueue = class()
-
-VKQueue.makeVkSubmitInfo = makeVkSubmitInfo 
 
 function VKQueue:init(args)
 	local device = assert.index(args, 'device')
@@ -49,6 +67,7 @@ function VKQueue:init(args)
 	)
 end
 
+VKQueue.makeVkSubmitInfo = makeVkSubmitInfo 
 function VKQueue:submit(submitInfo, numInfo, fences)
 	return vkResult(vk.vkQueueSubmit(
 		self.id,
@@ -60,6 +79,11 @@ end
 
 function VKQueue:waitIdle()
 	return vkResult(vk.vkQueueWaitIdle(self.id), 'vkQueueWaitIdle')
+end
+
+VKQueue.makeVkPresentInfoKHR = makeVkPresentInfoKHR 
+function VKQueue:present(presentInfo)
+	return vkResult(vk.vkQueuePresentKHR(self.id, presentInfo))
 end
 
 -- extra functionality

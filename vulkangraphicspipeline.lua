@@ -1,4 +1,4 @@
--- helper not wrapper
+require 'ext.gc'
 local ffi = require 'ffi'
 local class = require 'ext.class'
 local vk = require 'vk'
@@ -131,23 +131,31 @@ function VulkanGraphicsPipeline:destroy()
 	if self.descriptorSetLayout then
 		self.descriptorSetLayout:destroy()
 	end
+	self.descriptorSetLayout = nil
+
 	if self.pipelineLayout then
 		self.pipelineLayout:destroy()
 	end
+	self.pipelineLayout = nil
+	
 	if self.vertexShaderModule then
 		self.vertexShaderModule:destroy()
 	end
+	self.vertexShaderModule = nil
+	
 	if self.fragmentShaderModule then
 		self.fragmentShaderModule:destroy()
 	end
+	self.fragmentShaderModule = nil
+
 	if self.obj then
 		self.obj:destroy()
 	end
-	self.descriptorSetLayout = nil
-	self.pipelineLayout = nil
-	self.vertexShaderModule = nil
-	self.fragmentShaderModule = nil
 	self.obj = nil
+end
+
+function VulkanGraphicsPipeline:__gc()
+	return self:destroy()
 end
 
 return VulkanGraphicsPipeline 

@@ -194,10 +194,10 @@ end
 
 local function vkResult(result, name)
 	if result == vk.VK_SUCCESS then
-		return true, result
+		return true, nil, result
 	else
-		result = tostring(result)
-		return false, name and (name..': '..result) or result
+		local strresult = tostring(result)
+		return false, name and (name..': '..strresult) or strresult, result
 	end
 end
 

@@ -7,7 +7,17 @@ local makeStructCtor = require 'vk.util'.makeStructCtor
 
 
 local VkDescriptorSet_array = ffi.typeof'VkDescriptorSet[?]'
-local makeVkDescriptorSetAllocateInfo = makeStructCtor'VkDescriptorSetAllocateInfo'
+local makeVkDescriptorSetAllocateInfo = makeStructCtor(
+	'VkDescriptorSetAllocateInfo',
+	{
+		{
+			name = 'setLayouts',
+			ptrname = 'pSetLayouts',
+			countname = 'descriptorSetCount',
+			type = 'VkDescriptorSetLayout',
+		},
+	}
+)
 
 
 local VKDescriptorSets = class()
@@ -21,7 +31,9 @@ function VKDescriptorSets:init(args)
 	if VKDevice:isa(device) then device = device.id end
 	self.device = device
 
-	self.count = assert.index(args, 'descriptorSetCount')
+	self.count = args.descriptorSetCount
+		or #args.setLayouts
+
 	-- same as vk.commandbuffers
 	self.idptr = VkDescriptorSet_array(self.count)
 	vkassert(

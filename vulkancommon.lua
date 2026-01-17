@@ -56,25 +56,7 @@ local makeVkWriteDescriptorSet = makeStructCtor'VkWriteDescriptorSet'
 local makeVkAcquireNextImageInfoKHR = makeStructCtor'VkAcquireNextImageInfoKHR'
 
 local makeVkSubmitInfo = VKQueue.makeVkSubmitInfo 
-
-local makeVkPresentInfoKHR = makeStructCtor(
-	'VkPresentInfoKHR',
-	{
-		{
-			name = 'swapchains',
-			type = 'VkSwapchainKHR',
-			gen = function(x)
-				if x.obj then x = x.obj end
-				if x.id then x = x.id end
-				return x
-			end,
-		},
-		{
-			name = 'waitSemaphores',
-			type = 'VkSemaphore',
-		},
-	}
-)
+local makeVkPresentInfoKHR = VKQueue.makeVkPresentInfoKHR
 
 local makeVkCommandBufferBeginInfo = makeStructCtor'VkCommandBufferBeginInfo'
 
@@ -284,7 +266,7 @@ print('msaaSamples', self.msaaSamples)
 		waitDstStageMask = vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 	}
 	self.presentInfo = makeVkPresentInfoKHR{
-		swapchains = {self.swapchain},	-- gc risk?
+		swapchains = {self.swapchain},
 	}
 end
 
@@ -384,7 +366,7 @@ function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, m
 					0,									-- bufferMemoryBarrierCount
 					nil,								-- pBufferMemoryBarriers
 					1,									-- imageMemoryBarrierCount
-					barrier						-- pImageMemoryBarriers
+					barrier								-- pImageMemoryBarriers
 				)
 
 				local blit = VkImageBlit()
@@ -416,7 +398,7 @@ function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, m
 				barrier.srcAccessMask = vk.VK_ACCESS_TRANSFER_READ_BIT
 				barrier.dstAccessMask = vk.VK_ACCESS_SHADER_READ_BIT
 				vk.vkCmdPipelineBarrier(
-					commandBuffer.id,								-- commandBuffer
+					commandBuffer.id,							-- commandBuffer
 					vk.VK_PIPELINE_STAGE_TRANSFER_BIT,  		-- srcStageMask
 					vk.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,   -- dstStageMask
 					0,											-- dependencyFlags
@@ -439,7 +421,7 @@ function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, m
 			barrier.dstAccessMask = vk.VK_ACCESS_SHADER_READ_BIT
 
 			vk.vkCmdPipelineBarrier(
-				commandBuffer.id,								-- commandBuffer
+				commandBuffer.id,							-- commandBuffer
 				vk.VK_PIPELINE_STAGE_TRANSFER_BIT,  		-- srcStageMask
 				vk.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,   -- dstStageMask
 				0,											-- dependencyFlags
@@ -455,16 +437,12 @@ function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, m
 end
 
 function VulkanCommon:createDescriptorSets()
-	local layouts = VkDescriptorSetLayout_array(self.maxFramesInFlight)
-	for i=0,self.maxFramesInFlight-1 do
-		layouts[i] = self.graphicsPipeline.descriptorSetLayout.id
-	end
-
 	local descriptorSets = VKDescriptorSets{
 		device = self.device,
 		descriptorPool = self.descriptorPool.id,
-		descriptorSetCount = self.maxFramesInFlight,
-		pSetLayouts = layouts,
+		setLayouts = range(self.maxFramesInFlight):mapi(function(i)
+			return self.graphicsPipeline.descriptorSetLayout.id
+		end),
 	}
 
 	for i=0,self.maxFramesInFlight-1 do
@@ -563,10 +541,7 @@ function VulkanCommon:drawFrame()
 	presentInfo.waitSemaphoreCount = 1
 	presentInfo.pWaitSemaphores = self.renderFinishedSemaphores[1+self.currentFrame].idptr
 	presentInfo.pImageIndices = self.imageIndex
-	local result = vk.vkQueuePresentKHR(
-		self.presentQueue.id,
-		presentInfo
-	)
+	local _, _, result = self.presentQueue:present(presentInfo)
 
 	if result == vk.VK_ERROR_OUT_OF_DATE_KHR
 	or result == vk.VK_SUBOPTIMAL_KHR
@@ -738,19 +713,12 @@ function VulkanCommon:exit()
 		if self.descriptorSets then
 --			vk.vkFreeDescriptorSets(device_id, self.descriptorPool.id, self.maxFramesInFlight, self.descriptorSets)
 		end
-
-		if self.layouts then
-			for i=0,self.maxFramesInFlight-1 do
-				vk.vkDestroyDescriptorSetLayout(device_id, self.layouts[i], nil)
-			end
-		end
 	end
 	self.imageAvailableSemaphores = nil
 	self.renderFinishedSemaphores = nil
 	self.inFlightFences = nil
 	self.commandBuffers = nil
 	self.descriptorSets = nil
-	self.layouts = nil
 	
 	if self.textureImageView then
 		self.textureImageView:destroy()
