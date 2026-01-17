@@ -3,15 +3,7 @@ local ffi = require 'ffi'
 local class = require 'ext.class'
 local assert = require 'ext.assert'
 local vk = require 'vk'
-local makeStructCtor = require 'vk.util'.makeStructCtor
 local VKCommandPool = require 'vk.commandpool'
-
-
-local VkBufferCopy = ffi.typeof'VkBufferCopy'
-local VkBufferImageCopy = ffi.typeof'VkBufferImageCopy'
-
-
-local makeVkImageMemoryBarrier = makeStructCtor'VkImageMemoryBarrier'
 
 
 local VulkanCommandPool = class()
@@ -29,7 +21,7 @@ function VulkanCommandPool:transitionImageLayout(image, oldLayout, newLayout, mi
 	self.graphicsQueue:singleTimeCommand(
 		self.obj,
 		function(commandBuffer)
-			local barrier = makeVkImageMemoryBarrier{
+			local barrier = commandBuffer.makeVkImageMemoryBarrier{
 				oldLayout = oldLayout,
 				newLayout = newLayout,
 				srcQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED,
@@ -61,8 +53,7 @@ function VulkanCommandPool:transitionImageLayout(image, oldLayout, newLayout, mi
 				error "unsupported layout transition!"
 			end
 
-			vk.vkCmdPipelineBarrier(
-				commandBuffer.id,	-- commandBuffer
+			commandBuffer:pipelineBarrier(
 				srcStage,       -- srcStageMask
 				dstStage,       -- dstStageMask
 				0,              -- dependencyFlags
@@ -81,12 +72,11 @@ function VulkanCommandPool:copyBuffer(srcBuffer, dstBuffer, size)
 	self.graphicsQueue:singleTimeCommand(
 		self.obj,
 		function(commandBuffer)
-			vk.vkCmdCopyBuffer(
-				commandBuffer.id,
+			commandBuffer:copyBuffer(
 				srcBuffer.id,
 				dstBuffer.id,
 				1,
-				VkBufferCopy{
+				commandBuffer.VkBufferCopy{
 					size = size,
 				}
 			)
@@ -98,13 +88,12 @@ function VulkanCommandPool:copyBufferToImage(buffer, image, width, height)
 	self.graphicsQueue:singleTimeCommand(
 		self.obj,
 		function(commandBuffer)
-			vk.vkCmdCopyBufferToImage(
-				commandBuffer.id,
+			commandBuffer:copyBufferToImage(
 				buffer.id,
 				image,
 				vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 				1,
-				VkBufferImageCopy{
+				commandBuffer.VkBufferImageCopy{
 					imageSubresource = {
 						aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT,
 						layerCount = 1,

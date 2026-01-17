@@ -6,6 +6,7 @@ local vk = require 'vk'
 local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
 local makeStructCtor = require 'vk.util'.makeStructCtor
+local VKDescriptorSets = require 'vk.descriptorsets'
 
 
 local VkDescriptorPool = ffi.typeof'VkDescriptorPool'
@@ -37,6 +38,12 @@ function VKDescriptorPool:init(args)
 		makeVkDescriptorPoolCreateInfo(args),
 		nil
 	)
+end
+
+function VKDescriptorPool:makeDescSets(args)
+	args.device = self.device
+	args.descriptorPool = self.id
+	return VKDescriptorSets(args)
 end
 
 function VKDescriptorPool:destroy()

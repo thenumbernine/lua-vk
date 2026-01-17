@@ -299,8 +299,11 @@ function VulkanSwapchain:destroy()
 		self.depthImageAndMemory:destroy()
 	end
 	self.depthImageAndMemory = nil
-	
-	self.obj:destroy()
+
+	if self.obj then
+		self.obj:destroy()
+	end
+	self.obj = nil
 end
 
 function VulkanSwapchain:__gc()

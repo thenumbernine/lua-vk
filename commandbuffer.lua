@@ -14,6 +14,17 @@ local VkCommandBuffer_array = ffi.typeof'VkCommandBuffer[?]'
 local makeVkCommandBufferAllocateInfo = makeStructCtor'VkCommandBufferAllocateInfo'
 local makeVkCommandBufferBeginInfo = makeStructCtor'VkCommandBufferBeginInfo'
 
+local makeVkRenderPassBeginInfo = makeStructCtor(
+	'VkRenderPassBeginInfo',
+	{
+		{
+			name = 'clearValues',
+			type = 'VkClearValue',
+		},
+	}
+)
+
+
 
 local VKCommandBuffer = class()
 
@@ -46,15 +57,88 @@ end
 
 -- only runs on the first one i.e. .id
 function VKCommandBuffer:begin(args)
-	return vkResult(vk.vkBeginCommandBuffer(self.id, makeVkCommandBufferBeginInfo(args)), 'vkBeginCommandBuffer')
+	return vkResult(
+		vk.vkBeginCommandBuffer(
+			self.id,
+			makeVkCommandBufferBeginInfo(args)
+		),
+		'vkBeginCommandBuffer'
+	)
 end
 
 function VKCommandBuffer:done()	-- "end"
-	return vkResult(vk.vkEndCommandBuffer(self.id), 'vkEndCommandBuffer')
+	return vkResult(
+		vk.vkEndCommandBuffer(self.id),
+		'vkEndCommandBuffer'
+	)
 end
 
 function VKCommandBuffer:reset()
-	return vkResult(vk.vkResetCommandBuffer(self.id, 0), 'vkResetCommandBuffer')
+	return vkResult(
+		vk.vkResetCommandBuffer(self.id, 0),
+		'vkResetCommandBuffer'
+	)
+end
+
+VKCommandBuffer.makeVkImageMemoryBarrier = makeStructCtor'VkImageMemoryBarrier'
+function VKCommandBuffer:pipelineBarrier(...)
+	return vk.vkCmdPipelineBarrier(self.id, ...)
+end
+
+VKCommandBuffer.VkBufferCopy = ffi.typeof'VkBufferCopy'
+function VKCommandBuffer:copyBuffer(...)
+	return vk.vkCmdCopyBuffer(self.id, ...)
+end
+
+VKCommandBuffer.VkBufferImageCopy = ffi.typeof'VkBufferImageCopy'
+function VKCommandBuffer:copyBufferToImage(...)
+	return vk.vkCmdCopyBufferToImage(self.id, ...)
+end
+
+VKCommandBuffer.VkImageBlit = ffi.typeof'VkImageBlit'
+function VKCommandBuffer:blitImage(...)
+	return vk.vkCmdBlitImage(self.id, ...)
+end
+
+VKCommandBuffer.makeVkRenderPassBeginInfo = makeVkRenderPassBeginInfo 
+function VKCommandBuffer:beginRenderPass(...)
+	return vk.vkCmdBeginRenderPass(self.id, ...)
+end
+
+function VKCommandBuffer:endRenderPass()
+	return vk.vkCmdEndRenderPass(self.id)
+end
+
+function VKCommandBuffer:bindPipeline(...)
+	return vk.vkCmdBindPipeline(self.id, ...)
+end
+
+VKCommandBuffer.VkViewport = ffi.typeof'VkViewport'
+function VKCommandBuffer:setViewport(...)
+	return vk.vkCmdSetViewport(self.id, ...)
+end
+
+VKCommandBuffer.VkRect2D = ffi.typeof'VkRect2D'
+function VKCommandBuffer:setScissors(...)
+	return vk.vkCmdSetScissor(self.id, ...)
+end
+
+VKCommandBuffer.VkBuffer_array = ffi.typeof'VkBuffer[?]'
+VKCommandBuffer.VkDeviceSize_array = ffi.typeof'VkDeviceSize[?]'
+function VKCommandBuffer:bindVertexBuffers(...)
+	return vk.vkCmdBindVertexBuffers(self.id, ...)
+end
+
+function VKCommandBuffer:bindIndexBuffer(...)
+	return vk.vkCmdBindIndexBuffer(self.id, ...)
+end
+
+function VKCommandBuffer:bindDescriptorSets(...)
+	return vk.vkCmdBindDescriptorSets(self.id, ...)
+end
+
+function VKCommandBuffer:drawIndexed(...)
+	return vk.vkCmdDrawIndexed(self.id, ...)
 end
 
 function VKCommandBuffer:destroy()

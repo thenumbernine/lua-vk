@@ -31,6 +31,8 @@ function VKDescriptorSets:init(args)
 	if VKDevice:isa(device) then device = device.id end
 	self.device = device
 
+	self.descriptorPool = args.descriptorPool
+
 	self.count = args.descriptorSetCount
 		or #args.setLayouts
 
@@ -45,6 +47,18 @@ function VKDescriptorSets:init(args)
 	self.id = self.idptr[0]
 end
 
--- destroy?
+function VKDescriptorSets:destroy()
+	if self.idptr then
+		vk.vkFreeDescriptorSets(self.device, self.descriptorPool, self.count, self.idptr)
+	end
+	self.id = nil
+	self.idptr = nil
+end
+
+--[[ automatic? even manual seems not needed.
+function VKDescriptorSet:__gc()
+	return self:destroy()
+end
+--]]
 
 return VKDescriptorSets

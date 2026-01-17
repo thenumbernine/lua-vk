@@ -18,7 +18,6 @@ local VKSampler = require 'vk.sampler'
 local VKDescriptorPool = require 'vk.descriptorpool'
 local VKSemaphore = require 'vk.semaphore'
 local VKFence = require 'vk.fence'
-local VKDescriptorSets = require 'vk.descriptorsets'
 require 'ffi.req' 'c.string'	-- debug: strcmp
 require 'ffi.req' 'c.stdio'		-- debug: fprintf(stderr, ...)
 
@@ -37,38 +36,18 @@ local VulkanMesh = require 'vk.vulkanmesh'
 local float = ffi.typeof'float'
 local uint32_t_1 = ffi.typeof'uint32_t[1]'
 local uint64_t = ffi.typeof'uint64_t'
-local VkBuffer_1 = ffi.typeof'VkBuffer[1]'
 local VkDescriptorBufferInfo = ffi.typeof'VkDescriptorBufferInfo'
 local VkDescriptorImageInfo = ffi.typeof'VkDescriptorImageInfo'
-local VkDescriptorSetLayout_array = ffi.typeof'VkDescriptorSetLayout[?]'
-local VkDeviceSize_1 = ffi.typeof'VkDeviceSize[1]'
-local VkImageBlit = ffi.typeof'VkImageBlit'
 local VkLayerProperties = ffi.typeof'VkLayerProperties'
-local VkRect2D = ffi.typeof'VkRect2D'
-local VkViewport = ffi.typeof'VkViewport'
 local VkWriteDescriptorSet_array = ffi.typeof'VkWriteDescriptorSet[?]'
 
-
-local makeVkImageMemoryBarrier = makeStructCtor'VkImageMemoryBarrier'
 
 local makeVkWriteDescriptorSet = makeStructCtor'VkWriteDescriptorSet'
 
 local makeVkAcquireNextImageInfoKHR = makeStructCtor'VkAcquireNextImageInfoKHR'
 
-local makeVkSubmitInfo = VKQueue.makeVkSubmitInfo 
+local makeVkSubmitInfo = VKQueue.makeVkSubmitInfo
 local makeVkPresentInfoKHR = VKQueue.makeVkPresentInfoKHR
-
-local makeVkCommandBufferBeginInfo = makeStructCtor'VkCommandBufferBeginInfo'
-
-local makeVkRenderPassBeginInfo = makeStructCtor(
-	'VkRenderPassBeginInfo',
-	{
-		{
-			name = 'clearValues',
-			type = 'VkClearValue',
-		},
-	}
-)
 
 
 local UniformBufferObject = struct{
@@ -122,8 +101,8 @@ function VulkanCommon:init(app)
 				--vk.VK_DEBUG_UTILS_MESSAGE_TYPE_DEVICE_ADDRESS_BINDING_BIT_EXT
 			),
 			userCallback = function(
-				messageSeverity,	-- VkDebugUtilsMessageSeverityFlagBitsEXT           
-				messageTypes,		-- VkDebugUtilsMessageTypeFlagsEXT                  
+				messageSeverity,	-- VkDebugUtilsMessageSeverityFlagBitsEXT
+				messageTypes,		-- VkDebugUtilsMessageTypeFlagsEXT
 				pCallbackData,		-- const VkDebugUtilsMessengerCallbackDataEXT*
 				pUserData			-- void*
 			) -- returns VkBool32
@@ -336,7 +315,7 @@ function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, m
 	self.graphicsQueue:singleTimeCommand(
 		self.commandPool.obj,
 		function(commandBuffer)
-			local barrier = makeVkImageMemoryBarrier{
+			local barrier = commandBuffer.makeVkImageMemoryBarrier{
 				srcQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED,
 				dstQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED,
 				image = image,
@@ -356,8 +335,7 @@ function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, m
 				barrier.newLayout = vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
 				barrier.srcAccessMask = vk.VK_ACCESS_TRANSFER_WRITE_BIT
 				barrier.dstAccessMask = vk.VK_ACCESS_TRANSFER_READ_BIT
-				vk.vkCmdPipelineBarrier(
-					commandBuffer.id,					-- commandBuffer
+				commandBuffer:pipelineBarrier(
 					vk.VK_PIPELINE_STAGE_TRANSFER_BIT,  -- srcStageMask
 					vk.VK_PIPELINE_STAGE_TRANSFER_BIT,	-- dstStageMask
 					0,									-- dependencyFlags
@@ -369,27 +347,36 @@ function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, m
 					barrier								-- pImageMemoryBarriers
 				)
 
-				local blit = VkImageBlit()
-				blit.srcSubresource.aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT
-				blit.srcSubresource.mipLevel = i-1
-				blit.srcSubresource.layerCount = 1
-				blit.srcOffsets[1].x = mipWidth
-				blit.srcOffsets[1].y = mipHeight
-				blit.srcOffsets[1].z = 1
-				blit.dstSubresource.aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT
-				blit.dstSubresource.mipLevel = i
-				blit.dstSubresource.layerCount = 1
-				blit.dstOffsets[1].x = mipWidth > 1 and bit.rshift(mipWidth, 1) or 1
-				blit.dstOffsets[1].y = mipHeight > 1 and bit.rshift(mipHeight, 1) or 1
-				blit.dstOffsets[1].z = 1
-				vk.vkCmdBlitImage(
-					commandBuffer.id,
+				commandBuffer:blitImage(
 					image,
 					vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 					image,
 					vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 					1,
-					blit,
+					commandBuffer.VkImageBlit{
+						srcSubresource = {
+							aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT,
+							mipLevel = i-1,
+							layerCount = 1,
+						},
+						srcOffsets = {
+							{x=0, y=0, z=0},
+							{x=mipWidth, y=mipHeight, z=1},
+						},
+						dstSubresource = {
+							aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT,
+							mipLevel = i,
+							layerCount = 1,
+						},
+						dstOffsets = {
+							{x=0, y=0, z=0},
+							{
+								x = mipWidth > 1 and bit.rshift(mipWidth, 1) or 1,
+								y = mipHeight > 1 and bit.rshift(mipHeight, 1) or 1,
+								z = 1,
+							},
+						},
+					},
 					vk.VK_FILTER_LINEAR
 				)
 
@@ -397,8 +384,7 @@ function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, m
 				barrier.newLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 				barrier.srcAccessMask = vk.VK_ACCESS_TRANSFER_READ_BIT
 				barrier.dstAccessMask = vk.VK_ACCESS_SHADER_READ_BIT
-				vk.vkCmdPipelineBarrier(
-					commandBuffer.id,							-- commandBuffer
+				commandBuffer:pipelineBarrier(
 					vk.VK_PIPELINE_STAGE_TRANSFER_BIT,  		-- srcStageMask
 					vk.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,   -- dstStageMask
 					0,											-- dependencyFlags
@@ -420,8 +406,7 @@ function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, m
 			barrier.srcAccessMask = vk.VK_ACCESS_TRANSFER_WRITE_BIT
 			barrier.dstAccessMask = vk.VK_ACCESS_SHADER_READ_BIT
 
-			vk.vkCmdPipelineBarrier(
-				commandBuffer.id,							-- commandBuffer
+			commandBuffer:pipelineBarrier(
 				vk.VK_PIPELINE_STAGE_TRANSFER_BIT,  		-- srcStageMask
 				vk.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,   -- dstStageMask
 				0,											-- dependencyFlags
@@ -437,9 +422,7 @@ function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, m
 end
 
 function VulkanCommon:createDescriptorSets()
-	local descriptorSets = VKDescriptorSets{
-		device = self.device,
-		descriptorPool = self.descriptorPool.id,
+	local descriptorSets = self.descriptorPool:makeDescSets{
 		setLayouts = range(self.maxFramesInFlight):mapi(function(i)
 			return self.graphicsPipeline.descriptorSetLayout.id
 		end),
@@ -499,7 +482,7 @@ function VulkanCommon:drawFrame()
 	--acquireNextImageInfo.fence = nil
 	acquireNextImageInfo.deviceMask = 1
 	local result = vk.vkAcquireNextImage2KHR(
-		assert(self.device.obj.id),
+		self.device.obj.id,
 		self.acquireNextImageInfo,
 		self.imageIndex
 	)
@@ -586,9 +569,8 @@ function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 	-- TODO per vulkan api, if we just have null info, can we pass null?
 	assert(commandBuffer:begin())
 
-	vk.vkCmdBeginRenderPass(
-		commandBuffer.id,
-		makeVkRenderPassBeginInfo{
+	commandBuffer:beginRenderPass(
+		commandBuffer.makeVkRenderPassBeginInfo{
 			renderPass = self.swapchain.renderPass.id,
 			-- TODO how do we know the framebuffer index is less than the image from teh swapchain?
 			-- framebufer[] is sized b imge of swapchain,
@@ -614,43 +596,39 @@ function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 		vk.VK_SUBPASS_CONTENTS_INLINE
 	)
 
-	vk.vkCmdBindPipeline(
-		commandBuffer.id,
+	commandBuffer:bindPipeline(
 		vk.VK_PIPELINE_BIND_POINT_GRAPHICS,
 		self.graphicsPipeline.obj.id
 	)
 
-	local viewports = VkViewport()
+	local viewports = commandBuffer.VkViewport()
 	viewports.width = self.swapchain.extent.width
 	viewports.height = self.swapchain.extent.height
 	viewports.minDepth = 0
 	viewports.maxDepth = 1
-	vk.vkCmdSetViewport(commandBuffer.id, 0, 1, viewports)
+	commandBuffer:setViewport(0, 1, viewports)
 
-	local scissors = VkRect2D()
+	local scissors = commandBuffer.VkRect2D()
 	scissors.extent.width = self.swapchain.extent.width
 	scissors.extent.height = self.swapchain.extent.height
-	vk.vkCmdSetScissor(commandBuffer.id, 0, 1, scissors)
+	commandBuffer:setScissors(0, 1, scissors)
 
-	local vertexBuffers = VkBuffer_1((assert(self.mesh.vertexBufferAndMemory.buffer.id)))
-	local vertexOffsets = VkDeviceSize_1(0)
-	vk.vkCmdBindVertexBuffers(
-		commandBuffer.id,
+	local vertexBuffers = commandBuffer.VkBuffer_array(1, self.mesh.vertexBufferAndMemory.buffer.id)
+	local vertexOffsets = commandBuffer.VkDeviceSize_array(1, 0)
+	commandBuffer:bindVertexBuffers(
 		0,
 		1,
 		vertexBuffers,
 		vertexOffsets
 	)
 
-	vk.vkCmdBindIndexBuffer(
-		commandBuffer.id,
-		assert(self.mesh.indexBufferAndMemory.buffer.id),
+	commandBuffer:bindIndexBuffer(
+		self.mesh.indexBufferAndMemory.buffer.id,
 		0,
 		vk.VK_INDEX_TYPE_UINT32
 	)
 
-	vk.vkCmdBindDescriptorSets(
-		commandBuffer.id,
+	commandBuffer:bindDescriptorSets(
 		vk.VK_PIPELINE_BIND_POINT_GRAPHICS,
 		self.graphicsPipeline.pipelineLayout.id,
 		0,
@@ -660,8 +638,7 @@ function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 		nil
 	)
 
-	vk.vkCmdDrawIndexed(
-		commandBuffer.id,
+	commandBuffer:drawIndexed(
 		self.mesh.numIndices,
 		1,
 		0,
@@ -669,7 +646,7 @@ function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 		0
 	)
 
-	vk.vkCmdEndRenderPass(commandBuffer.id)
+	commandBuffer:endRenderPass()
 	assert(commandBuffer:done())
 end
 
@@ -685,46 +662,49 @@ end
 
 function VulkanCommon:exit()
 	if self.device then
-		local device_id = self.device.obj.id
 		assert(self.device.obj:waitIdle())
+	end
 
-		if self.imageAvailableSemaphores then
-			for _,semaphore in ipairs(self.imageAvailableSemaphores) do
-				semaphore:destroy() 
-			end
-		end
-		if self.renderFinishedSemaphores then
-			for _,semaphore in ipairs(self.renderFinishedSemaphores) do
-				semaphore:destroy()
-			end
-		end
-		if self.inFlightFences then
-			for _,fence in ipairs(self.inFlightFences) do
-				fence:destroy()
-			end
-		end
-		if self.commandBuffers then
-			for _,cmds in ipairs(self.commandBuffers) do
-				cmds:destroy()
-			end
-		end
-
-		-- gives "descriptorPool must have been created with the VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT flag"
-		if self.descriptorSets then
---			vk.vkFreeDescriptorSets(device_id, self.descriptorPool.id, self.maxFramesInFlight, self.descriptorSets)
+	if self.imageAvailableSemaphores then
+		for _,semaphore in ipairs(self.imageAvailableSemaphores) do
+			semaphore:destroy()
 		end
 	end
 	self.imageAvailableSemaphores = nil
+
+	if self.renderFinishedSemaphores then
+		for _,semaphore in ipairs(self.renderFinishedSemaphores) do
+			semaphore:destroy()
+		end
+	end
 	self.renderFinishedSemaphores = nil
+
+	if self.inFlightFences then
+		for _,fence in ipairs(self.inFlightFences) do
+			fence:destroy()
+		end
+	end
 	self.inFlightFences = nil
+
+	if self.commandBuffers then
+		for _,cmds in ipairs(self.commandBuffers) do
+			cmds:destroy()
+		end
+	end
 	self.commandBuffers = nil
+
+	--[[ gives "descriptorPool must have been created with the VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT flag"
+	if self.descriptorSets then
+		self.descriptorSets:destroy()
+	end
+	--]]
 	self.descriptorSets = nil
-	
+
 	if self.textureImageView then
 		self.textureImageView:destroy()
 	end
 	self.textureImageView = nil
-	
+
 	if self.textureImageAndMemory then
 		self.textureImageAndMemory:destroy()
 	end
@@ -736,7 +716,7 @@ function VulkanCommon:exit()
 		end
 	end
 	self.uniformBuffers = nil
-	
+
 	if self.descriptorPool then
 		self.descriptorPool:destroy()
 	end
@@ -746,17 +726,17 @@ function VulkanCommon:exit()
 		self.mesh:destroy()
 	end
 	self.mesh = nil
-	
+
 	if self.textureSampler then
 		self.textureSampler:destroy()
 	end
 	self.textureSampler = nil
-	
+
 	if self.commandPool then
 		self.commandPool:destroy()
 	end
 	self.commandPool = nil
-		
+
 	if self.graphicsPipeline then
 		self.graphicsPipeline:destroy()
 	end
@@ -766,7 +746,7 @@ function VulkanCommon:exit()
 		self.swapchain:destroy()
 	end
 	self.swapchain = nil
-	
+
 	if self.device then
 		self.device.obj:destroy()
 	end
@@ -789,4 +769,4 @@ function VulkanCommon:exit()
 end
 --]]
 
-return VulkanCommon 
+return VulkanCommon
