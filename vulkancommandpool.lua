@@ -31,7 +31,7 @@ end
 function VulkanCommandPool:transitionImageLayout(image, oldLayout, newLayout, mipLevels)
 	self.graphicsQueue:singleTimeCommand(
 		self.device,
-		self.obj.id,
+		self.obj,
 		function(commandBuffer)
 			local barrier = makeVkImageMemoryBarrier{
 				oldLayout = oldLayout,
@@ -84,7 +84,7 @@ end
 function VulkanCommandPool:copyBuffer(srcBuffer, dstBuffer, size)
 	self.graphicsQueue:singleTimeCommand(
 		self.device,
-		self.obj.id,
+		self.obj,
 		function(commandBuffer)
 			vk.vkCmdCopyBuffer(
 				commandBuffer,
@@ -102,7 +102,7 @@ end
 function VulkanCommandPool:copyBufferToImage(buffer, image, width, height)
 	self.graphicsQueue:singleTimeCommand(
 		self.device,
-		self.obj.id,
+		self.obj,
 		function(commandBuffer)
 			vk.vkCmdCopyBufferToImage(
 				commandBuffer,

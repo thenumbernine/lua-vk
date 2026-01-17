@@ -6,7 +6,7 @@ local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
 local makeStructCtor = require 'vk.util'.makeStructCtor
 local VKDevice = require 'vk.device'
-local VKCommandBuffers = require 'vk.commandbuffers'
+local VKCommandBuffer = require 'vk.commandbuffer'
 
 
 local VkCommandBuffer_1 = ffi.typeof'VkCommandBuffer[1]'
@@ -64,11 +64,8 @@ function VKQueue:submit(submitInfo, numInfo, fences)
 end
 
 function VKQueue:singleTimeCommand(device, commandPool, callback)
-	local cmds = VKCommandBuffers{
-		device = device,
-		commandPool = commandPool,
+	local cmds = commandPool:makeCmds{
 		level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-		commandBufferCount = 1,
 	}
 
 	vkassert(

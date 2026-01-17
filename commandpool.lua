@@ -20,7 +20,7 @@ function VKCommandPool:init(args)
 	device = device.id or device
 	self.device = device
 
-	self.id = vkGet(
+	self.id, self.idptr = vkGet(
 		VkCommandPool,
 		vkassert,
 		vk.vkCreateCommandPool,
@@ -30,6 +30,13 @@ function VKCommandPool:init(args)
 	)
 end
 
+function VKCommandPool:makeCmds(args)
+	local VKCommandBuffer = require 'vk.commandbuffer'
+	args.device = self.device
+	args.commandPool = self.id
+	return VKCommandBuffer(args)
+end
+
 function VKCommandPool:destroy(args)
 	if self.id then
 		vk.vkDestroyCommandPool(self.device, self.id, nil)
@@ -37,6 +44,8 @@ function VKCommandPool:destroy(args)
 	self.id = nil
 end
 
-VKCommandPool.__gc = VKCommandPool.destroy
+function VKCommandPool:__gc()
+	return self:destroy()
+end
 
 return VKCommandPool 

@@ -1,3 +1,6 @@
+-- the name implie one command buffer
+-- but you can set .commandBufferCount to any value and .idptr will hold all the allocated buffers
+require 'ext.gc'
 local ffi = require 'ffi'
 local class = require 'ext.class'
 local assert = require 'ext.assert'
@@ -11,9 +14,9 @@ local VkCommandBuffer_array = ffi.typeof'VkCommandBuffer[?]'
 local makeVkCommandBufferAllocateInfo = makeStructCtor'VkCommandBufferAllocateInfo'
 
 
-local VKCommandBuffers = class()
+local VKCommandBuffer = class()
 
-function VKCommandBuffers:init(args)
+function VKCommandBuffer:init(args)
 	local device = assert.index(args, 'device')
 	args.device = nil
 	local VulkanDevice = require 'vk.vulkandevice'
@@ -25,7 +28,8 @@ function VKCommandBuffers:init(args)
 	-- needed for destroy
 	self.commandPool = assert.index(args, 'commandPool')
 
-	self.count = assert.index(args, 'commandBufferCount')
+	args.commandBufferCount = args.commandBufferCount or 1
+	self.count = args.commandBufferCount
 
 	-- not sure what to call this, .id, .ids, .idptr ...
 	-- same as vk.descriptorsets
@@ -40,7 +44,7 @@ function VKCommandBuffers:init(args)
 	self.id = self.idptr[0]
 end
 
-function VKCommandBuffers:destroy()
+function VKCommandBuffer:destroy()
 	if self.idptr then
 		vk.vkFreeCommandBuffers(self.device, self.commandPool, self.count, self.idptr)
 	end
@@ -48,8 +52,8 @@ function VKCommandBuffers:destroy()
 	self.idptr = nil
 end
 
-function VKCommandBuffers:__gc()
+function VKCommandBuffer:__gc()
 	return self:destroy()
 end
 
-return VKCommandBuffers
+return VKCommandBuffer

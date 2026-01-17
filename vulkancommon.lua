@@ -22,7 +22,6 @@ local VKSampler = require 'vk.sampler'
 local VKDescriptorPool = require 'vk.descriptorpool'
 local VKSemaphore = require 'vk.semaphore'
 local VKFence = require 'vk.fence'
-local VKCommandBuffers = require 'vk.commandbuffers'
 local VKDescriptorSets = require 'vk.descriptorsets'
 require 'ffi.req' 'c.string'	-- debug: strcmp
 require 'ffi.req' 'c.stdio'		-- debug: fprintf(stderr, ...)
@@ -268,9 +267,7 @@ print('msaaSamples', self.msaaSamples)
 
 	self.descriptorSets = self:createDescriptorSets()
 
-	self.commandBuffers = VKCommandBuffers{
-		device = self.device,
-		commandPool = self.commandPool.obj.id,
+	self.commandBuffers = self.commandPool.obj:makeCmds{
 		level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 		commandBufferCount = self.maxFramesInFlight,
 	}
@@ -370,7 +367,7 @@ function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, m
 
 	self.graphicsQueue:singleTimeCommand(
 		self.device.obj.id,
-		self.commandPool.obj.id,
+		self.commandPool.obj,
 		function(commandBuffer)
 			local barrier = makeVkImageMemoryBarrier{
 				srcQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED,
@@ -567,7 +564,10 @@ function VulkanCommon:drawFrame()
 
 	vkassert(vk.vkResetCommandBuffer, self.commandBuffers.idptr[self.currentFrame], 0)
 
-	self:recordCommandBuffer(self.commandBuffers.idptr[self.currentFrame], self.imageIndex[0])
+	self:recordCommandBuffer(
+		self.commandBuffers.idptr[self.currentFrame],
+		self.imageIndex[0]
+	)
 
 	local submitInfo = self.submitInfo
 	-- don't use conversion field, just use the pointer
