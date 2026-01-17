@@ -1,5 +1,3 @@
--- another one that doesn't use raii for anything
--- but it does use the info ctor
 require 'ext.gc'	-- make sure luajit can __gc lua-tables
 local ffi = require 'ffi'
 local class = require 'ext.class'
