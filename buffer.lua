@@ -7,18 +7,17 @@ local ffi = require 'ffi'
 local class = require 'ext.class'
 local assertindex = require 'ext.assert'.index
 local vk = require 'vk'
-local VKDevice = require 'vk.device'
 local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
+local makeStructCtor = require 'vk.util'.makeStructCtor
+local VKDevice = require 'vk.device'
 
 
 local VkBuffer = ffi.typeof'VkBuffer'
+local makeVkBufferCreateInfo = makeStructCtor'VkBufferCreateInfo'
 
 
 local VKBuffer = class()
-
-VKBuffer.createType = ffi.typeof'VkBufferCreateInfo'
-require 'vk.util'.addInitFromArgs(VKBuffer)
 
 function VKBuffer:init(args)
 	local device = assertindex(args, 'device')
@@ -26,7 +25,14 @@ function VKBuffer:init(args)
 	
 	self.device = device
 
-	self.id = vkGet(VkBuffer, vkassert, vk.vkCreateBuffer, device, self:initFromArgs(args), nil)
+	self.id = vkGet(
+		VkBuffer,
+		vkassert,
+		vk.vkCreateBuffer,
+		device,
+		makeVkBufferCreateInfo(args),
+		nil
+	)
 end
 
 function VKBuffer:destroy()

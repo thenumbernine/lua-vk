@@ -19,6 +19,7 @@ local makeStructCtor = require 'vk.util'.makeStructCtor
 local VKSurface = require 'vk.surface'
 local VKQueue = require 'vk.queue'
 local VKDebugUtilsMessenger = require 'vk.debugutilsmessenger'
+local VKSampler = require 'vk.sampler'
 require 'ffi.req' 'c.string'	-- debug: strcmp
 require 'ffi.req' 'c.stdio'		-- debug: fprintf(stderr, ...)
 
@@ -52,7 +53,6 @@ local VkFence_array = ffi.typeof'VkFence[?]'
 local VkImageBlit = ffi.typeof'VkImageBlit'
 local VkLayerProperties = ffi.typeof'VkLayerProperties'
 local VkRect2D = ffi.typeof'VkRect2D'
-local VkSampler = ffi.typeof'VkSampler'
 local VkSemaphore = ffi.typeof'VkSemaphore'
 local VkSemaphore_array = ffi.typeof'VkSemaphore[?]'
 local VkSwapchainKHR_1 = ffi.typeof'VkSwapchainKHR[1]'
@@ -60,7 +60,6 @@ local VkViewport = ffi.typeof'VkViewport'
 local VkWriteDescriptorSet_array = ffi.typeof'VkWriteDescriptorSet[?]'
 
 
-local makeVkSamplerCreateInfo = makeStructCtor'VkSamplerCreateInfo'
 local makeVkCommandBufferAllocateInfo = makeStructCtor'VkCommandBufferAllocateInfo'
 local makeVkSemaphoreCreateInfo = makeStructCtor'VkSemaphoreCreateInfo'
 local makeVkFenceCreateInfo = makeStructCtor'VkFenceCreateInfo'
@@ -172,8 +171,6 @@ function VulkanCommon:init(app)
 				ffi.C.fprintf(ffi.C.stderr, "validation layer: %s\n", pCallbackData.pMessage)
 				return vk.VK_FALSE
 			end,
-
-
 		}
 	end
 
@@ -223,29 +220,23 @@ print('msaaSamples', self.msaaSamples)
 		self.mipLevels
 	)
 
-	self.textureSampler = vkGet(
-		VkSampler,
-		vkassert,
-		vk.vkCreateSampler,
-		self.device.obj.id,
-		makeVkSamplerCreateInfo{
-			magFilter = vk.VK_FILTER_LINEAR,
-			minFilter = vk.VK_FILTER_LINEAR,
-			mipmapMode = vk.VK_SAMPLER_MIPMAP_MODE_LINEAR,
-			addressModeU = vk.VK_SAMPLER_ADDRESS_MODE_REPEAT,
-			addressModeV = vk.VK_SAMPLER_ADDRESS_MODE_REPEAT,
-			addressModeW = vk.VK_SAMPLER_ADDRESS_MODE_REPEAT,
-			anisotropyEnable = vk.VK_TRUE,
-			maxAnisotropy = self.physDev.obj:getProps().limits.maxSamplerAnisotropy,
-			compareEnable = vk.VK_FALSE,
-			compareOp = vk.VK_COMPARE_OP_ALWAYS,
-			minLod = 0,
-			maxLod = self.mipLevels,
-			borderColor = vk.VK_BORDER_COLOR_INT_OPAQUE_BLACK,
-			unnormalizedCoordinates = vk.VK_FALSE,
-		},
-		nil
-	)
+	self.textureSampler = VKSampler{
+		device = self.device,
+		magFilter = vk.VK_FILTER_LINEAR,
+		minFilter = vk.VK_FILTER_LINEAR,
+		mipmapMode = vk.VK_SAMPLER_MIPMAP_MODE_LINEAR,
+		addressModeU = vk.VK_SAMPLER_ADDRESS_MODE_REPEAT,
+		addressModeV = vk.VK_SAMPLER_ADDRESS_MODE_REPEAT,
+		addressModeW = vk.VK_SAMPLER_ADDRESS_MODE_REPEAT,
+		anisotropyEnable = vk.VK_TRUE,
+		maxAnisotropy = self.physDev.obj:getProps().limits.maxSamplerAnisotropy,
+		compareEnable = vk.VK_FALSE,
+		compareOp = vk.VK_COMPARE_OP_ALWAYS,
+		minLod = 0,
+		maxLod = self.mipLevels,
+		borderColor = vk.VK_BORDER_COLOR_INT_OPAQUE_BLACK,
+		unnormalizedCoordinates = vk.VK_FALSE,
+	}
 
 	self.mesh = VulkanMesh(self.physDev, self.device, self.commandPool)
 	self.uniformBuffers = range(self.maxFramesInFlight):mapi(function(i)
@@ -593,7 +584,7 @@ function VulkanCommon:createDescriptorSets()
 				descriptorCount = 1,
 				descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 				pImageInfo = VkDescriptorImageInfo{
-					sampler = self.textureSampler,
+					sampler = self.textureSampler.id,
 					imageView = self.textureImageView,
 					imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				},
@@ -878,15 +869,6 @@ function VulkanCommon:exit()
 		if self.descriptorPool then
 			vk.vkDestroyDescriptorPool(device_id, self.descriptorPool, nil)
 		end
-		if self.mesh then
-			self.mesh:destroy()
-		end
-		if self.textureSampler then
-			vk.vkDestroySampler(device_id, self.textureSampler, nil)
-		end
-		if self.commandPool then
-			self.commandPool:destroy()
-		end
 	end
 	self.imageAvailableSemaphores = nil
 	self.renderFinishedSemaphores = nil
@@ -897,9 +879,21 @@ function VulkanCommon:exit()
 	self.textureImageView = nil
 	self.textureImageAndMemory = nil
 	self.uniformBuffers = nil
-	self.mesh = nil
 	self.descriptorPool = nil
+	
+	if self.mesh then
+		self.mesh:destroy()
+	end
+	self.mesh = nil
+	
+	if self.textureSampler then
+		self.textureSampler:destroy()
+	end
 	self.textureSampler = nil
+	
+	if self.commandPool then
+		self.commandPool:destroy()
+	end
 	self.commandPool = nil
 		
 	if self.graphicsPipeline then
