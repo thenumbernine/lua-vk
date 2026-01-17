@@ -37,7 +37,7 @@ local function vkGet(ctype, check, f, ...)
 	else
 		f(addlast(result, ...))
 	end
-	return result[0]
+	return result[0], result
 end
 
 local function vkGetVector(ctype, check, f, ...)

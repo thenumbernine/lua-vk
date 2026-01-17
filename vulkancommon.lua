@@ -21,6 +21,7 @@ local VKQueue = require 'vk.queue'
 local VKDebugUtilsMessenger = require 'vk.debugutilsmessenger'
 local VKSampler = require 'vk.sampler'
 local VKDescriptorPool = require 'vk.descriptorpool'
+local VKSemaphore = require 'vk.semaphore'
 require 'ffi.req' 'c.string'	-- debug: strcmp
 require 'ffi.req' 'c.stdio'		-- debug: fprintf(stderr, ...)
 
@@ -53,15 +54,12 @@ local VkFence_array = ffi.typeof'VkFence[?]'
 local VkImageBlit = ffi.typeof'VkImageBlit'
 local VkLayerProperties = ffi.typeof'VkLayerProperties'
 local VkRect2D = ffi.typeof'VkRect2D'
-local VkSemaphore = ffi.typeof'VkSemaphore'
-local VkSemaphore_array = ffi.typeof'VkSemaphore[?]'
 local VkSwapchainKHR_1 = ffi.typeof'VkSwapchainKHR[1]'
 local VkViewport = ffi.typeof'VkViewport'
 local VkWriteDescriptorSet_array = ffi.typeof'VkWriteDescriptorSet[?]'
 
 
 local makeVkCommandBufferAllocateInfo = makeStructCtor'VkCommandBufferAllocateInfo'
-local makeVkSemaphoreCreateInfo = makeStructCtor'VkSemaphoreCreateInfo'
 local makeVkFenceCreateInfo = makeStructCtor'VkFenceCreateInfo'
 local makeVkImageMemoryBarrier = makeStructCtor'VkImageMemoryBarrier'
 local makeVkDescriptorSetAllocateInfo = makeStructCtor'VkDescriptorSetAllocateInfo'
@@ -297,29 +295,17 @@ print('msaaSamples', self.msaaSamples)
 	)
 	--]]
 
-	self.imageAvailableSemaphores = VkSemaphore_array(self.maxFramesInFlight)
-	for i=0,self.maxFramesInFlight-1 do
-		self.imageAvailableSemaphores[i] = vkGet(
-			VkSemaphore,
-			vkassert,
-			vk.vkCreateSemaphore,
-			self.device.obj.id,
-			makeVkSemaphoreCreateInfo(),
-			nil
-		)
-	end
+	self.imageAvailableSemaphores = range(self.maxFramesInFlight):mapi(function(i)
+		return VKSemaphore{
+			device = self.device,
+		}
+	end)
 
-	self.renderFinishedSemaphores = VkSemaphore_array(self.maxFramesInFlight)
-	for i=0,self.maxFramesInFlight-1 do
-		self.renderFinishedSemaphores[i] = vkGet(
-			VkSemaphore,
-			vkassert,
-			vk.vkCreateSemaphore,
-			self.device.obj.id,
-			makeVkSemaphoreCreateInfo(),
-			nil
-		)
-	end
+	self.renderFinishedSemaphores = range(self.maxFramesInFlight):mapi(function(i)
+		return VKSemaphore{
+			device = self.device,
+		}
+	end)
 
 	self.inFlightFences = VkFence_array(self.maxFramesInFlight)
 	for i=0,self.maxFramesInFlight-1 do
@@ -607,7 +593,7 @@ function VulkanCommon:drawFrame()
 	--acquireNextImageInfo.pNext = nil
 	acquireNextImageInfo.swapchain = self.swapchain.obj.id
 	acquireNextImageInfo.timeout = ffi.cast(uint64_t, -1)
-	acquireNextImageInfo.semaphore = self.imageAvailableSemaphores[self.currentFrame]
+	acquireNextImageInfo.semaphore = self.imageAvailableSemaphores[1+self.currentFrame].id
 	--acquireNextImageInfo.fence = nil
 	acquireNextImageInfo.deviceMask = 1
 	local result = vk.vkAcquireNextImage2KHR(
@@ -635,13 +621,13 @@ function VulkanCommon:drawFrame()
 	local submitInfo = self.submitInfo
 	-- don't use conversion field, just use the pointer
 	submitInfo.waitSemaphoreCount = 1
-	submitInfo.pWaitSemaphores = self.imageAvailableSemaphores + self.currentFrame
+	submitInfo.pWaitSemaphores = self.imageAvailableSemaphores[1+self.currentFrame].idptr
 	-- don't use conversion field, just use the pointer
 	submitInfo.commandBufferCount = 1
 	submitInfo.pCommandBuffers = self.commandBuffers + self.currentFrame
 	-- don't use conversion field, just use the pointer
 	submitInfo.signalSemaphoreCount = 1
-	submitInfo.pSignalSemaphores = self.renderFinishedSemaphores + self.currentFrame
+	submitInfo.pSignalSemaphores = self.renderFinishedSemaphores[1+self.currentFrame].idptr
 
 	self.graphicsQueue:submit(submitInfo, nil, self.inFlightFences[self.currentFrame])
 
@@ -649,7 +635,7 @@ function VulkanCommon:drawFrame()
 	local presentInfo = self.presentInfo
 	-- don't use conversion field, just use the pointer
 	presentInfo.waitSemaphoreCount = 1
-	presentInfo.pWaitSemaphores = self.renderFinishedSemaphores + self.currentFrame
+	presentInfo.pWaitSemaphores = self.renderFinishedSemaphores[1+self.currentFrame].idptr
 	presentInfo.pImageIndices = self.imageIndex
 	local result = vk.vkQueuePresentKHR(
 		self.presentQueue.id,
@@ -808,13 +794,13 @@ function VulkanCommon:exit()
 		self.device.obj:waitIdle()
 
 		if self.imageAvailableSemaphores then
-			for i=0,self.maxFramesInFlight-1 do
-				vk.vkDestroySemaphore(device_id, self.imageAvailableSemaphores[i], nil) 
+			for _,semaphore in ipairs(self.imageAvailableSemaphores) do
+				semaphore:destroy() 
 			end
 		end
 		if self.renderFinishedSemaphores then
-			for i=0,self.maxFramesInFlight-1 do
-				vk.vkDestroySemaphore(device_id, self.renderFinishedSemaphores[i], nil) 
+			for _,semaphore in ipairs(self.renderFinishedSemaphores) do
+				semaphore:destroy()
 			end
 		end
 		if self.inFlightFences then
