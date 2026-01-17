@@ -74,6 +74,13 @@ function VKInstance:getPhysDevs()
 	return physDevs
 end
 
+function VKInstance:getProcAddr(name, ctype)
+	ctype = ctype or 'PFN_'..name
+	local ptr = vk.vkGetInstanceProcAddr(self.id, name)
+	ptr = ffi.cast(ctype, ptr)
+	return ptr 
+end
+
 function VKInstance:destroy()
 	if self.id then
 		vk.vkDestroyInstance(self.id, nil)

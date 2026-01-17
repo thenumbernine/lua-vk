@@ -8,8 +8,6 @@ local vkGet = require 'vk.util'.vkGet
 local makeStructCtor = require 'vk.util'.makeStructCtor
 
 
-local PFN_vkCreateDebugUtilsMessengerEXT = ffi.typeof'PFN_vkCreateDebugUtilsMessengerEXT'
-local PFN_vkDestroyDebugUtilsMessengerEXT = ffi.typeof'PFN_vkDestroyDebugUtilsMessengerEXT'
 local PFN_vkDebugUtilsMessengerCallbackEXT = ffi.typeof'PFN_vkDebugUtilsMessengerCallbackEXT'
 local VkDebugUtilsMessengerEXT = ffi.typeof'VkDebugUtilsMessengerEXT'
 local makeVkDebugUtilsMessengerCreateInfoEXT = makeStructCtor'VkDebugUtilsMessengerCreateInfoEXT'
@@ -18,11 +16,14 @@ local makeVkDebugUtilsMessengerCreateInfoEXT = makeStructCtor'VkDebugUtilsMessen
 local DebugUtilsMesseger = class()
 
 function DebugUtilsMesseger:init(args)
-	local instance = assert.index(args, 'instance')
+	-- VulkanInstance:
+	local instanceObj = assert.index(args, 'instance')
 	args.instance = nil
-	instance = instance.obj or instance  
-	instance = instance.id or instance  
-	self.instance = instance
+	-- VKInstance:
+	local instance = instanceObj.obj
+	-- VkInstance:
+	local instanceID = instance.id
+	self.instance = instanceID
 
 	-- expect it to be a Lua function
 	-- cast it / create closure and store it so it doesn't gc (but don't they have to manually free?)
@@ -32,26 +33,14 @@ function DebugUtilsMesseger:init(args)
 		args.userCallback = nil
 	end
 
-	self.vkCreateDebugUtilsMessengerEXT = ffi.cast(
-		PFN_vkCreateDebugUtilsMessengerEXT,
-		vk.vkGetInstanceProcAddr(
-			instance,
-			'vkCreateDebugUtilsMessengerEXT'
-		)
-	)
-	self.vkDestroyDebugUtilsMessengerEXT = ffi.cast(
-		PFN_vkDestroyDebugUtilsMessengerEXT,
-		vk.vkGetInstanceProcAddr(
-			instance,
-			'vkDestroyDebugUtilsMessengerEXT'
-		)
-	)
+	self.vkCreateDebugUtilsMessengerEXT = instance:getProcAddr'vkCreateDebugUtilsMessengerEXT'
+	self.vkDestroyDebugUtilsMessengerEXT = instance:getProcAddr'vkDestroyDebugUtilsMessengerEXT'
 
 	self.id = vkGet(
 		VkDebugUtilsMessengerEXT,
 		vkassert,
 		self.vkCreateDebugUtilsMessengerEXT,
-		instance,
+		instanceID,
 		makeVkDebugUtilsMessengerCreateInfoEXT(args),
 		nil
 	)
