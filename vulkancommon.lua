@@ -23,6 +23,7 @@ local VKDescriptorPool = require 'vk.descriptorpool'
 local VKSemaphore = require 'vk.semaphore'
 local VKFence = require 'vk.fence'
 local VKCommandBuffers = require 'vk.commandbuffers'
+local VKDescriptorSets = require 'vk.descriptorsets'
 require 'ffi.req' 'c.string'	-- debug: strcmp
 require 'ffi.req' 'c.stdio'		-- debug: fprintf(stderr, ...)
 
@@ -44,10 +45,8 @@ local char_const_ptr = ffi.typeof'char const *'
 local uint32_t_1 = ffi.typeof'uint32_t[1]'
 local uint64_t = ffi.typeof'uint64_t'
 local VkBuffer_1 = ffi.typeof'VkBuffer[1]'
-local VkCommandBuffer_array = ffi.typeof'VkCommandBuffer[?]'
 local VkDescriptorBufferInfo = ffi.typeof'VkDescriptorBufferInfo'
 local VkDescriptorImageInfo = ffi.typeof'VkDescriptorImageInfo'
-local VkDescriptorSet_array = ffi.typeof'VkDescriptorSet[?]'
 local VkDescriptorSetLayout_array = ffi.typeof'VkDescriptorSetLayout[?]'
 local VkDeviceSize_1 = ffi.typeof'VkDeviceSize[1]'
 local VkFence_array = ffi.typeof'VkFence[?]'
@@ -60,7 +59,6 @@ local VkWriteDescriptorSet_array = ffi.typeof'VkWriteDescriptorSet[?]'
 
 
 local makeVkImageMemoryBarrier = makeStructCtor'VkImageMemoryBarrier'
-local makeVkDescriptorSetAllocateInfo = makeStructCtor'VkDescriptorSetAllocateInfo'
 
 local makeVkWriteDescriptorSet = makeStructCtor'VkWriteDescriptorSet'
 
@@ -480,40 +478,18 @@ function VulkanCommon:createDescriptorSets()
 		layouts[i] = self.graphicsPipeline.descriptorSetLayout.id
 	end
 
-	--[[ vkGet just allocates one
-	-- vkGetVector expects a 'count' field to determine size
-	-- ... we have to statically allocate for this function ...
-	descriptorSets = vkGet(
-		VkDescriptorSet,
-		vkassert,
-		vk.vkAllocateDescriptorSets,
-		self.device.obj.id,
-		makeVkDescriptorSetAllocateInfo{
-			descriptorPool = self.descriptorPool,
-			descriptorSetCount = self.maxFramesInFlight,
-			pSetLayouts = layouts,	-- length matches descriptorSetCount I think?
-		}
-	)
-	--]]
-	-- [[
-	local descriptorSets = VkDescriptorSet_array(self.maxFramesInFlight)
-	vkassert(
-		vk.vkAllocateDescriptorSets,
-		self.device.obj.id,
-		makeVkDescriptorSetAllocateInfo{
-			descriptorPool = self.descriptorPool.id,
-			descriptorSetCount = self.maxFramesInFlight,
-			pSetLayouts = layouts,	-- length matches descriptorSetCount I think?
-		},
-		descriptorSets
-	)
-	--]]
+	local descriptorSets = VKDescriptorSets{
+		device = self.device,
+		descriptorPool = self.descriptorPool.id,
+		descriptorSetCount = self.maxFramesInFlight,
+		pSetLayouts = layouts,	-- length matches descriptorSetCount I think?
+	}
 
 	for i=0,self.maxFramesInFlight-1 do
 		local numDescriptorWrites = 2
 		local descriptorWrites = VkWriteDescriptorSet_array(numDescriptorWrites, {
 			makeVkWriteDescriptorSet{
-				dstSet = descriptorSets[i],
+				dstSet = descriptorSets.idptr[i],
 				dstBinding = 0,
 				descriptorCount = 1,
 				descriptorType = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -523,7 +499,7 @@ function VulkanCommon:createDescriptorSets()
 				},
 			},
 			makeVkWriteDescriptorSet{
-				dstSet = descriptorSets[i],
+				dstSet = descriptorSets.idptr[i],
 				dstBinding = 1,
 				descriptorCount = 1,
 				descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -733,7 +709,7 @@ function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 		self.graphicsPipeline.pipelineLayout.id,
 		0,
 		1,
-		self.descriptorSets + self.currentFrame,
+		self.descriptorSets.idptr + self.currentFrame,
 		0,
 		nil
 	)

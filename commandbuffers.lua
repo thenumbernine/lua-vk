@@ -5,10 +5,8 @@ local vk = require 'vk'
 local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
 local makeStructCtor = require 'vk.util'.makeStructCtor
-local VKDevice = require 'vk.device'
 
 
-local VkCommandBuffer = ffi.typeof'VkCommandBuffer'
 local VkCommandBuffer_array = ffi.typeof'VkCommandBuffer[?]'
 local makeVkCommandBufferAllocateInfo = makeStructCtor'VkCommandBufferAllocateInfo'
 
@@ -30,6 +28,7 @@ function VKCommandBuffers:init(args)
 	self.count = assert.index(args, 'commandBufferCount')
 
 	-- not sure what to call this, .id, .ids, .idptr ...
+	-- same as vk.descriptorsets
 	self.idptr = VkCommandBuffer_array(self.count)
 	vkassert(
 		vk.vkAllocateCommandBuffers,
