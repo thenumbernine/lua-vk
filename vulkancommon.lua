@@ -390,7 +390,7 @@ function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, m
 				barrier.srcAccessMask = vk.VK_ACCESS_TRANSFER_WRITE_BIT
 				barrier.dstAccessMask = vk.VK_ACCESS_TRANSFER_READ_BIT
 				vk.vkCmdPipelineBarrier(
-					commandBuffer,						-- commandBuffer
+					commandBuffer.id,					-- commandBuffer
 					vk.VK_PIPELINE_STAGE_TRANSFER_BIT,  -- srcStageMask
 					vk.VK_PIPELINE_STAGE_TRANSFER_BIT,	-- dstStageMask
 					0,									-- dependencyFlags
@@ -416,7 +416,7 @@ function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, m
 				blit.dstOffsets[1].y = mipHeight > 1 and bit.rshift(mipHeight, 1) or 1
 				blit.dstOffsets[1].z = 1
 				vk.vkCmdBlitImage(
-					commandBuffer,
+					commandBuffer.id,
 					image,
 					vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 					image,
@@ -431,7 +431,7 @@ function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, m
 				barrier.srcAccessMask = vk.VK_ACCESS_TRANSFER_READ_BIT
 				barrier.dstAccessMask = vk.VK_ACCESS_SHADER_READ_BIT
 				vk.vkCmdPipelineBarrier(
-					commandBuffer,								-- commandBuffer
+					commandBuffer.id,								-- commandBuffer
 					vk.VK_PIPELINE_STAGE_TRANSFER_BIT,  		-- srcStageMask
 					vk.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,   -- dstStageMask
 					0,											-- dependencyFlags
@@ -454,7 +454,7 @@ function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, m
 			barrier.dstAccessMask = vk.VK_ACCESS_SHADER_READ_BIT
 
 			vk.vkCmdPipelineBarrier(
-				commandBuffer,								-- commandBuffer
+				commandBuffer.id,								-- commandBuffer
 				vk.VK_PIPELINE_STAGE_TRANSFER_BIT,  		-- srcStageMask
 				vk.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,   -- dstStageMask
 				0,											-- dependencyFlags

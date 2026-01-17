@@ -64,7 +64,7 @@ function VulkanCommandPool:transitionImageLayout(image, oldLayout, newLayout, mi
 			end
 
 			vk.vkCmdPipelineBarrier(
-				commandBuffer,	-- commandBuffer
+				commandBuffer.id,	-- commandBuffer
 				srcStage,       -- srcStageMask
 				dstStage,       -- dstStageMask
 				0,              -- dependencyFlags
@@ -84,7 +84,7 @@ function VulkanCommandPool:copyBuffer(srcBuffer, dstBuffer, size)
 		self.obj,
 		function(commandBuffer)
 			vk.vkCmdCopyBuffer(
-				commandBuffer,
+				commandBuffer.id,
 				srcBuffer.id,
 				dstBuffer.id,
 				1,
@@ -101,7 +101,7 @@ function VulkanCommandPool:copyBufferToImage(buffer, image, width, height)
 		self.obj,
 		function(commandBuffer)
 			vk.vkCmdCopyBufferToImage(
-				commandBuffer,
+				commandBuffer.id,
 				buffer.id,
 				image,
 				vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,

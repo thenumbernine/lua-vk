@@ -61,6 +61,10 @@ function VKQueue:submit(submitInfo, numInfo, fences)
 	)
 end
 
+function VKQueue:waitIdle()
+	vkassert(vk.vkQueueWaitIdle, self.id)
+end
+
 function VKQueue:singleTimeCommand(commandPool, callback)
 	local cmds = commandPool:makeCmds{
 		level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY,
@@ -70,7 +74,7 @@ function VKQueue:singleTimeCommand(commandPool, callback)
 		flags = vk.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
 	}
 
-	callback(cmds.id)
+	callback(cmds)
 
 	cmds:done()
 
@@ -82,8 +86,7 @@ function VKQueue:singleTimeCommand(commandPool, callback)
 		}
 	)
 
-	vkassert(vk.vkQueueWaitIdle, self.id)
-	
+	self:waitIdle()	
 	cmds:destroy()
 end
 
