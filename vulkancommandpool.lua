@@ -6,14 +6,13 @@ local vk = require 'vk'
 local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
 local makeStructCtor = require 'vk.util'.makeStructCtor
+local VKCommandPool = require 'vk.commandpool'
 
 
-local VkCommandPool = ffi.typeof'VkCommandPool'
 local VkBufferCopy = ffi.typeof'VkBufferCopy'
 local VkBufferImageCopy = ffi.typeof'VkBufferImageCopy'
 
 
-local makeVkCommandPoolCreateInfo = makeStructCtor'VkCommandPoolCreateInfo'
 local makeVkImageMemoryBarrier = makeStructCtor'VkImageMemoryBarrier'
 
 
@@ -21,24 +20,18 @@ local VulkanCommandPool = class()
 
 function VulkanCommandPool:init(common, physDev, device, surface)
 	self.device = device.obj.id
-	self.id = vkGet(
-		VkCommandPool,
-		vkassert,
-		vk.vkCreateCommandPool,
-		self.device,
-		makeVkCommandPoolCreateInfo{
-			flags = vk.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-			queueFamilyIndex = assert.index(physDev:findQueueFamilies(nil, surface), 'graphicsFamily'),
-		},
-		nil
-	)
+	self.obj = VKCommandPool{
+		device = device,
+		flags = vk.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+		queueFamilyIndex = assert.index(physDev:findQueueFamilies(nil, surface), 'graphicsFamily'),
+	}
 	self.graphicsQueue = common.graphicsQueue
 end
 
 function VulkanCommandPool:transitionImageLayout(image, oldLayout, newLayout, mipLevels)
 	self.graphicsQueue:singleTimeCommand(
 		self.device,
-		self.id,
+		self.obj.id,
 		function(commandBuffer)
 			local barrier = makeVkImageMemoryBarrier{
 				oldLayout = oldLayout,
@@ -91,7 +84,7 @@ end
 function VulkanCommandPool:copyBuffer(srcBuffer, dstBuffer, size)
 	self.graphicsQueue:singleTimeCommand(
 		self.device,
-		self.id,
+		self.obj.id,
 		function(commandBuffer)
 			vk.vkCmdCopyBuffer(
 				commandBuffer,
@@ -109,7 +102,7 @@ end
 function VulkanCommandPool:copyBufferToImage(buffer, image, width, height)
 	self.graphicsQueue:singleTimeCommand(
 		self.device,
-		self.id,
+		self.obj.id,
 		function(commandBuffer)
 			vk.vkCmdCopyBufferToImage(
 				commandBuffer,
@@ -133,10 +126,11 @@ function VulkanCommandPool:copyBufferToImage(buffer, image, width, height)
 	)
 end
 
-function VulkanCommandPool:destroy(device)
-	if self.id == nil then return end
-	vk.vkDestroyCommandPool(device, self.id, nil)
-	self.id = nil
+function VulkanCommandPool:destroy()
+	if self.obj then
+		self.obj:destroy()
+	end
+	self.obj = nil
 end
 
 return VulkanCommandPool 

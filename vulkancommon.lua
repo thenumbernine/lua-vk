@@ -307,7 +307,7 @@ print('msaaSamples', self.msaaSamples)
 		vk.vkAllocateCommandBuffers,
 		self.device.obj.id,
 		makeVkCommandBufferAllocateInfo{
-			commandPool = self.commandPool.id,
+			commandPool = self.commandPool.obj.id,
 			level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 			commandBufferCount = self.maxFramesInFlight,
 		}
@@ -319,7 +319,7 @@ print('msaaSamples', self.msaaSamples)
 		vk.vkAllocateCommandBuffers,
 		self.device.obj.id,
 		makeVkCommandBufferAllocateInfo{
-			commandPool = self.commandPool.id,
+			commandPool = self.commandPool.obj.id,
 			level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 			commandBufferCount = self.maxFramesInFlight,
 		},
@@ -453,7 +453,7 @@ function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, m
 
 	self.graphicsQueue:singleTimeCommand(
 		self.device.obj.id,
-		self.commandPool.id,
+		self.commandPool.obj.id,
 		function(commandBuffer)
 			local barrier = makeVkImageMemoryBarrier{
 				srcQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED,
@@ -865,7 +865,7 @@ function VulkanCommon:exit()
 			end
 		end
 		if self.commandBuffers then
-			vk.vkFreeCommandBuffers(device_id, self.commandPool.id, self.maxFramesInFlight, self.commandBuffers)
+			vk.vkFreeCommandBuffers(device_id, self.commandPool.obj.id, self.maxFramesInFlight, self.commandBuffers)
 		end
 
 		-- gives "descriptorPool must have been created with the VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT flag"
@@ -901,7 +901,7 @@ function VulkanCommon:exit()
 			vk.vkDestroySampler(device_id, self.textureSampler, nil)
 		end
 		if self.commandPool then
-			self.commandPool:destroy(device_id)
+			self.commandPool:destroy()
 		end
 	end
 	self.imageAvailableSemaphores = nil
