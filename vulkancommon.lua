@@ -18,6 +18,7 @@ local vkGetVector = require 'vk.util'.vkGetVector
 local makeStructCtor = require 'vk.util'.makeStructCtor
 local VKSurface = require 'vk.surface'
 local VKQueue = require 'vk.queue'
+local VKDebugUtilsMessenger = require 'vk.debugutilsmessenger'
 require 'ffi.req' 'c.string'	-- debug: strcmp
 require 'ffi.req' 'c.stdio'		-- debug: fprintf(stderr, ...)
 
@@ -38,12 +39,8 @@ local void_ptr = ffi.typeof'void*'
 local char_const_ptr = ffi.typeof'char const *'
 local uint32_t_1 = ffi.typeof'uint32_t[1]'
 local uint64_t = ffi.typeof'uint64_t'
-local PFN_vkCreateDebugUtilsMessengerEXT = ffi.typeof'PFN_vkCreateDebugUtilsMessengerEXT'
-local PFN_vkDebugUtilsMessengerCallbackEXT = ffi.typeof'PFN_vkDebugUtilsMessengerCallbackEXT'
-local PFN_vkDestroyDebugUtilsMessengerEXT = ffi.typeof'PFN_vkDestroyDebugUtilsMessengerEXT'
 local VkBuffer_1 = ffi.typeof'VkBuffer[1]'
 local VkCommandBuffer_array = ffi.typeof'VkCommandBuffer[?]'
-local VkDebugUtilsMessengerEXT = ffi.typeof'VkDebugUtilsMessengerEXT'
 local VkDescriptorBufferInfo = ffi.typeof'VkDescriptorBufferInfo'
 local VkDescriptorImageInfo = ffi.typeof'VkDescriptorImageInfo'
 local VkDescriptorPool = ffi.typeof'VkDescriptorPool'
@@ -63,7 +60,6 @@ local VkViewport = ffi.typeof'VkViewport'
 local VkWriteDescriptorSet_array = ffi.typeof'VkWriteDescriptorSet[?]'
 
 
-local makeVkDebugUtilsMessengerCreateInfoEXT = makeStructCtor'VkDebugUtilsMessengerCreateInfoEXT'
 local makeVkSamplerCreateInfo = makeStructCtor'VkSamplerCreateInfo'
 local makeVkCommandBufferAllocateInfo = makeStructCtor'VkCommandBufferAllocateInfo'
 local makeVkSemaphoreCreateInfo = makeStructCtor'VkSemaphoreCreateInfo'
@@ -152,33 +148,33 @@ function VulkanCommon:init(app)
 
 	-- debug:
 	if self.enableValidationLayers then
-		defs.vkCreateDebugUtilsMessengerEXT = ffi.cast(PFN_vkCreateDebugUtilsMessengerEXT, vk.vkGetInstanceProcAddr(self.instance.obj.id, 'vkCreateDebugUtilsMessengerEXT'))
-		defs.vkDestroyDebugUtilsMessengerEXT = ffi.cast(PFN_vkDestroyDebugUtilsMessengerEXT, vk.vkGetInstanceProcAddr(self.instance.obj.id, 'vkDestroyDebugUtilsMessengerEXT'))
-		-- store as self member to prevent function closure gc'ing
-		self.debugCallback = ffi.cast(PFN_vkDebugUtilsMessengerCallbackEXT, VulkanCommon.debugCallback)
+		self.debug = VKDebugUtilsMessenger{
+			instance = self.instance,
+			messageSeverity = bit.bor(
+				vk.VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT,
+				--vk.VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT,
+				vk.VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT,
+				vk.VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
+			),
+			messageType = bit.bor(
+				vk.VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT,
+				vk.VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT,
+				vk.VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT
+				--vk.VK_DEBUG_UTILS_MESSAGE_TYPE_DEVICE_ADDRESS_BINDING_BIT_EXT
+			),
+			userCallback = function(
+				messageSeverity,	-- VkDebugUtilsMessageSeverityFlagBitsEXT           
+				messageTypes,		-- VkDebugUtilsMessageTypeFlagsEXT                  
+				pCallbackData,		-- const VkDebugUtilsMessengerCallbackDataEXT*
+				pUserData			-- void*
+			) -- returns VkBool32
+				-- this is run on the same thread? or no?
+				ffi.C.fprintf(ffi.C.stderr, "validation layer: %s\n", pCallbackData.pMessage)
+				return vk.VK_FALSE
+			end,
 
-		self.debug = vkGet(
-			VkDebugUtilsMessengerEXT,
-			vkassert,
-			defs.vkCreateDebugUtilsMessengerEXT,
-			self.instance.obj.id,
-			makeVkDebugUtilsMessengerCreateInfoEXT{
-				messageSeverity = bit.bor(
-					vk.VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT,
-					--vk.VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT,
-					vk.VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT,
-					vk.VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
-				),
-				messageType = bit.bor(
-					vk.VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT,
-					vk.VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT,
-					vk.VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT
-					--vk.VK_DEBUG_UTILS_MESSAGE_TYPE_DEVICE_ADDRESS_BINDING_BIT_EXT
-				),
-				pfnUserCallback = self.debugCallback,
-			},
-			nil
-		)
+
+		}
 	end
 
 	self.surface = VKSurface{
@@ -387,18 +383,6 @@ function VulkanCommon:checkValidationLayerSupport()
 		end
 	end
 	return false
-end
-
--- static method, cast and assigned to self.debugCallback to keep the callback from gc'ing
-function VulkanCommon.debugCallback(
-	messageSeverity,	-- VkDebugUtilsMessageSeverityFlagBitsEXT           
-	messageTypes,		-- VkDebugUtilsMessageTypeFlagsEXT                  
-	pCallbackData,		-- const VkDebugUtilsMessengerCallbackDataEXT*
-	pUserData			-- void*
-) -- returns VkBool32
-	-- this is run on the same thread? or no?
-	ffi.C.fprintf(ffi.C.stderr, "validation layer: %s\n", pCallbackData.pMessage)
-	return vk.VK_FALSE
 end
 
 function VulkanCommon:createSwapchain()
@@ -939,7 +923,7 @@ function VulkanCommon:exit()
 	self.surface = nil
 
 	if self.debug then
-		defs.vkDestroyDebugUtilsMessengerEXT(self.instance.obj.id, self.debug, nil)
+		self.debug:destroy()
 	end
 	self.debug = nil
 
