@@ -5,10 +5,12 @@ local assert = require 'ext.assert'
 local vk = require 'vk'
 local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
+local vkResult = require 'vk.util'.vkResult
 local makeStructCtor = require 'vk.util'.makeStructCtor
 
 
 local VkImage = ffi.typeof'VkImage'
+local VkMemoryRequirements = ffi.typeof'VkMemoryRequirements'
 local makeVkImageCreateInfo = makeStructCtor'VkImageCreateInfo'
 
 
@@ -33,14 +35,25 @@ function VKImage:init(args)
 	)
 end
 
--- here or memory.lua?
-function VKImage:bindMemory(mem)
-	vkassert(
-		vk.vkBindImageMemory,
+function VKImage:getMemReq()
+	return vkGet(
+		VkMemoryRequirements,
+		nil,
+		vk.vkGetImageMemoryRequirements,
 		self.device,
-		self.id,
-		mem,
-		0
+		self.id
+	)
+end
+
+function VKImage:bindMemory(mem)
+	return vkResult(
+		vk.vkBindImageMemory(
+			self.device,
+			self.id,
+			mem,
+			0
+		),
+		'vkBindImageMemory'
 	)
 end
 

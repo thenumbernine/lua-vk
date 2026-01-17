@@ -3,15 +3,16 @@
 local ffi = require 'ffi'
 local class = require 'ext.class'
 local asserteq = require 'ext.assert'.eq
+local vec3f = require 'vec-ffi.vec3f'
+local struct = require 'struct'
 local vector = require 'ffi.cpp.vector-lua'
 local ObjLoader = require 'mesh.objloader'
+local vk = require 'vk'
 local VulkanDeviceMemoryBuffer = require 'vk.vulkandevicememorybuffer'
 
 
-local vk = require 'vk'
 local VkVertexInputBindingDescription = ffi.typeof'VkVertexInputBindingDescription'
-local struct = require 'struct'
-local vec3f = require 'vec-ffi.vec3f'
+
 local VulkanVertex
 VulkanVertex = struct{
 	name = 'VulkanVertex',

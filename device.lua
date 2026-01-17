@@ -4,6 +4,7 @@ local assertindex = require 'ext.assert'.index
 local vk = require 'vk'
 local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
+local vkResult = require 'vk.util'.vkResult
 local makeStructCtor = require 'vk.util'.makeStructCtor
 local VKPhysDev = require 'vk.physdev'
 
@@ -79,7 +80,7 @@ function VKDevice:init(args)
 end
 
 function VKDevice:waitIdle()
-	vkassert(vk.vkDeviceWaitIdle, self.id)
+	return vkResult(vk.vkDeviceWaitIdle(self.id), 'vkDeviceWaitIdle')
 end
 
 function VKDevice:destroy()

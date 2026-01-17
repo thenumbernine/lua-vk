@@ -4,6 +4,7 @@ local assert = require 'ext.assert'
 local vk = require 'vk'
 local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
+local vkResult = require 'vk.util'.vkResult
 local makeStructCtor = require 'vk.util'.makeStructCtor
 local VKCommandBuffer = require 'vk.commandbuffer'
 
@@ -26,7 +27,6 @@ local makeVkSubmitInfo = makeStructCtor(
 		},
 	}
 )
-
 
 
 local VKQueue = class()
@@ -52,41 +52,41 @@ function VKQueue:init(args)
 end
 
 function VKQueue:submit(submitInfo, numInfo, fences)
-	vkassert(
-		vk.vkQueueSubmit,
+	return vkResult(vk.vkQueueSubmit(
 		self.id,
 		numInfo or 1,
 		submitInfo,
 		fences
-	)
+	), 'vkQueueSubmit')
 end
 
 function VKQueue:waitIdle()
-	vkassert(vk.vkQueueWaitIdle, self.id)
+	return vkResult(vk.vkQueueWaitIdle(self.id), 'vkQueueWaitIdle')
 end
 
+-- extra functionality
 function VKQueue:singleTimeCommand(commandPool, callback)
 	local cmds = commandPool:makeCmds{
 		level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 	}
 
-	cmds:begin{
+	assert(cmds:begin{
 		flags = vk.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-	}
+	})
 
 	callback(cmds)
 
-	cmds:done()
+	assert(cmds:done())
 
-	self:submit(
+	assert(self:submit(
 		makeVkSubmitInfo{
 			-- don't use conversion field, just use the pointer
 			commandBufferCount = 1,
 			pCommandBuffers = cmds.idptr,
 		}
-	)
+	))
 
-	self:waitIdle()	
+	assert(self:waitIdle())
 	cmds:destroy()
 end
 

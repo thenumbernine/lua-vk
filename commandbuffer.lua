@@ -7,6 +7,7 @@ local assert = require 'ext.assert'
 local vk = require 'vk'
 local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
+local vkResult = require 'vk.util'.vkResult
 local makeStructCtor = require 'vk.util'.makeStructCtor
 
 
@@ -46,19 +47,15 @@ end
 
 -- only runs on the first one i.e. .id
 function VKCommandBuffer:begin(args)
-	vkassert(
-		vk.vkBeginCommandBuffer,
-		self.id,
-		makeVkCommandBufferBeginInfo(args)
-	)
+	return vkResult(vk.vkBeginCommandBuffer(self.id, makeVkCommandBufferBeginInfo(args)), 'vkBeginCommandBuffer')
 end
 
 function VKCommandBuffer:done()	-- "end"
-	vkassert(vk.vkEndCommandBuffer, self.id)
+	return vkResult(vk.vkEndCommandBuffer(self.id), 'vkEndCommandBuffer')
 end
 
 function VKCommandBuffer:reset()
-	vkassert(vk.vkResetCommandBuffer, self.id, 0)
+	return vkResult(vk.vkResetCommandBuffer(self.id, 0), 'vkResetCommandBuffer')
 end
 
 function VKCommandBuffer:destroy()

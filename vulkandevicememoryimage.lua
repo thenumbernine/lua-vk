@@ -2,16 +2,9 @@
 local ffi = require 'ffi'
 local class = require 'ext.class'
 local vk = require 'vk'
-local vkassert = require 'vk.util'.vkassert
-local vkGet = require 'vk.util'.vkGet
-local makeStructCtor = require 'vk.util'.makeStructCtor
 local VKImage = require 'vk.image'
 local VKMemory = require 'vk.memory'
 local VulkanDeviceMemoryFromStagingBuffer = require 'vk.vulkandevicememoryfromstagingbuffer'
-
-
-local VkMemoryRequirements = ffi.typeof'VkMemoryRequirements'
-
 
 
 local VulkanDeviceMemoryImage = class()
@@ -46,19 +39,13 @@ function VulkanDeviceMemoryImage:createImage(
 		initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED,
 	}
 
-	local memReq = vkGet(
-		VkMemoryRequirements,
-		nil,
-		vk.vkGetImageMemoryRequirements,
-		device,
-		image.id
-	)
+	local memReq = image:getMemReq()
 	local imageMemory = VKMemory{
 		device = device,
 		allocationSize = memReq.size,
 		memoryTypeIndex = physDev:findMemoryType(memReq.memoryTypeBits, properties),
 	}
-	image:bindMemory(imageMemory.id)
+	assert(image:bindMemory(imageMemory.id))
 
 	return setmetatable({
 		device = device,

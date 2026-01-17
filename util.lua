@@ -192,10 +192,20 @@ local function addInitFromArgs(cl)
 	end
 end
 
+local function vkResult(result, name)
+	if result == vk.VK_SUCCESS then
+		return true, result
+	else
+		result = tostring(result)
+		return false, name and (name..': '..result) or result
+	end
+end
+
 return {
 	countof = countof,
 	vkassert = vkassert,
 	vkGet = vkGet,
+	vkResult = vkResult,
 	vkGetVector = vkGetVector,
 	addInitFromArgs = addInitFromArgs,
 	makeStructCtor = makeStructCtor,

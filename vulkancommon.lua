@@ -526,16 +526,7 @@ end
 
 function VulkanCommon:drawFrame()
 -- right here once all the first set of frames are exhausted, this stalls indefinitely
-	local result = vk.vkWaitForFences(
-		self.device.obj.id,
-		1,
-		self.inFlightFences[1+self.currentFrame].idptr,
-		vk.VK_TRUE,
-		ffi.cast(uint64_t, -1)	-- UINT64_MAX
-	)
-	if result ~= vk.VK_SUCCESS then
-		error("vkWaitForRences failed: "..tostring(result))
-	end
+	assert(self.inFlightFences[1+self.currentFrame]:wait())
 
 	local acquireNextImageInfo = self.acquireNextImageInfo
 	--acquireNextImageInfo.pNext = nil
@@ -560,9 +551,8 @@ function VulkanCommon:drawFrame()
 
 	self:updateUniformBuffer()
 
-	vkassert(vk.vkResetFences, self.device.obj.id, 1, self.inFlightFences[1+self.currentFrame].idptr)
-
-	self.commandBuffers[1+self.currentFrame]:reset()
+	assert(self.inFlightFences[1+self.currentFrame]:reset())
+	assert(self.commandBuffers[1+self.currentFrame]:reset())
 
 	self:recordCommandBuffer(
 		self.commandBuffers[1+self.currentFrame],
@@ -580,7 +570,7 @@ function VulkanCommon:drawFrame()
 	submitInfo.signalSemaphoreCount = 1
 	submitInfo.pSignalSemaphores = self.renderFinishedSemaphores[1+self.currentFrame].idptr
 
-	self.graphicsQueue:submit(submitInfo, nil, self.inFlightFences[1+self.currentFrame].id)
+	assert(self.graphicsQueue:submit(submitInfo, nil, self.inFlightFences[1+self.currentFrame].id))
 
 	-- TODO what's info.pResults vs the results returned from vkQueuePresentKHR ?
 	local presentInfo = self.presentInfo
@@ -618,23 +608,23 @@ function VulkanCommon:updateUniformBuffer()
 	self.modelMat.ptr = ubo.model
 	self.modelMat:setRotate(time * math.rad(90), 0, 0, 1)
 --		:transpose4x4()
---		:inv4x4()
 	self.viewMat.ptr = ubo.view
 	self.viewMat:setLookAt(
 		2,2,2,
 		0,0,0,
 		0,0,1
 	)
---		:transpose4x4()
 --		:inv4x4()
+--		:transpose4x4()
 	self.projMat.ptr = ubo.proj
-	self.projMat:setPerspective(90, ar, .1, 10)
+	self.projMat:setPerspective(45, ar, .1, 10)
+		:applyScale(1,-1)	-- hmm why?
 		:transpose4x4()
 end
 
 function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 	-- TODO per vulkan api, if we just have null info, can we pass null?
-	commandBuffer:begin()
+	assert(commandBuffer:begin())
 
 	vk.vkCmdBeginRenderPass(
 		commandBuffer.id,
@@ -720,7 +710,7 @@ function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 	)
 
 	vk.vkCmdEndRenderPass(commandBuffer.id)
-	commandBuffer:done()
+	assert(commandBuffer:done())
 end
 
 function VulkanCommon:recreateSwapchain()
@@ -728,9 +718,7 @@ function VulkanCommon:recreateSwapchain()
 	if app.width == 0 or app.height == 0 then
 		error "here"
 	end
-
-	self.device.obj:waitIdle()
-
+	assert(self.device.obj:waitIdle())
 	self.swapchain.obj:destroy()
 	self:createSwapchain()
 end
@@ -738,7 +726,7 @@ end
 function VulkanCommon:exit()
 	if self.device then
 		local device_id = self.device.obj.id
-		self.device.obj:waitIdle()
+		assert(self.device.obj:waitIdle())
 
 		if self.imageAvailableSemaphores then
 			for _,semaphore in ipairs(self.imageAvailableSemaphores) do

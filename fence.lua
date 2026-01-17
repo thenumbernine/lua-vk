@@ -5,9 +5,11 @@ local assert = require 'ext.assert'
 local vk = require 'vk'
 local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
+local vkResult = require 'vk.util'.vkResult
 local makeStructCtor = require 'vk.util'.makeStructCtor
 
 
+local uint64_t = ffi.typeof'uint64_t'
 local VkFence = ffi.typeof'VkFence'
 local makeVkFenceCreateInfo = makeStructCtor'VkFenceCreateInfo'
 
@@ -29,6 +31,20 @@ function VKFence:init(args)
 		makeVkFenceCreateInfo(args),
 		nil
 	)
+end
+
+function VKFence:wait()
+	return vkResult(vk.vkWaitForFences(
+		self.device,
+		1,
+		self.idptr,
+		vk.VK_TRUE,
+		ffi.cast(uint64_t, -1)	-- UINT64_MAX
+	), 'vkWaitForFences')
+end
+
+function VKFence:reset()
+	return vkResult(vk.vkResetFences(self.device, 1, self.idptr), 'vkResetFences')
 end
 
 function VKFence:destroy()

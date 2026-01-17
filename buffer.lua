@@ -9,11 +9,13 @@ local assertindex = require 'ext.assert'.index
 local vk = require 'vk'
 local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
+local vkResult = require 'vk.util'.vkResult
 local makeStructCtor = require 'vk.util'.makeStructCtor
 local VKDevice = require 'vk.device'
 
 
 local VkBuffer = ffi.typeof'VkBuffer'
+local VkMemoryRequirements = ffi.typeof'VkMemoryRequirements'
 local makeVkBufferCreateInfo = makeStructCtor'VkBufferCreateInfo'
 
 
@@ -35,14 +37,25 @@ function VKBuffer:init(args)
 	)
 end
 
--- here or memory.lua?
-function VKBuffer:bindMemory(mem)
-	vkassert(
-		vk.vkBindBufferMemory,
+function VKBuffer:getMemReq()
+	return vkGet(
+		VkMemoryRequirements,
+		nil,
+		vk.vkGetBufferMemoryRequirements,
 		self.device,
-		self.id,
-		mem,
-		0
+		self.id
+	)
+end
+
+function VKBuffer:bindMemory(mem)
+	return vkResult(
+		vk.vkBindBufferMemory(
+			self.device,
+			self.id,
+			mem,
+			0
+		),
+		'vkBindBufferMemory'
 	)
 end
 

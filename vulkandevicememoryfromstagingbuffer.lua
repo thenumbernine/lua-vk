@@ -4,14 +4,11 @@ local class = require 'ext.class'
 local vk = require 'vk'
 local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
-local makeStructCtor = require 'vk.util'.makeStructCtor
 local VKBuffer = require 'vk.buffer'
 local VKMemory = require 'vk.memory'
 
 
 local void_ptr = ffi.typeof'void*'
-local VkDeviceMemory = ffi.typeof'VkDeviceMemory'
-local VkMemoryRequirements = ffi.typeof'VkMemoryRequirements'
 
 
 local VulkanDeviceMemoryFromStagingBuffer = class()
@@ -24,14 +21,7 @@ function VulkanDeviceMemoryFromStagingBuffer:create(physDev, device, srcData, bu
 		sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE,
 	}
 
-	local memReq = vkGet(
-		VkMemoryRequirements,
-		nil,
-		vk.vkGetBufferMemoryRequirements,
-		device,
-		buffer.id
-	)
-
+	local memReq = buffer:getMemReq()
 	local memory = VKMemory{
 		device = device,
 		allocationSize = memReq.size,
@@ -44,7 +34,7 @@ function VulkanDeviceMemoryFromStagingBuffer:create(physDev, device, srcData, bu
 		),
 	}
 
-	buffer:bindMemory(memory.id)
+	assert(buffer:bindMemory(memory.id))
 
 	local dstData = vkGet(void_ptr, vkassert, vk.vkMapMemory, device, memory.id, 0, bufferSize, 0)
 	ffi.copy(dstData, srcData, bufferSize)
