@@ -7,7 +7,9 @@ local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
 local vkResult = require 'vk.util'.vkResult
 local makeStructCtor = require 'vk.util'.makeStructCtor
+local VKDevice = require 'vk.device'
 local VKImageView = require 'vk.imageview'
+local VKMemory = require 'vk.memory'
 
 
 local VkImage = ffi.typeof'VkImage'
@@ -20,7 +22,6 @@ local VKImage = class()
 function VKImage:init(args)
 	local device = assert.index(args, 'device')
 	args.device = nil
-	local VKDevice = require 'vk.device'
 	if VKDevice:isa(device) then device = device.id end
 	self.device = device
 
@@ -32,6 +33,22 @@ function VKImage:init(args)
 		makeVkImageCreateInfo(args),
 		nil
 	)
+
+	-- same as VKBuffer
+	if not args.dontMakeMem then
+		local memReq = self:getMemReq()
+		local mem = VKMemory{
+			device = device,
+			allocationSize = memReq.size,
+			memoryTypeIndex = args.physDev:findMemoryType(
+				memReq.memoryTypeBits,
+				args.memProps
+			),
+		}
+		self.memory = mem
+
+		assert(self:bindMemory(mem.id))
+	end
 end
 
 function VKImage:getMemReq()
@@ -63,6 +80,11 @@ function VKImage:makeImageView(args)
 end
 
 function VKImage:destroy()
+	if self.memory then
+		self.memory:destroy()
+	end
+	self.memory = nil
+
 	if self.id then
 		vk.vkDestroyImage(self.device, self.id, nil)
 	end

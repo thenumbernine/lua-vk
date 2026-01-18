@@ -1,5 +1,6 @@
 require 'ext.gc'
 local class = require 'ext.class'
+local assert = require 'ext.assert'
 local table = require 'ext.table'
 local vk = require 'vk'
 local VKImage = require 'vk.image'
@@ -10,6 +11,10 @@ local VKMemory = require 'vk.memory'
 local VulkanDeviceMemoryImage = class()
 
 function VulkanDeviceMemoryImage:makeImage(args)
+	if args.dontMakeView == nil then
+		args.dontMakeView = true
+	end
+
 	local image = VKImage{
 		device = args.device,
 		imageType = vk.VK_IMAGE_TYPE_2D,
@@ -26,27 +31,37 @@ function VulkanDeviceMemoryImage:makeImage(args)
 		usage = args.usage,
 		sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE,
 		initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED,
+		-- memory:
+		physDev = args.physDev,
+		memProps = args.properties,
 	}
 
-	local memReq = image:getMemReq()
-	local imageMemory = VKMemory{
-		device = args.device,
-		allocationSize = memReq.size,
-		memoryTypeIndex = args.physDev:findMemoryType(
-			memReq.memoryTypeBits,
-			args.properties
-		),
-	}
-	assert(image:bindMemory(imageMemory.id))
+	local imageView 
+	if not args.dontMakeView then
+		imageView = image:makeImageView{
+			viewType = vk.VK_IMAGE_VIEW_TYPE_2D,
+			format = args.format,
+			subresourceRange = {
+				aspectMask = assert.index(args, 'aspectMask'),
+				levelCount = args.mipLevels or 1,
+				layerCount = args.layerCount or 1,
+			},
+		}
+	end
 
 	return setmetatable({
 		device = args.device,
 		image = image,
-		imageMemory = imageMemory,
+		imageMemory = image.memory,
+		imageView = imageView,
 	}, VulkanDeviceMemoryImage)
 end
 
 function VulkanDeviceMemoryImage:makeTextureFromStaged(args)
+	if args.dontMakeView == nil then
+		args.dontMakeView = true
+	end
+
 	local stagingBufferAndMemory = VKBuffer{
 		device = args.device,
 		size = args.bufferSize,
@@ -75,6 +90,8 @@ function VulkanDeviceMemoryImage:makeTextureFromStaged(args)
 			vk.VK_IMAGE_USAGE_SAMPLED_BIT
 		),
 		properties = vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		dontMakeView = args.dontMakeView,
+		aspectMask = args.aspectMask,
 	}
 
 	args.queue:transitionImageLayout(
@@ -108,32 +125,13 @@ function VulkanDeviceMemoryImage:makeTextureFromStaged(args)
 end
 
 function VulkanDeviceMemoryImage:makeImageAndView(args)
-	local image = self:makeImage(args)
-	image.imageView = image.image:makeImageView{
-		viewType = vk.VK_IMAGE_VIEW_TYPE_2D,
-		format = args.format,
-		subresourceRange = {
-			aspectMask = args.aspectMask,
-			levelCount = args.mipLevels or 1,
-			layerCount = args.layerCount or 1,
-		},
-	}
-	return image
+	args.dontMakeView = false
+	return self:makeImage(args)
 end
 
 function VulkanDeviceMemoryImage:makeTextureFromStagedAndView(args)
-	local imageAndMemory = self:makeTextureFromStaged(args)
-
-	imageAndMemory.imageView = imageAndMemory.image:makeImageView{
-		viewType = vk.VK_IMAGE_VIEW_TYPE_2D,
-		format = args.format,
-		subresourceRange = {
-			aspectMask = args.aspectMask,
-			levelCount = args.mipLevels or 1,
-			layerCount = args.layerCount or 1,
-		},
-	}
-	return imageAndMemory
+	args.dontMakeView = false
+	return self:makeTextureFromStaged(args)
 end
 
 function VulkanDeviceMemoryImage:textureGenerateMipmap(args)

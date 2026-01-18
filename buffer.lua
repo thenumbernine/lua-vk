@@ -12,6 +12,7 @@ local vkGet = require 'vk.util'.vkGet
 local vkResult = require 'vk.util'.vkResult
 local makeStructCtor = require 'vk.util'.makeStructCtor
 local VKDevice = require 'vk.device'
+local VKMemory = require 'vk.memory'
 
 
 local VkBuffer = ffi.typeof'VkBuffer'
@@ -43,9 +44,8 @@ function VKBuffer:init(args)
 	if not args.dontMakeMem then
 		-- needs args.physDev, args.memProps
 		-- optionally args.data
-		local VKMemory = require 'vk.memory'
 		local memReq = self:getMemReq()
-		local memory = VKMemory{
+		local mem = VKMemory{
 			device = device,
 			-- is this same as args.size?
 			allocationSize = memReq.size,
@@ -54,15 +54,15 @@ function VKBuffer:init(args)
 				args.memProps
 			),
 		}
-		self.memory = memory
+		self.memory = mem
 
-		assert(self:bindMemory(memory.id))
+		assert(self:bindMemory(mem.id))
 	
 		if args.data then
 			local size = args.size
-			local dstData = memory:map(size)
+			local dstData = mem:map(size)
 			ffi.copy(dstData, args.data, size)
-			memory:unmap()
+			mem:unmap()
 		end
 	end
 end
@@ -99,6 +99,43 @@ function VKBuffer:destroy()
 		vk.vkDestroyBuffer(self.device, self.id, nil)
 	end
 	self.id = nil
+end
+
+-- helper function
+
+-- static function
+function VKBuffer:makeFromStaged(args)
+	local staging = VKBuffer{
+		device = args.device,
+		size = args.bufferSize,
+		usage = vk.VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		-- memory fields:
+		physDev = args.physDev,
+		memProps = bit.bor(
+			vk.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+			vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+		),
+		data = args.srcData,
+	}
+
+	local buffer = VKBuffer{
+		device = args.device,
+		size = args.bufferSize,
+		usage = args.usage,
+		physDev = args.physDev,
+		memProps = vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+	}
+
+	args.queue:copyBuffer(
+		args.commandPool,
+		staging,
+		buffer,
+		args.bufferSize
+	)
+
+	staging:destroy()
+
+	return buffer
 end
 
 return VKBuffer

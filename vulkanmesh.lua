@@ -8,7 +8,7 @@ local struct = require 'struct'
 local vector = require 'ffi.cpp.vector-lua'
 local ObjLoader = require 'mesh.objloader'
 local vk = require 'vk'
-local VulkanDeviceMemoryBuffer = require 'vk.vulkandevicememorybuffer'
+local VKBuffer = require 'vk.buffer'
 
 
 local VulkanVertex
@@ -45,7 +45,7 @@ function VulkanMesh:init(args)
 		dstv.color:set(1, 1, 1)	-- do our objects have normal properties?  nope, just v vt vn ... why doesn't the demo use normals? does it bake lighting?
 	end
 
-	self.vertexBufferAndMemory = VulkanDeviceMemoryBuffer:makeBufferFromStaged{
+	self.vertexBufferAndMemory = VKBuffer:makeFromStaged{
 		physDev = args.physDev,
 		device = device,
 		commandPool = args.commandPool,
@@ -59,7 +59,7 @@ function VulkanMesh:init(args)
 	}
 
 	self.numIndices = #indices
-	self.indexBufferAndMemory = VulkanDeviceMemoryBuffer:makeBufferFromStaged{
+	self.indexBufferAndMemory = VKBuffer:makeFromStaged{
 		physDev = args.physDev,
 		device = device,
 		commandPool = args.commandPool,
