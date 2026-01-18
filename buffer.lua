@@ -42,18 +42,28 @@ function VKBuffer:init(args)
 	-- always?
 	if not args.dontMakeMem then
 		-- needs args.physDev, args.memProps
+		-- optionally args.data
 		local VKMemory = require 'vk.memory'
 		local memReq = self:getMemReq()
-		self.memory = VKMemory{
+		local memory = VKMemory{
 			device = device,
+			-- is this same as args.size?
 			allocationSize = memReq.size,
 			memoryTypeIndex = args.physDev:findMemoryType(
 				memReq.memoryTypeBits,
 				args.memProps
 			),
 		}
+		self.memory = memory
 
-		assert(self:bindMemory(self.memory.id))
+		assert(self:bindMemory(memory.id))
+	
+		if args.data then
+			local size = args.size
+			local dstData = memory:map(size)
+			ffi.copy(dstData, args.data, size)
+			memory:unmap()
+		end
 	end
 end
 
@@ -80,6 +90,11 @@ function VKBuffer:bindMemory(mem)
 end
 
 function VKBuffer:destroy()
+	if self.memory then
+		self.memory:destroy()
+	end
+	self.memory = nil
+
 	if self.id then
 		vk.vkDestroyBuffer(self.device, self.id, nil)
 	end

@@ -17,16 +17,12 @@ function VulkanDeviceMemoryFromStagingBuffer:create(physDev, device, srcData, bu
 			vk.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
 			vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 		),
+		data = srcData,
 	}
-	local memory = buffer.memory
-
-	local dstData = memory:map(bufferSize)
-	ffi.copy(dstData, srcData, bufferSize)
-	memory:unmap()
 
 	return {
 		buffer = buffer,
-		memory = memory,
+		memory = buffer.memory,
 	}
 end
 
