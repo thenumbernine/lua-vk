@@ -51,18 +51,9 @@ function VulkanDeviceMemoryImage:makeTextureFromStaged(args)
 		dontMakeView = args.dontMakeView,
 	}
 
-	local imageAndMemory = setmetatable({
-		device = args.device,
-		image = image,
-		imageMemory = image.mem,
-		imageView = image.view,
-	}, VulkanDeviceMemoryImage)
-
-
-
 	args.queue:transitionImageLayout(
 		args.commandPool,
-		imageAndMemory.image.id,
+		image.id,
 		vk.VK_IMAGE_LAYOUT_UNDEFINED,
 		vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		args.mipLevels
@@ -71,7 +62,7 @@ function VulkanDeviceMemoryImage:makeTextureFromStaged(args)
 	args.queue:copyBufferToImage(
 		args.commandPool,
 		stagingBufferAndMemory,
-		imageAndMemory.image.id,
+		image.id,
 		args.width,
 		args.height
 	)
@@ -82,12 +73,17 @@ function VulkanDeviceMemoryImage:makeTextureFromStaged(args)
 	-- Vulkan is such a mess ...
 	if args.generateMipmap then
 		self:textureGenerateMipmap(
-			table(args, {image = imageAndMemory.image.id})
+			table(args, {image = image.id})
 			:setmetatable(nil)
 		)
 	end
 
-	return imageAndMemory
+	return setmetatable({
+		device = args.device,
+		image = image,
+		imageMemory = image.mem,
+		imageView = image.view,
+	}, VulkanDeviceMemoryImage)
 end
 
 function VulkanDeviceMemoryImage:makeTextureFromStagedAndView(args)
