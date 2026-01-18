@@ -172,7 +172,7 @@ function VulkanSwapchain:init(args)
 	}
 
 	local colorFormat = surfaceFormat.format
-	self.colorImageAndMemory, self.colorImageView = VulkanDeviceMemoryImage:makeImageAndView{
+	self.colorImageAndMemory = VulkanDeviceMemoryImage:makeImageAndView{
 		physDev = physDev,
 		device = device,
 		width = width,
@@ -188,7 +188,7 @@ function VulkanSwapchain:init(args)
 	}
 
 	local depthFormat = physDev:findDepthFormat()
-	self.depthImageAndMemory, self.depthImageView= VulkanDeviceMemoryImage:makeImageAndView{
+	self.depthImageAndMemory = VulkanDeviceMemoryImage:makeImageAndView{
 		physDev = physDev,
 		device = device,
 		width = width,
@@ -208,8 +208,8 @@ function VulkanSwapchain:init(args)
 			device = device,
 			renderPass = self.renderPass.id,
 			attachments = {
-				self.colorImageView.id,
-				self.depthImageView.id,
+				self.colorImageAndMemory.imageView.id,
+				self.depthImageAndMemory.imageView.id,
 				imageView.id,
 			},
 			width = width,
@@ -239,18 +239,11 @@ function VulkanSwapchain:destroy()
 	end
 	self.renderPass = nil
 
-	if self.colorImageView then
-		self.colorImageView:destroy()
-	end
-	self.colorImageView = nil
 	if self.colorImageAndMemory then
 		self.colorImageAndMemory:destroy()
 	end
 	self.colorImageAndMemory = nil
 	
-	if self.depthImageView then
-		self.depthImageView:destroy()
-	end
 	if self.depthImageAndMemory then
 		self.depthImageAndMemory:destroy()
 	end

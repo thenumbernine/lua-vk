@@ -47,7 +47,7 @@ end
 
 function VulkanDeviceMemoryImage:makeImageAndView(args)
 	local image = self:makeImage(args)
-	local imageView = image.image:makeImageView{
+	image.imageView = image.image:makeImageView{
 		viewType = vk.VK_IMAGE_VIEW_TYPE_2D,
 		format = args.format,
 		subresourceRange = {
@@ -56,7 +56,7 @@ function VulkanDeviceMemoryImage:makeImageAndView(args)
 			layerCount = args.layerCount or 1,
 		},
 	}
-	return image, imageView
+	return image
 end
 
 function VulkanDeviceMemoryImage:makeTextureFromStaged(args)
@@ -105,6 +105,11 @@ function VulkanDeviceMemoryImage:makeTextureFromStaged(args)
 end
 
 function VulkanDeviceMemoryImage:destroy()
+	if self.imageView then
+		self.imageView:destroy()
+	end
+	self.imageView = nil
+	
 	if self.imageMemory then
 		self.imageMemory:destroy()
 	end

@@ -7,6 +7,7 @@ local range = require 'ext.range'
 local timer = require 'ext.timer'
 local struct = require 'struct'
 local matrix_ffi = require 'matrix.ffi'
+local Image = require 'image'
 local vk = require 'vk'
 local makeStructCtor = require 'vk.util'.makeStructCtor
 local VKInstance = require 'vk.instance'
@@ -475,10 +476,9 @@ end
 
 function VulkanCommon:createTextureImage()
 	local texturePath = 'viking_room.png'
-	local Image = require 'image'
 	local image = assert(Image(texturePath))
 	image = image:setChannels(4)
-	assert(image.channels == 4)	-- TODO setChannels
+	assert.eq(image.channels, 4)
 	local bufferSize = image.width * image.height * image.channels
 
 	-- TODO why store in 'self', why not store with 'textureImageAndMemory' and 'textureImageView' all in one place?
