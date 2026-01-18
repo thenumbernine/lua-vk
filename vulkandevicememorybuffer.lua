@@ -6,22 +6,6 @@ local VKBuffer = require 'vk.buffer'
 
 local VulkanDeviceMemoryBuffer = class()
 
-function VulkanDeviceMemoryBuffer:init(args)
-	local device = args.device
-
-	self.device = device
-	self.buffer = VKBuffer{
-		device = device,
-		size = args.size,
-		usage = args.usage,
-		-- memory fields:
-		physDev = args.physDev,
-		memProps = args.memProps,
-	}
-
-	self.memory = self.buffer.memory
-end
-
 function VulkanDeviceMemoryBuffer:makeBufferFromStaged(args)
 	local stagingBufferAndMemory = VKBuffer{
 		device = args.device,
