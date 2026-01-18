@@ -11,7 +11,6 @@ local vk = require 'vk'
 local vkassert = require 'vk.util'.vkassert
 local vkGetVector = require 'vk.util'.vkGetVector
 local makeStructCtor = require 'vk.util'.makeStructCtor
-local makeTableToArray = require 'vk.util'.makeTableToArray
 local VKSurface = require 'vk.surface'
 local VKQueue = require 'vk.queue'
 local VKDebugUtilsMessenger = require 'vk.debugutilsmessenger'
@@ -415,40 +414,6 @@ function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, m
 	)
 end
 
-
-local makeVkWriteDescriptorSetArray = makeTableToArray(
-	'VkWriteDescriptorSet',
-	makeStructCtor(
-		'VkWriteDescriptorSet',
-		--[[
-		what a messed up struct ...
-		"If the descriptor binding identified by dstSet 
-			and dstBinding has a descriptor type of VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK, 
-			then descriptorCount specifies the number of bytes to update."
-		"Otherwise, descriptorCount is one of
-			the number of elements in pImageInfo
-			the number of elements in pBufferInfo
-			the number of elements in pTexelBufferView
-			... or some options related to pNext ...
-		--]]	
-		{
-			{
-				name = 'bufferInfos',
-				type = 'VkDescriptorBufferInfo',
-				ptrname = 'pBufferInfo',
-				countname = 'descriptorCount',
-				-- TODO also set descriptorType = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-			},
-			{
-				name = 'imageInfos',
-				type = 'VkDescriptorImageInfo',
-				ptrname = 'pImageInfo',
-				countname = 'descriptorCount',
-				-- TODO also set descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-			},
-		}
-	)
-)
 function VulkanCommon:createDescriptorSets()
 	local descriptorSets = self.descriptorPool:makeDescSets{
 		setLayouts = range(self.maxFramesInFlight):mapi(function(i)
@@ -457,11 +422,10 @@ function VulkanCommon:createDescriptorSets()
 	}
 
 	for i=0,self.maxFramesInFlight-1 do
-		local descriptorWrites, numDescriptorWrites = makeVkWriteDescriptorSetArray{
+		self.device.obj:updateDescSets{
 			{
 				dstSet = descriptorSets.idptr[i],
 				dstBinding = 0,
-				descriptorType = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 				bufferInfos = {
 					{
 						buffer = assert(self.uniformBuffers[i+1].bm.buffer.id),
@@ -472,7 +436,6 @@ function VulkanCommon:createDescriptorSets()
 			{
 				dstSet = descriptorSets.idptr[i],
 				dstBinding = 1,
-				descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 				imageInfos = {
 					{
 						sampler = self.textureSampler.id,
@@ -482,13 +445,6 @@ function VulkanCommon:createDescriptorSets()
 				},
 			}
 		}
-		vk.vkUpdateDescriptorSets(
-			self.device.obj.id,
-			numDescriptorWrites,
-			descriptorWrites,
-			0,
-			nil
-		)
 	end
 
 	return descriptorSets

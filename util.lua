@@ -96,7 +96,7 @@ local function makeTableToArray(ctype, gen)
 		for i=0,count-1 do
 			arr[i] = gen(v[i+1])
 		end
-		return arr, count
+		return count, arr
 	end
 end
 
@@ -104,6 +104,11 @@ end
 automatically set .sType based on the struct ctype name
 
 also replace any tables keys with p / Count
+
+replaceTableFields has:
+	name = field name
+	... etc
+
 --]]
 local function makeStructCtor(
 	createType,
@@ -154,20 +159,17 @@ local function makeStructCtor(
 						local fieldType = info.type
 						local tp = type(v)
 						if tp == 'table' then
-							-- convert to array
-							local arr, count = info.tableToArray(v)
-							args[fieldName] = nil
-							args[info.ptrname] = arr
-							args[info.countname] = count
+							args[fieldName], args[info.countname], args[info.ptrname] = nil, info.tableToArray(v)
 						elseif tp == 'cdata' 
-						and ffi.typeof(v) == ffi.typeof('$[?]', fieldType)
+						and ffi.typeof(v) == info.arrayType
 						then
-							args[fieldName] = nil
-							args[info.ptrname] = v
-							args[info.countname] = countof(v)
+							args[fieldName], args[info.countname], args[info.ptrname] = nil, countof(v), v
 						else
 							error('idk how to handle type '..tp)
 						end
+					end
+					if info.also then
+						info.also(args)
 					end
 				end
 			end
