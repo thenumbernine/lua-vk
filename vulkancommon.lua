@@ -11,6 +11,7 @@ local vk = require 'vk'
 local vkassert = require 'vk.util'.vkassert
 local vkGetVector = require 'vk.util'.vkGetVector
 local makeStructCtor = require 'vk.util'.makeStructCtor
+local makeTableToArray = require 'vk.util'.makeTableToArray
 local VKSurface = require 'vk.surface'
 local VKQueue = require 'vk.queue'
 local VKDebugUtilsMessenger = require 'vk.debugutilsmessenger'
@@ -18,7 +19,6 @@ local VKSampler = require 'vk.sampler'
 local VKDescriptorPool = require 'vk.descriptorpool'
 local VKSemaphore = require 'vk.semaphore'
 local VKFence = require 'vk.fence'
-require 'ffi.req' 'c.string'	-- debug: strcmp
 require 'ffi.req' 'c.stdio'		-- debug: fprintf(stderr, ...)
 
 
@@ -36,13 +36,8 @@ local VulkanMesh = require 'vk.vulkanmesh'
 local float = ffi.typeof'float'
 local uint32_t_1 = ffi.typeof'uint32_t[1]'
 local uint64_t = ffi.typeof'uint64_t'
-local VkDescriptorBufferInfo = ffi.typeof'VkDescriptorBufferInfo'
-local VkDescriptorImageInfo = ffi.typeof'VkDescriptorImageInfo'
 local VkLayerProperties = ffi.typeof'VkLayerProperties'
-local VkWriteDescriptorSet_array = ffi.typeof'VkWriteDescriptorSet[?]'
 
-
-local makeVkWriteDescriptorSet = makeStructCtor'VkWriteDescriptorSet'
 
 local makeVkAcquireNextImageInfoKHR = makeStructCtor'VkAcquireNextImageInfoKHR'
 
@@ -254,9 +249,7 @@ function VulkanCommon:checkValidationLayerSupport()
 	local availableLayers = vkGetVector(VkLayerProperties, vkassert, vk.vkEnumerateInstanceLayerProperties)
 	local layerName = validationLayerNames[1]
 	for i=0,#availableLayers-1 do
-		local layerProperties = availableLayers.v + i
-		-- hmm, why does vulkan hpp use array<char> instead of string?
-		if 0 == ffi.C.strcmp(layerName, layerProperties.layerName) then
+		if layerName == ffi.string(availableLayers.v[i].layerName) then
 			return true
 		end
 	end
@@ -422,6 +415,40 @@ function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, m
 	)
 end
 
+
+local makeVkWriteDescriptorSetArray = makeTableToArray(
+	'VkWriteDescriptorSet',
+	makeStructCtor(
+		'VkWriteDescriptorSet',
+		--[[
+		what a messed up struct ...
+		"If the descriptor binding identified by dstSet 
+			and dstBinding has a descriptor type of VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK, 
+			then descriptorCount specifies the number of bytes to update."
+		"Otherwise, descriptorCount is one of
+			the number of elements in pImageInfo
+			the number of elements in pBufferInfo
+			the number of elements in pTexelBufferView
+			... or some options related to pNext ...
+		--]]	
+		{
+			{
+				name = 'bufferInfos',
+				type = 'VkDescriptorBufferInfo',
+				ptrname = 'pBufferInfo',
+				countname = 'descriptorCount',
+				-- TODO also set descriptorType = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			},
+			{
+				name = 'imageInfos',
+				type = 'VkDescriptorImageInfo',
+				ptrname = 'pImageInfo',
+				countname = 'descriptorCount',
+				-- TODO also set descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			},
+		}
+	)
+)
 function VulkanCommon:createDescriptorSets()
 	local descriptorSets = self.descriptorPool:makeDescSets{
 		setLayouts = range(self.maxFramesInFlight):mapi(function(i)
@@ -430,33 +457,33 @@ function VulkanCommon:createDescriptorSets()
 	}
 
 	for i=0,self.maxFramesInFlight-1 do
-		local numDescriptorWrites = 2
-		local descriptorWrites = VkWriteDescriptorSet_array(numDescriptorWrites, {
-			makeVkWriteDescriptorSet{
+		local descriptorWrites, numDescriptorWrites = makeVkWriteDescriptorSetArray{
+			{
 				dstSet = descriptorSets.idptr[i],
 				dstBinding = 0,
 				descriptorType = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-				descriptorCount = 1,
-				pBufferInfo = VkDescriptorBufferInfo{
-					buffer = assert(self.uniformBuffers[i+1].bm.buffer.id),
-					range = ffi.sizeof(UniformBufferObject),
+				bufferInfos = {
+					{
+						buffer = assert(self.uniformBuffers[i+1].bm.buffer.id),
+						range = ffi.sizeof(UniformBufferObject),
+					},
 				},
 			},
-			makeVkWriteDescriptorSet{
+			{
 				dstSet = descriptorSets.idptr[i],
 				dstBinding = 1,
 				descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-				descriptorCount = 1,
-				pImageInfo = VkDescriptorImageInfo{
-					sampler = self.textureSampler.id,
-					imageView = self.textureImageView.id,
-					imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				imageInfos = {
+					{
+						sampler = self.textureSampler.id,
+						imageView = self.textureImageView.id,
+						imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+					},
 				},
 			}
-		})
+		}
 		vk.vkUpdateDescriptorSets(
 			self.device.obj.id,
-			-- TODO use the same array conversion function in makeStructCtor
 			numDescriptorWrites,
 			descriptorWrites,
 			0,

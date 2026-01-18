@@ -86,6 +86,20 @@ end
 
 local function ident(...) return ... end
 
+local function makeTableToArray(ctype, gen)
+	ctype = ffi.typeof(ctype)
+	local arrayType = ffi.typeof('$[?]', ctype)
+	gen = gen or ident
+	return function(v)
+		local count = #v
+		local arr = arrayType(count)
+		for i=0,count-1 do
+			arr[i] = gen(v[i+1])
+		end
+		return arr, count
+	end
+end
+
 --[[
 automatically set .sType based on the struct ctype name
 
@@ -117,6 +131,7 @@ local function makeStructCtor(
 				info.ptrname = info.ptrname or 'p'..fieldName:sub(1,1):upper()..fieldName:sub(2)
 				info.countname = info.countname or baseName..'Count'
 				info.arrayType = ffi.typeof('$[?]', info.type)
+				info.tableToArray = makeTableToArray(info.type, info.gen)
 			end
 		end
 	end
@@ -139,14 +154,8 @@ local function makeStructCtor(
 						local fieldType = info.type
 						local tp = type(v)
 						if tp == 'table' then
-							local count = #v
-						
 							-- convert to array
-							local arr = info.arrayType(count)
-							for i=0,count-1 do
-								arr[i] = gen(v[i+1])
-							end
-
+							local arr, count = info.tableToArray(v)
 							args[fieldName] = nil
 							args[info.ptrname] = arr
 							args[info.countname] = count
@@ -209,4 +218,5 @@ return {
 	vkGetVector = vkGetVector,
 	addInitFromArgs = addInitFromArgs,
 	makeStructCtor = makeStructCtor,
+	makeTableToArray = makeTableToArray,
 }
