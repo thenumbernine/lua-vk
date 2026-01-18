@@ -1,4 +1,9 @@
---helper
+--[[
+helper
+TODO rename to VKEnv and make this like cl.env
+to just init one device, physdev, etc 
+and then use this for the other vulkan-helper stuff so I don't have to pass around so many different args
+--]]
 local ffi = require 'ffi'
 local assert = require 'ext.assert'
 local class = require 'ext.class'
@@ -9,7 +14,6 @@ local struct = require 'struct'
 local matrix_ffi = require 'matrix.ffi'
 local Image = require 'image'
 local vk = require 'vk'
-local makeStructCtor = require 'vk.util'.makeStructCtor
 local VKInstance = require 'vk.instance'
 local VKSurface = require 'vk.surface'
 local VKPhysDev = require 'vk.physdev'
@@ -26,7 +30,6 @@ local VKSampler = require 'vk.sampler'
 local VKDescriptorPool = require 'vk.descriptorpool'
 local VKSemaphore = require 'vk.semaphore'
 local VKFence = require 'vk.fence'
-require 'ffi.req' 'c.stdio'		-- debug: fprintf(stderr, ...)
 
 
 local VulkanDeviceMemoryImage = require 'vk.vulkandevicememoryimage'
@@ -37,10 +40,6 @@ local VulkanMesh = require 'vk.vulkanmesh'
 local float = ffi.typeof'float'
 local uint32_t_1 = ffi.typeof'uint32_t[1]'
 local uint64_t = ffi.typeof'uint64_t'
-
-
-local makeVkSubmitInfo = VKQueue.makeVkSubmitInfo
-local makeVkPresentInfoKHR = VKQueue.makeVkPresentInfoKHR
 
 
 local UniformBufferObject = struct{
@@ -71,13 +70,34 @@ end
 local VK_API_VERISON_1_0 = VK_MAKE_API_VERSION(0, 1, 0, 0)
 
 
-local VulkanCommon = class()
+local shaderStageFields = table{
+	'vertex',
+	'tessellationControl',
+	'tessellationEvaluation',
+	'geometry',
+	'fragment',
+	'compute',
+}
+local stageForField = {
+	vertex = vk.VK_SHADER_STAGE_VERTEX_BIT,
+	tessellationControl = vk.VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT,
+	tessellationEvaluation = vk.VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT,
+	geometry = vk.VK_SHADER_STAGE_GEOMETRY_BIT,
+	fragment = vk.VK_SHADER_STAGE_FRAGMENT_BIT,
+	compute = vk.VK_SHADER_STAGE_COMPUTE_BIT,
+}
 
-VulkanCommon.enableValidationLayers = true
-VulkanCommon.maxFramesInFlight = 2
+local VKEnv = class()
 
-function VulkanCommon:init(app)
-	self.app = assert(app)
+VKEnv.enableValidationLayers = false
+VKEnv.maxFramesInFlight = 2
+
+function VKEnv:init(args)
+	local app = assert(args.app)
+	self.enableValidationLayers = args.enableValidationLayers 
+	self.maxFramesInFlight = args.maxFramesInFlight
+	self.app = app
+
 	self.framebufferResized = false
 	self.currentFrame = 0
 
@@ -86,17 +106,17 @@ function VulkanCommon:init(app)
 	local enabledLayers = table()
 	do
 		local layerProps = VKInstance:getLayerProps()
-		print'vulkan layers:'
-		for _,layerProp in ipairs(layerProps) do
-			print('',layerProp.layerName, layerProp.description)
-		end
+--DEBUG:print'vulkan layers:'
+--DEBUG:for _,layerProp in ipairs(layerProps) do
+--DEBUG:	print('',layerProp.layerName, layerProp.description)
+--DEBUG:end
 
 		local enabledExtensions = VKInstance:getExts()
 
-		print'vulkan enabledExtensions:'
-		for _,s in ipairs(enabledExtensions) do
-			print('', s)
-		end
+--DEBUG:print'vulkan enabledExtensions:'
+--DEBUG:for _,s in ipairs(enabledExtensions) do
+--DEBUG:	print('', s)
+--DEBUG:end
 
 		if self.enableValidationLayers then
 			for _,layerName in ipairs(validationLayerNames) do
@@ -145,7 +165,7 @@ function VulkanCommon:init(app)
 				pUserData			-- void*
 			) -- returns VkBool32
 				-- this is run on the same thread? or no?
-				ffi.C.fprintf(ffi.C.stderr, "validation layer: %s\n", pCallbackData.pMessage)
+				io.stderr:write("validation layer: ", ffi.string(pCallbackData.pMessage), '\n')
 				return vk.VK_FALSE
 			end,
 		}
@@ -156,14 +176,14 @@ function VulkanCommon:init(app)
 		instance = self.instance,
 	}
 
-	print'devices:'
-	for _,physDev in ipairs(self.instance:getPhysDevs()) do
-		local props = physDev:getProps()
-		print('',
-			ffi.string(props.deviceName)
-			..' type='..tostring(props.deviceType)
-		)
-	end
+--DEBUG:print'devices:'
+--DEBUG:for _,physDev in ipairs(self.instance:getPhysDevs()) do
+--DEBUG:	local props = physDev:getProps()
+--DEBUG:	print('',
+--DEBUG:		ffi.string(props.deviceName)
+--DEBUG:		..' type='..tostring(props.deviceType)
+--DEBUG:	)
+--DEBUG:end
 
 	local deviceExtensions = table{
 		'VK_KHR_swapchain',
@@ -177,7 +197,7 @@ function VulkanCommon:init(app)
 		"failed to find a suitable GPU")
 
 	self.msaaSamples = self.physDev:getMaxUsableSampleCount()
-	print('msaaSamples', self.msaaSamples)
+--DEBUG:print('msaaSamples', self.msaaSamples)
 
 	do
 		local indices = self.physDev:findQueueFamilies(self.surface)
@@ -213,132 +233,151 @@ function VulkanCommon:init(app)
 
 	self:resetSwapchain()
 
-	-- graphics pipeline related:
-	do
-		self.descriptorSetLayout = VKDescriptorSetLayout{
-			device = self.device.id,
-			bindings = {
-				--uboLayoutBinding
-				{
-					binding = 0,
-					descriptorType = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					descriptorCount = 1,
-					stageFlags = vk.VK_SHADER_STAGE_VERTEX_BIT,
-				},
-				--samplerLayoutBinding
-				{
-					binding = 1,
-					descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-					descriptorCount = 1,
-					stageFlags = vk.VK_SHADER_STAGE_FRAGMENT_BIT,
-				},
-			},
-		}
-
-		self.pipelineLayout = VKPipelineLayout{
-			device = self.device.id,
-			setLayouts = {
-				self.descriptorSetLayout,
-			},
-		}
-
-		self.vertexShaderModule = VKShaderModule{
-			device = self.device.id,
-			filename = "shader-vert.spv",
-		}
-
-		self.fragmentShaderModule = VKShaderModule{
-			device = self.device.id,
-			filename = "shader-frag.spv",
-		}
-
-		local VulkanVertex = require 'vk.vulkanmesh'.VulkanVertex
-		self.pipeline = VKPipeline{
-			device = self.device.id,
-			stages = {
-				{
-					stage = vk.VK_SHADER_STAGE_VERTEX_BIT,
-					module = self.vertexShaderModule.id,
-					pName = 'main',	--'vert'	--GLSL uses 'main', but clspv doesn't allow 'main', so ...
-				},
-				{
-					stage = vk.VK_SHADER_STAGE_FRAGMENT_BIT,
-					module = self.fragmentShaderModule.id,
-					pName = 'main',	--'frag'
-				},
-			},
-			vertexInputState = {
-				vertexBindingDescriptions = {
-					VulkanVertex:getBindingDescription()
-				},
-				-- TODO maybe add makeStuctCtor support for vectors?
-				vertexAttributeDescriptions = VulkanVertex:getAttributeDescriptions(),
-			},
-			inputAssemblyState = {
-				topology = vk.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-				primitiveRestartEnable = vk.VK_FALSE,
-			},
-			viewportState = {
-				viewportCount = 1,
-				scissorCount = 1,
-			},
-			rasterizationState = {
-				depthClampEnable = vk.VK_FALSE,
-				rasterizerDiscardEnable = vk.VK_FALSE,
-				polygonMode = vk.VK_POLYGON_MODE_FILL,
-				--cullMode = vk::CullModeFlagBits::eBack,
-				--frontFace = vk::FrontFace::eClockwise,
-				--frontFace = vk::FrontFace::eCounterClockwise,
-				depthBiasEnable = vk.VK_FALSE,
-				lineWidth = 1,
-			},
-			multisampleState = {
-				rasterizationSamples = self.msaaSamples,
-				sampleShadingEnable = vk.VK_FALSE,
-			},
-			depthStencilState = {
-				depthTestEnable = vk.VK_TRUE,
-				depthWriteEnable = vk.VK_TRUE,
-				depthCompareOp = vk.VK_COMPARE_OP_LESS,
-				depthBoundsTestEnable = vk.VK_FALSE,
-				stencilTestEnable = vk.VK_FALSE,
-			},
-			colorBlendState = {
-				logicOpEnable = vk.VK_FALSE,
-				logicOp = vk.VK_LOGIC_OP_COPY,
-				attachments = {
-					{
-						blendEnable = vk.VK_FALSE,
-						colorWriteMask = bit.bor(
-							vk.VK_COLOR_COMPONENT_R_BIT,
-							vk.VK_COLOR_COMPONENT_G_BIT,
-							vk.VK_COLOR_COMPONENT_B_BIT,
-							vk.VK_COLOR_COMPONENT_A_BIT
-						)
-					},
-				},
-				blendConstants = {0,0,0,0},
-			},
-			dynamicState = {
-				dynamicStates = {
-					vk.VK_DYNAMIC_STATE_VIEWPORT,
-					vk.VK_DYNAMIC_STATE_SCISSOR,
-				},
-			},
-			layout = self.pipelineLayout.id,
-			renderPass = self.swapchain.renderPass.id,
-			subpass = 0,
-		}
-	end
-
 	self.commandPool = VKCommandPool{
 		device = self.device,
 		flags = vk.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
 		queueFamilyIndex = assert.index(self.physDev:findQueueFamilies(self.surface), 'graphicsFamily'),
 	}
 
+
+	-- app-specific init:
+	-- graphics pipeline related:
+
+	-- map args.vertex|fragment|geometryCode|File to shaderModules.vertex|fragment|geometry
+	self.shaderModules = {}
+	if args.shaders then
+		for _,k in ipairs(shaderStageFields) do
+			local code = args.shaders[k..'Code']
+			if not code then
+				local fp = args.shaders[k..'File']
+				if fp then
+					code = assert(require 'ext.path'(fp):read())
+				end
+			end
+			if code then
+				self.shaderModules[k] = VKShaderModule{
+					device = self.device.id,
+					code = code,
+				}
+			end
+		end
+	end
+
+	-- TODO can you query this like you could in OpenGL?
+	self.descriptorSetLayout = VKDescriptorSetLayout{
+		device = self.device.id,
+		bindings = {
+			-- must match the "layout(binding=0) uniform UniformBufferObject { ... }" in the vertex shader
+			{
+				binding = 0,
+				descriptorType = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				descriptorCount = 1,
+				stageFlags = vk.VK_SHADER_STAGE_VERTEX_BIT,
+			},
+			-- must match the "layout(binding=1) uniform sampler2D" in the fragment shader
+			{
+				binding = 1,
+				descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				descriptorCount = 1,
+				stageFlags = vk.VK_SHADER_STAGE_FRAGMENT_BIT,
+			},
+		},
+	}
+	self.pipelineLayout = VKPipelineLayout{
+		device = self.device.id,
+		setLayouts = {
+			self.descriptorSetLayout,
+		},
+	}
+
+	local VulkanVertex = VulkanMesh.VulkanVertex
+	self.pipeline = VKPipeline{
+		device = self.device.id,
+		stages = shaderStageFields:mapi(function(field,_,t)
+			local shader = self.shaderModules[field]
+			if not shader then return end
+			return {
+				stage = stageForField[field],
+				module = shader.id,
+				pName = 'main',
+			}, #t+1
+		end),
+		vertexInputState = {
+			-- TODO this describes the buffer bound to the vertex data
+			vertexBindingDescriptions = {
+				{
+					binding = 0,
+					stride = ffi.sizeof(VulkanVertex),
+					inputRate = vk.VK_VERTEX_INPUT_RATE_VERTEX,
+				},
+			},
+			-- TODO this connects the vertex shader input locations
+			--  with the vertex data offsets
+			vertexAttributeDescriptions = {
+				{
+					location = 0,
+					binding = 0,
+					format = vk.VK_FORMAT_R32G32B32_SFLOAT,
+					offset = ffi.offsetof(VulkanVertex, 'pos'),
+				},
+				{
+					location = 1,
+					binding = 0,
+					format = vk.VK_FORMAT_R32G32B32_SFLOAT,
+					offset = ffi.offsetof(VulkanVertex, 'color'),
+				},
+				{
+					location = 2,
+					binding = 0,
+					format = vk.VK_FORMAT_R32G32B32_SFLOAT,
+					offset = ffi.offsetof(VulkanVertex, 'texCoord'),
+				}
+			},
+		},
+		inputAssemblyState = {
+			topology = vk.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+		},
+		viewportState = {
+			viewportCount = 1,
+			scissorCount = 1,
+		},
+		rasterizationState = {
+			polygonMode = vk.VK_POLYGON_MODE_FILL,
+			lineWidth = 1,
+		},
+		multisampleState = {
+			rasterizationSamples = self.msaaSamples,
+		},
+		depthStencilState = {
+			depthTestEnable = vk.VK_TRUE,
+			depthWriteEnable = vk.VK_TRUE,
+			depthCompareOp = vk.VK_COMPARE_OP_LESS,
+		},
+		colorBlendState = {
+			logicOp = vk.VK_LOGIC_OP_COPY,
+			attachments = {
+				{
+					colorWriteMask = bit.bor(
+						vk.VK_COLOR_COMPONENT_R_BIT,
+						vk.VK_COLOR_COMPONENT_G_BIT,
+						vk.VK_COLOR_COMPONENT_B_BIT,
+						vk.VK_COLOR_COMPONENT_A_BIT
+					)
+				},
+			},
+		},
+		dynamicState = {
+			dynamicStates = {
+				vk.VK_DYNAMIC_STATE_VIEWPORT,
+				vk.VK_DYNAMIC_STATE_SCISSOR,
+			},
+		},
+		layout = self.pipelineLayout.id,
+		renderPass = self.swapchain.renderPass.id,
+	}
+
 	do
-		local texturePath = 'viking_room.png'
+		local texturePath = args.tex
 		local image = assert(Image(texturePath))
 		image = image:rgba()
 		assert.eq(image.channels, 4)
@@ -371,34 +410,34 @@ function VulkanCommon:init(app)
 			addressModeW = vk.VK_SAMPLER_ADDRESS_MODE_REPEAT,
 			anisotropyEnable = vk.VK_TRUE,
 			maxAnisotropy = self.physDev:getProps().limits.maxSamplerAnisotropy,
-			compareEnable = vk.VK_FALSE,
 			compareOp = vk.VK_COMPARE_OP_ALWAYS,
-			minLod = 0,
 			maxLod = mipLevels,
 			borderColor = vk.VK_BORDER_COLOR_INT_OPAQUE_BLACK,
-			unnormalizedCoordinates = vk.VK_FALSE,
 		}
 	end
 
+	-- how to handle multiple meshes?
+	-- do you really need one pipeline per mesh?
 	self.mesh = VulkanMesh{
 		physDev = self.physDev,
 		device = self.device,
 		commandPool = self.commandPool,
 		queue = self.graphicsQueue,
+		filename = args.mesh,
 	}
 
 	self.uniformBuffers = range(self.maxFramesInFlight):mapi(function(i)
 		local size = ffi.sizeof(UniformBufferObject)
-		local bm = VulkanDeviceMemoryBuffer(
-			self.physDev,
-			self.device.id,
-			size,
-			vk.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-			bit.bor(
+		local bm = VulkanDeviceMemoryBuffer{
+			physDev = self.physDev,
+			device = self.device.id,
+			size = size,
+			usage = vk.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			properties = bit.bor(
 				vk.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
 				vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-			)
-		)
+			),
+		}
 		return {
 			bm = bm,
 			mapped = bm.memory:map(size),
@@ -435,6 +474,7 @@ function VulkanCommon:init(app)
 					range = ffi.sizeof(UniformBufferObject),
 				},
 			},
+			-- connect the uniform sampler2D with our bound texture
 			{
 				dstSet = descSet.id,
 				dstBinding = 1,
@@ -496,17 +536,19 @@ function VulkanCommon:init(app)
 		maxDepth = 1,
 	}
 	self.scissors = VKCommandBuffer.VkRect2D()
-	self.vertexBuffers = VKCommandBuffer.VkBuffer_array(1, self.mesh.vertexBufferAndMemory.buffer.id)
+	self.vertexBuffers = VKCommandBuffer.VkBuffer_array(1,
+		self.mesh.vertexBufferAndMemory.buffer.id
+	)
 	self.vertexOffsets = VKCommandBuffer.VkDeviceSize_array(1, 0)
-	self.submitInfo = makeVkSubmitInfo{
+	self.submitInfo = VKQueue.makeVkSubmitInfo{
 		waitDstStageMask = vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 	}
-	self.presentInfo = makeVkPresentInfoKHR{
+	self.presentInfo = VKQueue.makeVkPresentInfoKHR{
 		swapchains = {self.swapchain},
 	}
 end
 
-function VulkanCommon:resetSwapchain()
+function VKEnv:resetSwapchain()
 	self.swapchain = VulkanSwapchain{
 		width = self.app.width,
 		height = self.app.height,
@@ -517,7 +559,7 @@ function VulkanCommon:resetSwapchain()
 	}
 end
 
-function VulkanCommon:drawFrame()
+function VKEnv:drawFrame()
 -- right here once all the first set of frames are exhausted, this stalls indefinitely
 	assert(self.inFlightFences[1+self.currentFrame]:wait())
 
@@ -577,8 +619,8 @@ function VulkanCommon:drawFrame()
 	self.currentFrame = (self.currentFrame + 1) % self.maxFramesInFlight
 end
 
-VulkanCommon.startTime = timer.getTime()
-function VulkanCommon:updateUniformBuffer()
+VKEnv.startTime = timer.getTime()
+function VKEnv:updateUniformBuffer()
 	local app = self.app
 	local currentTime = timer.getTime()
 	local time = currentTime - self.startTime
@@ -605,7 +647,7 @@ function VulkanCommon:updateUniformBuffer()
 		:transpose4x4()
 end
 
-function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
+function VKEnv:recordCommandBuffer(commandBuffer, imageIndex)
 	-- TODO per vulkan api, if we just have null info, can we pass null?
 	assert(commandBuffer:begin(self.cmdBufBeginInfo))
 
@@ -671,7 +713,7 @@ function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 	assert(commandBuffer:done())
 end
 
-function VulkanCommon:recreateSwapchain()
+function VKEnv:recreateSwapchain()
 	local app = self.app
 	if app.width == 0 or app.height == 0 then
 		error "here"
@@ -681,7 +723,7 @@ function VulkanCommon:recreateSwapchain()
 	self:resetSwapchain()
 end
 
-function VulkanCommon:exit()
+function VKEnv:exit()
 	if self.device then
 		assert(self.device:waitIdle())
 	end
@@ -721,6 +763,11 @@ function VulkanCommon:exit()
 	--]]
 	self.descriptorSets = nil
 
+	if self.textureSampler then
+		self.textureSampler:destroy()
+	end
+	self.textureSampler = nil
+
 	if self.textureImageAndMemory then
 		self.textureImageAndMemory:destroy()
 	end
@@ -743,11 +790,6 @@ function VulkanCommon:exit()
 	end
 	self.mesh = nil
 
-	if self.textureSampler then
-		self.textureSampler:destroy()
-	end
-	self.textureSampler = nil
-
 	if self.commandPool then
 		self.commandPool:destroy()
 	end
@@ -763,16 +805,13 @@ function VulkanCommon:exit()
 		self.pipelineLayout:destroy()
 	end
 	self.pipelineLayout = nil
-	
-	if self.vertexShaderModule then
-		self.vertexShaderModule:destroy()
+
+	if self.shaderModules then
+		for _,shader in pairs(self.shaderModules) do
+			shader:destroy()
+		end
 	end
-	self.vertexShaderModule = nil
-	
-	if self.fragmentShaderModule then
-		self.fragmentShaderModule:destroy()
-	end
-	self.fragmentShaderModule = nil
+	self.shaderModules = nil
 
 	if self.pipeline then
 		self.pipeline:destroy()
@@ -806,4 +845,4 @@ function VulkanCommon:exit()
 	self.instance = nil
 end
 
-return VulkanCommon
+return VKEnv

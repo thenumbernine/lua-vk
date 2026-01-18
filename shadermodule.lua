@@ -12,8 +12,23 @@ local makeStructCtor = require 'vk.util'.makeStructCtor
 local uint32_t_ptr = ffi.typeof'uint32_t*'
 local VkShaderModule = ffi.typeof'VkShaderModule'
 
--- TODO convert .code into .codeSize and .pCode ?
-local makeVkShaderModuleCreateInfo = makeStructCtor'VkShaderModuleCreateInfo'
+local makeVkShaderModuleCreateInfo = makeStructCtor(
+	'VkShaderModuleCreateInfo',
+	{
+		{
+			name = 'code',
+			-- TODO just replace all this with 'write(args, v)' to write two fields.
+			notarray = true,
+			ptrname = 'pCode',
+			gen = function(v)
+				return ffi.cast(uint32_t_ptr, v)
+			end,
+			also = function(args, v)
+				args.codeSize = #v
+			end,
+		},
+	}
+)
 
 
 local VKShaderModule = class()
@@ -38,8 +53,7 @@ function VKShaderModule:init(args)
 		vk.vkCreateShaderModule,
 		self.device,
 		makeVkShaderModuleCreateInfo{
-			codeSize = #code,
-			pCode = ffi.cast(uint32_t_ptr, code),
+			code = code,
 		},
 		nil
 	)

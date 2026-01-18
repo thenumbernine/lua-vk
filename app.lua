@@ -1,6 +1,5 @@
 local sdl = require 'sdl'
-local VulkanCommon = require 'vk.vulkancommon'
-
+local VKEnv = require 'vk.env'
 local SDLApp = require 'sdl.app'
 
 -- TODO move view and orbit out of glapp ... but to where ...
@@ -8,7 +7,8 @@ local SDLApp = require 'sdl.app'
 -- TODO should glapp.view always :subclass() for you? like glapp.orbit and imgui.withorbit already do?
 local VulkanApp = require 'glapp.view'.apply(SDLApp):subclass()
 
-VulkanApp.title = 'Vulkan test'
+VulkanApp.title = 'Vulkan App'
+
 VulkanApp.sdlCreateWindowFlags = bit.bor(
 	VulkanApp.sdlCreateWindowFlags,
 	sdl.SDL_WINDOW_VULKAN
@@ -16,20 +16,26 @@ VulkanApp.sdlCreateWindowFlags = bit.bor(
 
 function VulkanApp:initWindow()
 	VulkanApp.super.initWindow(self)
-	self.vkCommon = VulkanCommon(self)
-print('VulkanApp:initWindow done')
+	self:initVK()
+end
+
+-- default, feel free to override
+function VulkanApp:initVK()
+	self.vkenv = VKEnv{
+		app = self,
+	}
 end
 
 function VulkanApp:update()
-	self.vkCommon:drawFrame()
+	self.vkenv:drawFrame()
 end
 
-function VulkanCommon:resize()
-	self.vkCommon.framebufferResized = true
+function VKEnv:resize()
+	self.vkenv.framebufferResized = true
 end
 
 function VulkanApp:exit()
-	if self.vkCommon then self.vkCommon:exit() end
+	if self.vkenv then self.vkenv:exit() end
 	VulkanApp.super.exit(self)
 end
 

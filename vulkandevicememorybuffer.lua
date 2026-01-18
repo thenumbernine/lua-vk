@@ -8,26 +8,20 @@ local VulkanDeviceMemoryFromStagingBuffer = require 'vk.vulkandevicememoryfromst
 
 local VulkanDeviceMemoryBuffer = class()
 
-function VulkanDeviceMemoryBuffer:init(physDev, device, size, usage, properties)
+function VulkanDeviceMemoryBuffer:init(args)
+	local device = args.device
+
 	self.device = device
 	self.buffer = VKBuffer{
 		device = device,
-		size = size,
-		usage = usage,
-		sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE,
+		size = args.size,
+		usage = args.usage,
+		-- memory fields:
+		physDev = args.physDev,
+		memProps = args.properties,
 	}
 
-	local memReq = self.buffer:getMemReq()
-	self.memory = VKMemory{
-		device = device,
-		allocationSize = memReq.size,
-		memoryTypeIndex = physDev:findMemoryType(
-			memReq.memoryTypeBits,
-			properties
-		),
-	}
-
-	assert(self.buffer:bindMemory(self.memory.id))
+	self.memory = self.buffer.memory
 end
 
 function VulkanDeviceMemoryBuffer:makeBufferFromStaged(args)
@@ -47,13 +41,13 @@ function VulkanDeviceMemoryBuffer:makeBufferFromStaged(args)
 		bufferSize
 	)
 
-	local bufferAndMemory = VulkanDeviceMemoryBuffer(
-		physDev,
-		device,
-		bufferSize,
-		usage,
-		vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-	)
+	local bufferAndMemory = VulkanDeviceMemoryBuffer{
+		physDev = physDev,
+		device = device,
+		size = bufferSize,
+		usage = usage,
+		properties = vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+	}
 
 	queue:copyBuffer(
 		commandPool,

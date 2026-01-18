@@ -24,7 +24,9 @@ local VKBuffer = class()
 function VKBuffer:init(args)
 	local device = assertindex(args, 'device')
 	if VKDevice:isa(device) then device = device.id end
-	
+
+	args.sharingMode = args.sharingMode or vk.VK_SHARING_MODE_EXCLUSIVE
+
 	self.device = device
 
 	self.id = vkGet(
@@ -35,6 +37,24 @@ function VKBuffer:init(args)
 		makeVkBufferCreateInfo(args),
 		nil
 	)
+
+	-- under what circumstances does a VkBuffer need a VkMemory?
+	-- always?
+	if not args.dontMakeMem then
+		-- needs args.physDev, args.memProps
+		local VKMemory = require 'vk.memory'
+		local memReq = self:getMemReq()
+		self.memory = VKMemory{
+			device = device,
+			allocationSize = memReq.size,
+			memoryTypeIndex = args.physDev:findMemoryType(
+				memReq.memoryTypeBits,
+				args.memProps
+			),
+		}
+
+		assert(self:bindMemory(self.memory.id))
+	end
 end
 
 function VKBuffer:getMemReq()

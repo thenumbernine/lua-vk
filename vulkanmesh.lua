@@ -11,8 +11,6 @@ local vk = require 'vk'
 local VulkanDeviceMemoryBuffer = require 'vk.vulkandevicememorybuffer'
 
 
-local VkVertexInputBindingDescription = ffi.typeof'VkVertexInputBindingDescription'
-
 local VulkanVertex
 VulkanVertex = struct{
 	name = 'VulkanVertex',
@@ -21,38 +19,6 @@ VulkanVertex = struct{
 		{name = 'color', type = 'vec3f_t'},
 		{name = 'texCoord', type = 'vec3f_t'},
 	},
-	metatable = function(mt)
-		mt.getBindingDescription = function()
-			return VkVertexInputBindingDescription{
-				binding = 0,
-				stride = ffi.sizeof(VulkanVertex),
-				inputRate = vk.VK_VERTEX_INPUT_RATE_VERTEX,
-			}
-		end
-
-		mt.getAttributeDescriptions = function()
-			return {
-				{
-					location = 0,
-					binding = 0,
-					format = vk.VK_FORMAT_R32G32B32_SFLOAT,
-					offset = ffi.offsetof(VulkanVertex, 'pos'),
-				},
-				{
-					location = 1,
-					binding = 0,
-					format = vk.VK_FORMAT_R32G32B32_SFLOAT,
-					offset = ffi.offsetof(VulkanVertex, 'color'),
-				},
-				{
-					location = 2,
-					binding = 0,
-					format = vk.VK_FORMAT_R32G32B32_SFLOAT,
-					offset = ffi.offsetof(VulkanVertex, 'texCoord'),
-				}
-			}
-		end
-	end,
 }
 
 
@@ -61,8 +27,10 @@ VulkanMesh.VulkanVertex = VulkanVertex
 
 function VulkanMesh:init(args)
 	local device = args.device
+	local VKDevice = require 'vk.device'
+	if VKDevice:isa(device) then device = device.id end
 
-	local mesh = ObjLoader():load"viking_room.obj";
+	local mesh = ObjLoader():load(args.filename)
 
 	local indices = mesh.triIndexes	-- vector'int32_t'
 	asserteq(indices.type, ffi.typeof'int32_t') 	-- well, uint, but whatever
@@ -76,9 +44,6 @@ function VulkanMesh:init(args)
 		dstv.texCoord = srcv.texcoord	-- TODO y-flip?
 		dstv.color:set(1, 1, 1)	-- do our objects have normal properties?  nope, just v vt vn ... why doesn't the demo use normals? does it bake lighting?
 	end
-
-	local VKDevice = require 'vk.device'
-	if VKDevice:isa(device) then device = device.id end
 
 	self.vertexBufferAndMemory = VulkanDeviceMemoryBuffer:makeBufferFromStaged{
 		physDev = args.physDev,

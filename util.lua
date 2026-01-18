@@ -169,7 +169,7 @@ local function makeStructCtor(
 						end
 					end
 					if info.also then
-						info.also(args)
+						info.also(args, v)
 					end
 				end
 			end

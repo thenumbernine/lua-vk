@@ -22,6 +22,24 @@ targets:run(fns:mapi(function(fn) return fn.dst end):unpack())
 --]]
 
 -- [[ app
-local VulkanApp = require 'vk.app'
+local VKEnv = require 'vk.env'
+local VulkanApp = require 'vk.app':subclass()
+VulkanApp.title = 'Vulkan test'
+
+function VulkanApp:initVK()
+	self.vkenv = VKEnv{
+		app = self,
+		enableValidationLayers = true,
+		shaders = {
+			vertexFile = 'shader-vert.spv',
+			fragmentFile = 'shader-frag.spv',
+		},
+		-- TODO shader bindings I guess ... sampler, etc
+		-- TODO mesh geometry stuff too
+		mesh = 'viking_room.obj',
+		tex = 'viking_room.png',
+	}
+end
+
 return VulkanApp():run()
 --]]
