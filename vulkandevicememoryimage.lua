@@ -3,8 +3,8 @@ local class = require 'ext.class'
 local table = require 'ext.table'
 local vk = require 'vk'
 local VKImage = require 'vk.image'
+local VKBuffer = require 'vk.buffer'
 local VKMemory = require 'vk.memory'
-local VulkanDeviceMemoryFromStagingBuffer = require 'vk.vulkandevicememoryfromstagingbuffer'
 
 
 local VulkanDeviceMemoryImage = class()
@@ -47,12 +47,18 @@ function VulkanDeviceMemoryImage:makeImage(args)
 end
 
 function VulkanDeviceMemoryImage:makeTextureFromStaged(args)
-	local stagingBufferAndMemory = VulkanDeviceMemoryFromStagingBuffer:create(
-		args.physDev,
-		args.device,
-		args.srcBuffer,
-		args.bufferSize
-	)
+	local stagingBufferAndMemory = VKBuffer{
+		device = args.device,
+		size = args.bufferSize,
+		usage = vk.VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		-- memory fields:
+		physDev = args.physDev,
+		memProps = bit.bor(
+			vk.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+			vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+		),
+		data = args.srcBuffer,
+	}
 
 	local imageAndMemory = self:makeImage{
 		physDev = args.physDev,
@@ -81,14 +87,13 @@ function VulkanDeviceMemoryImage:makeTextureFromStaged(args)
 
 	args.queue:copyBufferToImage(
 		args.commandPool,
-		stagingBufferAndMemory.buffer,
+		stagingBufferAndMemory,
 		imageAndMemory.image.id,
 		args.width,
 		args.height
 	)
 
-	stagingBufferAndMemory.memory:destroy()
-	stagingBufferAndMemory.buffer:destroy()
+	stagingBufferAndMemory:destroy()
 
 	-- rlly this should go in "makeTextureFromStaged" but I'm keeping it separate ...
 	-- Vulkan is such a mess ...
