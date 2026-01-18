@@ -16,6 +16,16 @@ local makeVkDescriptorSetAllocateInfo = makeStructCtor(
 			countname = 'descriptorSetCount',
 			type = 'VkDescriptorSetLayout',
 		},
+		-- single-arg alternative to setLayouts
+		{
+			name = 'setLayout',
+			ptrname = 'pSetLayouts',
+			type = 'VkDescriptorSetLayout',
+			notarray = true,
+			also = function(args)
+				args.descriptorSetCount = 1
+			end,
+		},
 	}
 )
 

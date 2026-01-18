@@ -54,6 +54,27 @@ local makeVkWriteDescriptorSet = makeStructCtor(
 				args.descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
 			end,
 		},
+		-- single-arg alternatives to above
+		{
+			name = 'bufferInfo',
+			type = 'VkDescriptorBufferInfo',
+			ptrname = 'pBufferInfo',
+			notarray = true,
+			also = function(args)
+				args.descriptorCount = 1
+				args.descriptorType = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
+			end,
+		},
+		{
+			name = 'imageInfo',
+			type = 'VkDescriptorImageInfo',
+			ptrname = 'pImageInfo',
+			notarray = true,
+			also = function(args)
+				args.descriptorCount = 1
+				args.descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+			end,
+		},
 	}
 )
 

@@ -426,22 +426,18 @@ function VulkanCommon:createDescriptorSets()
 			{
 				dstSet = descriptorSets.idptr[i],
 				dstBinding = 0,
-				bufferInfos = {
-					{
-						buffer = assert(self.uniformBuffers[i+1].bm.buffer.id),
-						range = ffi.sizeof(UniformBufferObject),
-					},
+				bufferInfo = {
+					buffer = assert(self.uniformBuffers[i+1].bm.buffer.id),
+					range = ffi.sizeof(UniformBufferObject),
 				},
 			},
 			{
 				dstSet = descriptorSets.idptr[i],
 				dstBinding = 1,
-				imageInfos = {
-					{
-						sampler = self.textureSampler.id,
-						imageView = self.textureImageView.id,
-						imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-					},
+				imageInfo = {
+					sampler = self.textureSampler.id,
+					imageView = self.textureImageView.id,
+					imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				},
 			}
 		}
