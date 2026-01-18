@@ -30,7 +30,15 @@ function VulkanDeviceMemoryBuffer:init(physDev, device, size, usage, properties)
 	assert(self.buffer:bindMemory(self.memory.id))
 end
 
-function VulkanDeviceMemoryBuffer:makeBufferFromStaged(physDev, device, commandPool, srcData, bufferSize, usage)
+function VulkanDeviceMemoryBuffer:makeBufferFromStaged(args)
+	local physDev = args.physDev
+	local device = args.device
+	local commandPool = args.commandPool
+	local queue = args.queue
+	local srcData = args.srcData
+	local bufferSize = args.bufferSize
+	local usage = args.usage
+
 	-- TODO esp this, is a raii ,and should free upon dtor upon scope end
 	local stagingBufferAndMemory = VulkanDeviceMemoryFromStagingBuffer:create(
 		physDev,
@@ -47,7 +55,8 @@ function VulkanDeviceMemoryBuffer:makeBufferFromStaged(physDev, device, commandP
 		vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	)
 
-	commandPool:copyBuffer(
+	queue:copyBuffer(
+		commandPool,
 		stagingBufferAndMemory.buffer,
 		bufferAndMemory.buffer,
 		bufferSize

@@ -71,14 +71,16 @@ function VulkanDeviceMemoryImage:makeTextureFromStaged(args)
 		properties = vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 	}
 
-	args.commandPool:transitionImageLayout(
+	args.queue:transitionImageLayout(
+		args.commandPool,
 		imageAndMemory.image.id,
 		vk.VK_IMAGE_LAYOUT_UNDEFINED,
 		vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		args.mipLevels
 	)
 
-	args.commandPool:copyBufferToImage(
+	args.queue:copyBufferToImage(
+		args.commandPool,
 		stagingBufferAndMemory.buffer,
 		imageAndMemory.image.id,
 		args.width,
@@ -131,8 +133,6 @@ end
 
 function VulkanDeviceMemoryImage:textureGenerateMipmap(args)
 	local physDev = args.physDev
-	local graphicsQueue = args.graphicsQueue
-	local commandPool = args.commandPool
 	local image = args.image
 	local texWidth = args.width
 	local texHeight = args.height
@@ -144,8 +144,8 @@ function VulkanDeviceMemoryImage:textureGenerateMipmap(args)
 		error "texture image format does not support linear blitting!"
 	end
 
-	graphicsQueue:singleTimeCommand(
-		commandPool.obj,
+	args.queue:singleTimeCommand(
+		args.commandPool,
 		function(commandBuffer)
 			local barrier = commandBuffer.makeVkImageMemoryBarrier{
 				srcQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED,

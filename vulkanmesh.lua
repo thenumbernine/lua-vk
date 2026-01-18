@@ -59,7 +59,9 @@ VulkanVertex = struct{
 local VulkanMesh = class()
 VulkanMesh.VulkanVertex = VulkanVertex
 
-function VulkanMesh:init(physDev, device, commandPool)
+function VulkanMesh:init(args)
+	local device = args.device
+
 	local mesh = ObjLoader():load"viking_room.obj";
 
 	local indices = mesh.triIndexes	-- vector'int32_t'
@@ -78,30 +80,32 @@ function VulkanMesh:init(physDev, device, commandPool)
 	local VKDevice = require 'vk.device'
 	if VKDevice:isa(device) then device = device.id end
 
-	self.vertexBufferAndMemory = VulkanDeviceMemoryBuffer:makeBufferFromStaged(
-		physDev,
-		device,
-		commandPool,
-		vertices.v,
-		vertices:getNumBytes(),
-		bit.bor(
+	self.vertexBufferAndMemory = VulkanDeviceMemoryBuffer:makeBufferFromStaged{
+		physDev = args.physDev,
+		device = device,
+		commandPool = args.commandPool,
+		queue = args.queue,
+		srcData = vertices.v,
+		bufferSize = vertices:getNumBytes(),
+		usage = bit.bor(
 			vk.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 			vk.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
-		)
-	)
+		),
+	}
 
 	self.numIndices = #indices
-	self.indexBufferAndMemory = VulkanDeviceMemoryBuffer:makeBufferFromStaged(
-		physDev,
-		device,
-		commandPool,
-		indices.v,
-		indices:getNumBytes(),
-		bit.bor(
+	self.indexBufferAndMemory = VulkanDeviceMemoryBuffer:makeBufferFromStaged{
+		physDev = args.physDev,
+		device = device,
+		commandPool = args.commandPool,
+		queue = args.queue,
+		srcData = indices.v,
+		bufferSize = indices:getNumBytes(),
+		usage = bit.bor(
 			vk.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 			vk.VK_BUFFER_USAGE_INDEX_BUFFER_BIT
-		)
-	)
+		),
+	}
 end
 
 function VulkanMesh:destroy()

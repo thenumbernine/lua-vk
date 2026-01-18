@@ -19,6 +19,7 @@ local VKDescriptorSetLayout = require 'vk.descriptorsetlayout'
 local VKPipelineLayout = require 'vk.pipelinelayout'
 local VKShaderModule = require 'vk.shadermodule'
 local VKPipeline = require 'vk.pipeline'
+local VKCommandPool = require 'vk.commandpool'
 local VKDebugUtilsMessenger = require 'vk.debugutilsmessenger'
 local VKSampler = require 'vk.sampler'
 local VKDescriptorPool = require 'vk.descriptorpool'
@@ -29,7 +30,6 @@ require 'ffi.req' 'c.stdio'		-- debug: fprintf(stderr, ...)
 
 local VulkanDeviceMemoryImage = require 'vk.vulkandevicememoryimage'
 local VulkanSwapchain = require 'vk.vulkanswapchain'
-local VulkanCommandPool = require 'vk.vulkancommandpool'
 local VulkanDeviceMemoryBuffer = require 'vk.vulkandevicememorybuffer'
 local VulkanMesh = require 'vk.vulkanmesh'
 
@@ -334,7 +334,11 @@ function VulkanCommon:init(app)
 		}
 	end
 
-	self.commandPool = VulkanCommandPool(self, self.physDev, self.device, self.surface)
+	self.commandPool = VKCommandPool{
+		device = self.device,
+		flags = vk.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+		queueFamilyIndex = assert.index(self.physDev:findQueueFamilies(self.surface), 'graphicsFamily'),
+	}
 
 	do
 		local texturePath = 'viking_room.png'
@@ -348,6 +352,7 @@ function VulkanCommon:init(app)
 			physDev = self.physDev,
 			device = self.device.id,
 			commandPool = self.commandPool,
+			queue = self.graphicsQueue,
 			srcBuffer = image.buffer,
 			bufferSize = image:getBufferSize(),
 			width = image.width,
@@ -355,8 +360,6 @@ function VulkanCommon:init(app)
 			format = vk.VK_FORMAT_R8G8B8A8_SRGB,
 			mipLevels = mipLevels,
 			generateMipmap = true,
-			-- for generateMipmap:
-			graphicsQueue = self.graphicsQueue,
 			-- VkImageView:
 			aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT,
 		}
@@ -380,7 +383,13 @@ function VulkanCommon:init(app)
 		}
 	end
 
-	self.mesh = VulkanMesh(self.physDev, self.device, self.commandPool)
+	self.mesh = VulkanMesh{
+		physDev = self.physDev,
+		device = self.device,
+		commandPool = self.commandPool,
+		queue = self.graphicsQueue,
+	}
+
 	self.uniformBuffers = range(self.maxFramesInFlight):mapi(function(i)
 		local size = ffi.sizeof(UniformBufferObject)
 		local bm = VulkanDeviceMemoryBuffer(
@@ -442,7 +451,7 @@ function VulkanCommon:init(app)
 	end
 
 	self.commandBuffers = range(self.maxFramesInFlight):mapi(function(i)
-		return self.commandPool.obj:makeCmds{
+		return self.commandPool:makeCmds{
 			level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 		}
 	end)
