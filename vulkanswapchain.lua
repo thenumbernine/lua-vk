@@ -17,7 +17,13 @@ local VkExtent2D = ffi.typeof'VkExtent2D'
 
 local VulkanSwapchain = class()
 
-function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSamples)
+function VulkanSwapchain:init(args)
+	local width = args.width
+	local height = args.height
+	local physDev = args.physDev
+	local device = args.device
+	local surface = args.surface
+	local samples = args.samples
 	self.width = width
 	self.height = height
 
@@ -26,15 +32,31 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 	self.device = device
 
 	local swapChainSupport = physDev:querySwapChainSupport(surface)
-	self.extent = self:chooseSwapExtent(width, height, swapChainSupport.capabilities)
+	
+	if swapChainSupport.capabilities.currentExtent.width ~= -1 then
+		self.extent = VkExtent2D(swapChainSupport.capabilities.currentExtent)
+	else
+		local actualExtent = VkExtent2D(width, height)
+		actualExtent.width = math.clamp(actualExtent.width, swapChainSupport.capabilities.minImageExtent.width, swapChainSupport.capabilities.maxImageExtent.width)
+		actualExtent.height = math.clamp(actualExtent.height, swapChainSupport.capabilities.minImageExtent.height, swapChainSupport.capabilities.maxImageExtent.height)
+		self.extent = actualExtent
+	end
 
 	local imageCount = swapChainSupport.capabilities.minImageCount + 1
 	if swapChainSupport.capabilities.maxImageCount > 0 then
 		imageCount = math.min(imageCount, swapChainSupport.capabilities.maxImageCount)
 	end
 
-	local surfaceFormat = self:chooseSwapSurfaceFormat(swapChainSupport.formats)
-	local presentMode = self:chooseSwapPresentMode(swapChainSupport.presentModes)
+	local availableFormats = swapChainSupport.formats:totable() 
+	local surfaceFormat = select(2, availableFormats:find(nil, function(format)
+		return format.format == vk.VK_FORMAT_B8G8R8A8_SRGB
+		and format.colorSpace == vk.VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
+	end)) or availableFormats[1] 
+
+	local presentMode = select(2, swapChainSupport.presentModes:totable():find(nil, function(presentMode)
+		return presentMode == vk.VK_PRESENT_MODE_MAILBOX_KHR
+	end)) or vk.VK_PRESENT_MODE_FIFO_KHR
+
 
 	local indices = physDev:findQueueFamilies(surface)
 	indices = table.keys{
@@ -60,17 +82,16 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 		queueFamilyIndices = familiesDiffer and indices,
 	}
 
-	self.images = self.obj:getImages()
-
-	local numImageViews = #self.images
-	self.imageViews = range(numImageViews):mapi(function(i)
-		return self:createImageView(
-			device,
-			self.images.v[i-1],
-			surfaceFormat.format,
-			vk.VK_IMAGE_ASPECT_COLOR_BIT,
-			1
-		)
+	self.imageViews = self.obj:getImages():mapi(function(image, i)
+		return image:makeImageView{
+			viewType = vk.VK_IMAGE_VIEW_TYPE_2D,
+			format = surfaceFormat.format,
+			subresourceRange = {
+				aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT,
+				levelCount = 1,
+				layerCount = 1,
+			},
+		}
 	end)
 
 	local swapChainImageFormat = surfaceFormat.format
@@ -79,7 +100,7 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 		attachments = {
 			{	-- colorAttachment
 				format = swapChainImageFormat,
-				samples = msaaSamples,
+				samples = samples,
 				loadOp = vk.VK_ATTACHMENT_LOAD_OP_CLEAR,
 				storeOp = vk.VK_ATTACHMENT_STORE_OP_STORE,
 				stencilLoadOp = vk.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
@@ -89,7 +110,7 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 			},
 			{	-- depthAttachment
 				format = physDev:findDepthFormat(),
-				samples = msaaSamples,
+				samples = samples,
 				loadOp = vk.VK_ATTACHMENT_LOAD_OP_CLEAR,
 				storeOp = vk.VK_ATTACHMENT_STORE_OP_DONT_CARE,
 				stencilLoadOp = vk.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
@@ -150,115 +171,52 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 		},
 	}
 
-
 	local colorFormat = surfaceFormat.format
-	self.colorImageAndMemory = VulkanDeviceMemoryImage:createImage(
-		physDev,
-		device,
-		width,
-		height,
-		1,
-		msaaSamples,
-		colorFormat,
-		vk.VK_IMAGE_TILING_OPTIMAL,
-		bit.bor(vk.VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT, vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT),
-		vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-	)
-	self.colorImageView = self:createImageView(
-		device,
-		self.colorImageAndMemory.image.id,
-		colorFormat,
-		vk.VK_IMAGE_ASPECT_COLOR_BIT,
-		1
-	)
+	self.colorImageAndMemory, self.colorImageView = VulkanDeviceMemoryImage:makeImageAndView{
+		physDev = physDev,
+		device = device,
+		width = width,
+		height = height,
+		mipLevels = 1,
+		samples = samples,
+		format = colorFormat,
+		tiling = vk.VK_IMAGE_TILING_OPTIMAL,
+		usage = bit.bor(vk.VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT, vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT),
+		properties = vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		-- VkImageView:
+		aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT,
+	}
 
 	local depthFormat = physDev:findDepthFormat()
-	self.depthImageAndMemory = VulkanDeviceMemoryImage:createImage(
-		physDev,
-		device,
-		width,
-		height,
-		1,
-		msaaSamples,
-		depthFormat,
-		vk.VK_IMAGE_TILING_OPTIMAL,
-		vk.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-		vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-	)
-	self.depthImageView = self:createImageView(
-		device,
-		self.depthImageAndMemory.image.id,
-		depthFormat,
-		vk.VK_IMAGE_ASPECT_DEPTH_BIT,
-		1
-	)
-
-	self.framebuffers = table()
-	for i=0,numImageViews-1 do
-		local numAttachments = 3
-		self.framebuffers:insert(
-			VKFramebuffer{
-				device = device,
-				renderPass = self.renderPass.id,
-				attachments = {
-					self.colorImageView.id,
-					self.depthImageView.id,
-					self.imageViews[1+i].id,
-				},
-				width = width,
-				height = height,
-				layers = 1,
-			}
-		)
-	end
-end
-
-function VulkanSwapchain:chooseSwapExtent(width, height, capabilities)
-	if capabilities.currentExtent.width ~= -1 then
-		return VkExtent2D(capabilities.currentExtent)
-	else
-		local actualExtent = VkExtent2D(width, height)
-		actualExtent.width = math.clamp(actualExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width)
-		actualExtent.height = math.clamp(actualExtent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height)
-		return actualExtent
-	end
-end
-
-function VulkanSwapchain:chooseSwapSurfaceFormat(availableFormats)
-	for i=0,#availableFormats-1 do
-		local format = availableFormats.v[i]
-		if format.format == vk.VK_FORMAT_B8G8R8A8_SRGB
-		and format.colorSpace == vk.VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
-		then
-			return format
-		end
-	end
-	return availableFormats[0]
-end
-
-function VulkanSwapchain:chooseSwapPresentMode(availablePresentModes)
-	-- return-if-found ... why not just treat this as a set?
-	for i=0,#availablePresentModes-1 do
-		local presentMode = availablePresentModes.v[i]
-		if presentMode == vk.VK_PRESENT_MODE_MAILBOX_KHR then
-			return presentMode
-		end
-	end
-	return vk.VK_PRESENT_MODE_FIFO_KHR
-end
-
-function VulkanSwapchain:createImageView(device, image, format, aspectFlags, mipLevels)
-	return VKImageView{
+	self.depthImageAndMemory, self.depthImageView= VulkanDeviceMemoryImage:makeImageAndView{
+		physDev = physDev,
 		device = device,
-		image = image,
-		viewType = vk.VK_IMAGE_VIEW_TYPE_2D,
-		format = format,
-		subresourceRange = {
-			aspectMask = aspectFlags,
-			levelCount = mipLevels,
-			layerCount = 1,
-		},
+		width = width,
+		height = height,
+		mipLevels = 1,
+		samples = samples,
+		format = depthFormat,
+		tiling = vk.VK_IMAGE_TILING_OPTIMAL,
+		usage = vk.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+		properties = vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		-- VkImageView:
+		aspectMask = vk.VK_IMAGE_ASPECT_DEPTH_BIT,
 	}
+
+	self.framebuffers = self.imageViews:mapi(function(imageView)
+		return VKFramebuffer{
+			device = device,
+			renderPass = self.renderPass.id,
+			attachments = {
+				self.colorImageView.id,
+				self.depthImageView.id,
+				imageView.id,
+			},
+			width = width,
+			height = height,
+			layers = 1,
+		}
+	end)
 end
 
 function VulkanSwapchain:destroy()
@@ -275,8 +233,6 @@ function VulkanSwapchain:destroy()
 		end
 	end
 	self.imageViews = nil
-
-	self.images = nil
 
 	if self.renderPass then
 		self.renderPass:destroy()

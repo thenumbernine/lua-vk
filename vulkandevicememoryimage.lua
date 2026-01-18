@@ -8,100 +8,94 @@ local VulkanDeviceMemoryFromStagingBuffer = require 'vk.vulkandevicememoryfromst
 
 local VulkanDeviceMemoryImage = class()
 
-function VulkanDeviceMemoryImage:createImage(
-	physDev,
-	device,
-	width,
-	height,
-	mipLevels,
-	numSamples,
-	format,
-	tiling,
-	usage,
-	properties
-)
+function VulkanDeviceMemoryImage:makeImage(args)
 	local image = VKImage{
-		device = device,
+		device = args.device,
 		imageType = vk.VK_IMAGE_TYPE_2D,
-		format = format,
+		format = args.format,
 		extent = {
-			width = width,
-			height = height,
+			width = args.width,
+			height = args.height,
 			depth = 1,
 		},
-		mipLevels = mipLevels,
+		mipLevels = args.mipLevels,
 		arrayLayers = 1,
-		samples = numSamples,
-		tiling = tiling,
-		usage = usage,
+		samples = args.samples,
+		tiling = args.tiling,
+		usage = args.usage,
 		sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE,
 		initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED,
 	}
 
 	local memReq = image:getMemReq()
 	local imageMemory = VKMemory{
-		device = device,
+		device = args.device,
 		allocationSize = memReq.size,
-		memoryTypeIndex = physDev:findMemoryType(
+		memoryTypeIndex = args.physDev:findMemoryType(
 			memReq.memoryTypeBits,
-			properties
+			args.properties
 		),
 	}
 	assert(image:bindMemory(imageMemory.id))
 
 	return setmetatable({
-		device = device,
+		device = args.device,
 		image = image,
 		imageMemory = imageMemory,
 	}, VulkanDeviceMemoryImage)
 end
 
-function VulkanDeviceMemoryImage:makeTextureFromStaged(
-	physDev,
-	device,
-	commandPool,
-	srcData,
-	bufferSize,
-	texWidth,
-	texHeight,
-	mipLevels
-)
+function VulkanDeviceMemoryImage:makeImageAndView(args)
+	local image = self:makeImage(args)
+	local imageView = image.image:makeImageView{
+		viewType = vk.VK_IMAGE_VIEW_TYPE_2D,
+		format = args.format,
+		subresourceRange = {
+			aspectMask = args.aspectMask,
+			levelCount = args.mipLevels or 1,
+			layerCount = args.layerCount or 1,
+		},
+	}
+	return image, imageView
+end
+
+function VulkanDeviceMemoryImage:makeTextureFromStaged(args)
 	local stagingBufferAndMemory = VulkanDeviceMemoryFromStagingBuffer:create(
-		physDev,
-		device,
-		srcData,
-		bufferSize
+		args.physDev,
+		args.device,
+		args.srcBuffer,
+		args.bufferSize
 	)
 
-	local imageAndMemory = self:createImage(
-		physDev,
-		device,
-		texWidth,
-		texHeight,
-		mipLevels,
-		vk.VK_SAMPLE_COUNT_1_BIT,
-		vk.VK_FORMAT_R8G8B8A8_SRGB,
-		vk.VK_IMAGE_TILING_OPTIMAL,
-		bit.bor(
+	local imageAndMemory = self:makeImage{
+		physDev = args.physDev,
+		device = args.device,
+		width = args.width,
+		height = args.height,
+		mipLevels = args.mipLevels,
+		samples = vk.VK_SAMPLE_COUNT_1_BIT,
+		format = vk.VK_FORMAT_R8G8B8A8_SRGB,
+		tiling = vk.VK_IMAGE_TILING_OPTIMAL,
+		usage = bit.bor(
 			vk.VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 			vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT,
 			vk.VK_IMAGE_USAGE_SAMPLED_BIT
 		),
-		vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-	)
+		properties = vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+	}
 
-	commandPool:transitionImageLayout(
+	args.commandPool:transitionImageLayout(
 		imageAndMemory.image.id,
 		vk.VK_IMAGE_LAYOUT_UNDEFINED,
 		vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		mipLevels
+		args.mipLevels
 	)
 
-	commandPool:copyBufferToImage(
+	args.commandPool:copyBufferToImage(
 		stagingBufferAndMemory.buffer,
 		imageAndMemory.image.id,
-		texWidth,
-		texHeight
+		args.width,
+		args.height
 	)
 
 	stagingBufferAndMemory.memory:destroy()

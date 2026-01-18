@@ -7,6 +7,7 @@ local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
 local vkResult = require 'vk.util'.vkResult
 local makeStructCtor = require 'vk.util'.makeStructCtor
+local VKImageView = require 'vk.imageview'
 
 
 local VkImage = ffi.typeof'VkImage'
@@ -53,6 +54,12 @@ function VKImage:bindMemory(mem)
 		),
 		'vkBindImageMemory'
 	)
+end
+
+function VKImage:makeImageView(args)
+	args.device = self.device
+	args.image = self.id
+	return VKImageView(args)
 end
 
 function VKImage:destroy()

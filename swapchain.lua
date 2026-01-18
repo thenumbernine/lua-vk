@@ -49,6 +49,19 @@ function VKSwapchain:getImages()
 		self.device,
 		self.id
 	)
+	-- [[ Lua-ize
+	:totable()
+	:mapi(function(imageID)
+		local VKImage = require 'vk.image'
+		return setmetatable({
+			device = self.device,
+			id = imageID,
+			idptr = ffi.new('VkImage[1]', imageID),
+			-- don't destroy swapchain images
+			destroy = function() end,
+		}, VKImage)
+	end)
+	--]]
 end
 
 function VKSwapchain:destroy()

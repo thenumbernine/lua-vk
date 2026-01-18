@@ -25,7 +25,6 @@ local makeVkRenderPassBeginInfo = makeStructCtor(
 )
 
 
-
 local VKCommandBuffer = class()
 
 function VKCommandBuffer:init(args)

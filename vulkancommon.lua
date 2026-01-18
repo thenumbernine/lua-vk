@@ -14,6 +14,10 @@ local VKSurface = require 'vk.surface'
 local VKPhysDev = require 'vk.physdev'
 local VKDevice = require 'vk.device'
 local VKQueue = require 'vk.queue'
+local VKDescriptorSetLayout = require 'vk.descriptorsetlayout'
+local VKPipelineLayout = require 'vk.pipelinelayout'
+local VKShaderModule = require 'vk.shadermodule'
+local VKPipeline = require 'vk.pipeline'
 local VKDebugUtilsMessenger = require 'vk.debugutilsmessenger'
 local VKSampler = require 'vk.sampler'
 local VKDescriptorPool = require 'vk.descriptorpool'
@@ -24,7 +28,6 @@ require 'ffi.req' 'c.stdio'		-- debug: fprintf(stderr, ...)
 
 local VulkanDeviceMemoryImage = require 'vk.vulkandevicememoryimage'
 local VulkanSwapchain = require 'vk.vulkanswapchain'
-local VulkanGraphicsPipeline = require 'vk.vulkangraphicspipeline'
 local VulkanCommandPool = require 'vk.vulkancommandpool'
 local VulkanDeviceMemoryBuffer = require 'vk.vulkandevicememorybuffer'
 local VulkanMesh = require 'vk.vulkanmesh'
@@ -212,18 +215,136 @@ function VulkanCommon:init(app)
 
 	self:createSwapchain()
 
-	self.graphicsPipeline = VulkanGraphicsPipeline(self.device.id, self.swapchain.renderPass.id, self.msaaSamples)
+	-- graphics pipeline related:
+	do
+		self.descriptorSetLayout = VKDescriptorSetLayout{
+			device = self.device.id,
+			bindings = {
+				--uboLayoutBinding
+				{
+					binding = 0,
+					descriptorType = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+					descriptorCount = 1,
+					stageFlags = vk.VK_SHADER_STAGE_VERTEX_BIT,
+				},
+				--samplerLayoutBinding
+				{
+					binding = 1,
+					descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					descriptorCount = 1,
+					stageFlags = vk.VK_SHADER_STAGE_FRAGMENT_BIT,
+				},
+			},
+		}
+
+		self.pipelineLayout = VKPipelineLayout{
+			device = self.device.id,
+			setLayouts = {
+				self.descriptorSetLayout,
+			},
+		}
+
+		self.vertexShaderModule = VKShaderModule{
+			device = self.device.id,
+			filename = "shader-vert.spv",
+		}
+
+		self.fragmentShaderModule = VKShaderModule{
+			device = self.device.id,
+			filename = "shader-frag.spv",
+		}
+
+		local VulkanVertex = require 'vk.vulkanmesh'.VulkanVertex
+		self.pipeline = VKPipeline{
+			device = self.device.id,
+			stages = {
+				{
+					stage = vk.VK_SHADER_STAGE_VERTEX_BIT,
+					module = self.vertexShaderModule.id,
+					pName = 'main',	--'vert'	--GLSL uses 'main', but clspv doesn't allow 'main', so ...
+				},
+				{
+					stage = vk.VK_SHADER_STAGE_FRAGMENT_BIT,
+					module = self.fragmentShaderModule.id,
+					pName = 'main',	--'frag'
+				},
+			},
+			vertexInputState = {
+				vertexBindingDescriptions = {
+					VulkanVertex:getBindingDescription()
+				},
+				-- TODO maybe add makeStuctCtor support for vectors?
+				vertexAttributeDescriptions = VulkanVertex:getAttributeDescriptions(),
+			},
+			inputAssemblyState = {
+				topology = vk.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+				primitiveRestartEnable = vk.VK_FALSE,
+			},
+			viewportState = {
+				viewportCount = 1,
+				scissorCount = 1,
+			},
+			rasterizationState = {
+				depthClampEnable = vk.VK_FALSE,
+				rasterizerDiscardEnable = vk.VK_FALSE,
+				polygonMode = vk.VK_POLYGON_MODE_FILL,
+				--cullMode = vk::CullModeFlagBits::eBack,
+				--frontFace = vk::FrontFace::eClockwise,
+				--frontFace = vk::FrontFace::eCounterClockwise,
+				depthBiasEnable = vk.VK_FALSE,
+				lineWidth = 1,
+			},
+			multisampleState = {
+				rasterizationSamples = self.msaaSamples,
+				sampleShadingEnable = vk.VK_FALSE,
+			},
+			depthStencilState = {
+				depthTestEnable = vk.VK_TRUE,
+				depthWriteEnable = vk.VK_TRUE,
+				depthCompareOp = vk.VK_COMPARE_OP_LESS,
+				depthBoundsTestEnable = vk.VK_FALSE,
+				stencilTestEnable = vk.VK_FALSE,
+			},
+			colorBlendState = {
+				logicOpEnable = vk.VK_FALSE,
+				logicOp = vk.VK_LOGIC_OP_COPY,
+				attachments = {
+					{
+						blendEnable = vk.VK_FALSE,
+						colorWriteMask = bit.bor(
+							vk.VK_COLOR_COMPONENT_R_BIT,
+							vk.VK_COLOR_COMPONENT_G_BIT,
+							vk.VK_COLOR_COMPONENT_B_BIT,
+							vk.VK_COLOR_COMPONENT_A_BIT
+						)
+					},
+				},
+				blendConstants = {0,0,0,0},
+			},
+			dynamicState = {
+				dynamicStates = {
+					vk.VK_DYNAMIC_STATE_VIEWPORT,
+					vk.VK_DYNAMIC_STATE_SCISSOR,
+				},
+			},
+			layout = self.pipelineLayout.id,
+			renderPass = self.swapchain.renderPass.id,
+			subpass = 0,
+		}
+	end
 
 	self.commandPool = VulkanCommandPool(self, self.physDev, self.device, self.surface)
 
 	self.textureImageAndMemory = self:createTextureImage()
-	self.textureImageView = self.swapchain:createImageView(
-		self.device.id,
-		self.textureImageAndMemory.image.id,
-		vk.VK_FORMAT_R8G8B8A8_SRGB,
-		vk.VK_IMAGE_ASPECT_COLOR_BIT,
-		self.mipLevels
-	)
+	self.textureImageView = self.textureImageAndMemory.image:makeImageView{
+		viewType = vk.VK_IMAGE_VIEW_TYPE_2D,
+		format = vk.VK_FORMAT_R8G8B8A8_SRGB,
+		subresourceRange = {
+			aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT,
+			levelCount = self.mipLevels,
+			layerCount = 1,
+		},
+	}
 
 	self.textureSampler = VKSampler{
 		device = self.device,
@@ -279,7 +400,7 @@ function VulkanCommon:init(app)
 
 	self.descriptorSets = range(self.maxFramesInFlight):mapi(function(i)
 		return self.descriptorPool:makeDescSets{
-			setLayout = self.graphicsPipeline.descriptorSetLayout.id,
+			setLayout = self.descriptorSetLayout.id,
 		}
 	end)
 	for i,descSet in ipairs(self.descriptorSets) do
@@ -342,13 +463,14 @@ end
 
 function VulkanCommon:createSwapchain()
 	local app = self.app
-	self.swapchain = VulkanSwapchain(
-		app.width,
-		app.height,
-		self.physDev,
-		self.device,
-		self.surface,
-		self.msaaSamples)
+	self.swapchain = VulkanSwapchain{
+		width = app.width,
+		height = app.height,
+		physDev = self.physDev,
+		device = self.device,
+		surface = self.surface,
+		samples = self.msaaSamples,
+	}
 end
 
 function VulkanCommon:createTextureImage()
@@ -361,16 +483,16 @@ function VulkanCommon:createTextureImage()
 
 	-- TODO why store in 'self', why not store with 'textureImageAndMemory' and 'textureImageView' all in one place?
 	self.mipLevels = math.floor(math.log(math.max(image.width, image.height), 2)) + 1
-	local textureImageAndMemory = VulkanDeviceMemoryImage:makeTextureFromStaged(
-		self.physDev,
-		self.device.id,
-		self.commandPool,
-		image.buffer,
-		bufferSize,
-		image.width,
-		image.height,
-		self.mipLevels
-	)
+	local textureImageAndMemory = VulkanDeviceMemoryImage:makeTextureFromStaged{
+		physDev = self.physDev,
+		device = self.device.id,
+		commandPool = self.commandPool,
+		srcBuffer = image.buffer,
+		bufferSize = bufferSize,
+		width = image.width,
+		height = image.height,
+		mipLevels = self.mipLevels
+	}
 
 	self:generateMipmaps(
 		textureImageAndMemory.image.id,
@@ -631,7 +753,7 @@ function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 
 	commandBuffer:bindPipeline(
 		vk.VK_PIPELINE_BIND_POINT_GRAPHICS,
-		self.graphicsPipeline.obj.id
+		self.pipeline.id
 	)
 
 	local viewports = commandBuffer.VkViewport()
@@ -663,7 +785,7 @@ function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 
 	commandBuffer:bindDescriptorSets(
 		vk.VK_PIPELINE_BIND_POINT_GRAPHICS,
-		self.graphicsPipeline.pipelineLayout.id,
+		self.pipelineLayout.id,
 		0,
 		1,
 		self.descriptorSets[1+self.currentFrame].idptr,
@@ -770,10 +892,32 @@ function VulkanCommon:exit()
 	end
 	self.commandPool = nil
 
-	if self.graphicsPipeline then
-		self.graphicsPipeline:destroy()
+	-- [[ graphics pipeline related
+	if self.descriptorSetLayout then
+		self.descriptorSetLayout:destroy()
 	end
-	self.graphicsPipeline = nil
+	self.descriptorSetLayout = nil
+
+	if self.pipelineLayout then
+		self.pipelineLayout:destroy()
+	end
+	self.pipelineLayout = nil
+	
+	if self.vertexShaderModule then
+		self.vertexShaderModule:destroy()
+	end
+	self.vertexShaderModule = nil
+	
+	if self.fragmentShaderModule then
+		self.fragmentShaderModule:destroy()
+	end
+	self.fragmentShaderModule = nil
+
+	if self.pipeline then
+		self.pipeline:destroy()
+	end
+	self.pipeline = nil
+	--]]
 
 	if self.swapchain then
 		self.swapchain:destroy()
