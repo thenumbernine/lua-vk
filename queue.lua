@@ -93,9 +93,9 @@ function VKQueue:singleTimeCommand(commandPool, callback)
 		level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 	}
 
-	assert(cmds:begin{
+	assert(cmds:begin(cmds.makeVkCommandBufferBeginInfo{
 		flags = vk.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-	})
+	}))
 
 	callback(cmds)
 
@@ -118,8 +118,8 @@ end
 function VKQueue:transitionImageLayout(commandPool, image, oldLayout, newLayout, mipLevels)
 	self:singleTimeCommand(
 		commandPool,
-		function(commandBuffer)
-			local barrier = commandBuffer.makeVkImageMemoryBarrier{
+		function(cmds)
+			local barrier = cmds.makeVkImageMemoryBarrier{
 				oldLayout = oldLayout,
 				newLayout = newLayout,
 				srcQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED,
@@ -151,7 +151,7 @@ function VKQueue:transitionImageLayout(commandPool, image, oldLayout, newLayout,
 				error "unsupported layout transition!"
 			end
 
-			commandBuffer:pipelineBarrier(
+			cmds:pipelineBarrier(
 				srcStage,       -- srcStageMask
 				dstStage,       -- dstStageMask
 				0,              -- dependencyFlags
@@ -169,12 +169,12 @@ end
 function VKQueue:copyBuffer(commandPool, srcBuffer, dstBuffer, size)
 	self:singleTimeCommand(
 		commandPool,
-		function(commandBuffer)
-			commandBuffer:copyBuffer(
+		function(cmds)
+			cmds:copyBuffer(
 				srcBuffer.id,
 				dstBuffer.id,
 				1,
-				commandBuffer.VkBufferCopy{
+				cmds.VkBufferCopy{
 					size = size,
 				}
 			)
@@ -185,13 +185,13 @@ end
 function VKQueue:copyBufferToImage(commandPool, buffer, image, width, height)
 	self:singleTimeCommand(
 		commandPool,
-		function(commandBuffer)
-			commandBuffer:copyBufferToImage(
+		function(cmds)
+			cmds:copyBufferToImage(
 				buffer.id,
 				image,
 				vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 				1,
-				commandBuffer.VkBufferImageCopy{
+				cmds.VkBufferImageCopy{
 					imageSubresource = {
 						aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT,
 						layerCount = 1,

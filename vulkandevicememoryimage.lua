@@ -146,8 +146,8 @@ function VulkanDeviceMemoryImage:textureGenerateMipmap(args)
 
 	args.queue:singleTimeCommand(
 		args.commandPool,
-		function(commandBuffer)
-			local barrier = commandBuffer.makeVkImageMemoryBarrier{
+		function(cmds)
+			local barrier = cmds.makeVkImageMemoryBarrier{
 				srcQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED,
 				dstQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED,
 				image = image,
@@ -167,7 +167,7 @@ function VulkanDeviceMemoryImage:textureGenerateMipmap(args)
 				barrier.newLayout = vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
 				barrier.srcAccessMask = vk.VK_ACCESS_TRANSFER_WRITE_BIT
 				barrier.dstAccessMask = vk.VK_ACCESS_TRANSFER_READ_BIT
-				commandBuffer:pipelineBarrier(
+				cmds:pipelineBarrier(
 					vk.VK_PIPELINE_STAGE_TRANSFER_BIT,  -- srcStageMask
 					vk.VK_PIPELINE_STAGE_TRANSFER_BIT,	-- dstStageMask
 					0,									-- dependencyFlags
@@ -179,13 +179,13 @@ function VulkanDeviceMemoryImage:textureGenerateMipmap(args)
 					barrier								-- pImageMemoryBarriers
 				)
 
-				commandBuffer:blitImage(
+				cmds:blitImage(
 					image,
 					vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 					image,
 					vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 					1,
-					commandBuffer.VkImageBlit{
+					cmds.VkImageBlit{
 						srcSubresource = {
 							aspectMask = aspectMask,
 							mipLevel = i-1,
@@ -216,7 +216,7 @@ function VulkanDeviceMemoryImage:textureGenerateMipmap(args)
 				barrier.newLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 				barrier.srcAccessMask = vk.VK_ACCESS_TRANSFER_READ_BIT
 				barrier.dstAccessMask = vk.VK_ACCESS_SHADER_READ_BIT
-				commandBuffer:pipelineBarrier(
+				cmds:pipelineBarrier(
 					vk.VK_PIPELINE_STAGE_TRANSFER_BIT,  		-- srcStageMask
 					vk.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,   -- dstStageMask
 					0,											-- dependencyFlags
@@ -238,7 +238,7 @@ function VulkanDeviceMemoryImage:textureGenerateMipmap(args)
 			barrier.srcAccessMask = vk.VK_ACCESS_TRANSFER_WRITE_BIT
 			barrier.dstAccessMask = vk.VK_ACCESS_SHADER_READ_BIT
 
-			commandBuffer:pipelineBarrier(
+			cmds:pipelineBarrier(
 				vk.VK_PIPELINE_STAGE_TRANSFER_BIT,  		-- srcStageMask
 				vk.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,   -- dstStageMask
 				0,											-- dependencyFlags

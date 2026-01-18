@@ -20,6 +20,7 @@ local VKPipelineLayout = require 'vk.pipelinelayout'
 local VKShaderModule = require 'vk.shadermodule'
 local VKPipeline = require 'vk.pipeline'
 local VKCommandPool = require 'vk.commandpool'
+local VKCommandBuffer = require 'vk.commandbuffer'
 local VKDebugUtilsMessenger = require 'vk.debugutilsmessenger'
 local VKSampler = require 'vk.sampler'
 local VKDescriptorPool = require 'vk.descriptorpool'
@@ -37,8 +38,6 @@ local float = ffi.typeof'float'
 local uint32_t_1 = ffi.typeof'uint32_t[1]'
 local uint64_t = ffi.typeof'uint64_t'
 
-
-local makeVkAcquireNextImageInfoKHR = makeStructCtor'VkAcquireNextImageInfoKHR'
 
 local makeVkSubmitInfo = VKQueue.makeVkSubmitInfo
 local makeVkPresentInfoKHR = VKQueue.makeVkPresentInfoKHR
@@ -82,9 +81,7 @@ function VulkanCommon:init(app)
 	self.framebufferResized = false
 	self.currentFrame = 0
 
-	self.modelMat = matrix_ffi({4,4}, float):zeros()
-	self.viewMat = matrix_ffi({4,4}, float):zeros()
-	self.projMat = matrix_ffi({4,4}, float):zeros()
+	self.tmpMat = matrix_ffi({4,4}, float):zeros()
 
 	local enabledLayers = table()
 	do
@@ -477,7 +474,8 @@ function VulkanCommon:init(app)
 
 	-- structs used by drawFrame (so I don't have to realloc)
 	self.imageIndex = uint32_t_1()
-	self.acquireNextImageInfo = makeVkAcquireNextImageInfoKHR()
+	self.acquireNextImageInfo = VKDevice.makeVkAcquireNextImageInfoKHR()
+	self.beginInfo = VKCommandBuffer.makeVkCommandBufferBeginInfo()
 	self.submitInfo = makeVkSubmitInfo{
 		waitDstStageMask = vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 	}
@@ -508,11 +506,7 @@ function VulkanCommon:drawFrame()
 	acquireNextImageInfo.semaphore = self.imageAvailableSemaphores[1+self.currentFrame].id
 	--acquireNextImageInfo.fence = nil
 	acquireNextImageInfo.deviceMask = 1
-	local result = vk.vkAcquireNextImage2KHR(
-		self.device.id,
-		self.acquireNextImageInfo,
-		self.imageIndex
-	)
+	local _, _, result = self.device:acquireNextImage(self.acquireNextImageInfo, self.imageIndex)
 	if result == vk.VK_ERROR_OUT_OF_DATE_KHR then
 		self:recreateSwapchain()
 		return
@@ -533,13 +527,10 @@ function VulkanCommon:drawFrame()
 	)
 
 	local submitInfo = self.submitInfo
-	-- don't use conversion field, just use the pointer
 	submitInfo.waitSemaphoreCount = 1
 	submitInfo.pWaitSemaphores = self.imageAvailableSemaphores[1+self.currentFrame].idptr
-	-- don't use conversion field, just use the pointer
 	submitInfo.commandBufferCount = 1
 	submitInfo.pCommandBuffers = self.commandBuffers[1+self.currentFrame].idptr
-	-- don't use conversion field, just use the pointer
 	submitInfo.signalSemaphoreCount = 1
 	submitInfo.pSignalSemaphores = self.renderFinishedSemaphores[1+self.currentFrame].idptr
 
@@ -547,7 +538,6 @@ function VulkanCommon:drawFrame()
 
 	-- TODO what's info.pResults vs the results returned from vkQueuePresentKHR ?
 	local presentInfo = self.presentInfo
-	-- don't use conversion field, just use the pointer
 	presentInfo.waitSemaphoreCount = 1
 	presentInfo.pWaitSemaphores = self.renderFinishedSemaphores[1+self.currentFrame].idptr
 	presentInfo.pImageIndices = self.imageIndex
@@ -575,26 +565,28 @@ function VulkanCommon:updateUniformBuffer()
 	local ar = tonumber(self.swapchain.extent.width) / tonumber(self.swapchain.extent.height)
 
 	local ubo = ffi.cast(UniformBufferObject_ptr, self.uniformBuffers[self.currentFrame+1].mapped)
-	self.modelMat.ptr = ubo.model
-	self.modelMat:setRotate(time * math.rad(90), 0, 0, 1)
+	-- really if I'm reassigning the underlying ptr then I just need one ...
+	local m = self.tmpMat
+	m.ptr = ubo.model
+	m:setRotate(time * math.rad(90), 0, 0, 1)
 --		:transpose4x4()
-	self.viewMat.ptr = ubo.view
-	self.viewMat:setLookAt(
+	m.ptr = ubo.view
+	m:setLookAt(
 		2,2,2,
 		0,0,0,
 		0,0,1
 	)
 --		:inv4x4()
 --		:transpose4x4()
-	self.projMat.ptr = ubo.proj
-	self.projMat:setPerspective(45, ar, .1, 10)
+	m.ptr = ubo.proj
+	m:setPerspective(45, ar, .1, 10)
 		:applyScale(1,-1)	-- hmm why?
 		:transpose4x4()
 end
 
 function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 	-- TODO per vulkan api, if we just have null info, can we pass null?
-	assert(commandBuffer:begin())
+	assert(commandBuffer:begin(self.beginInfo))
 
 	commandBuffer:beginRenderPass(
 		commandBuffer.makeVkRenderPassBeginInfo{

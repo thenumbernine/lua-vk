@@ -155,6 +155,12 @@ function VKDevice:updateDescSets(...)
 	end
 end
 
+local makeVkAcquireNextImageInfoKHR = makeStructCtor'VkAcquireNextImageInfoKHR'
+VKDevice.makeVkAcquireNextImageInfoKHR = makeVkAcquireNextImageInfoKHR 
+function VKDevice:acquireNextImage(...)
+	return vkResult(vk.vkAcquireNextImage2KHR(self.id, ...), 'vkAcquireNextImage2KHR')
+end
+
 function VKDevice:destroy()
 	if self.id then
 		vk.vkDestroyDevice(self.id, nil)

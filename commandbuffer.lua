@@ -53,28 +53,17 @@ function VKCommandBuffer:init(args)
 end
 
 -- only runs on the first one i.e. .id
-function VKCommandBuffer:begin(args)
-	return vkResult(
-		vk.vkBeginCommandBuffer(
-			self.id,
-			makeVkCommandBufferBeginInfo(args)
-		),
-		'vkBeginCommandBuffer'
-	)
+VKCommandBuffer.makeVkCommandBufferBeginInfo = makeVkCommandBufferBeginInfo
+function VKCommandBuffer:begin(...)
+	return vkResult(vk.vkBeginCommandBuffer(self.id, ...), 'vkBeginCommandBuffer')
 end
 
 function VKCommandBuffer:done()	-- "end"
-	return vkResult(
-		vk.vkEndCommandBuffer(self.id),
-		'vkEndCommandBuffer'
-	)
+	return vkResult(vk.vkEndCommandBuffer(self.id), 'vkEndCommandBuffer')
 end
 
 function VKCommandBuffer:reset()
-	return vkResult(
-		vk.vkResetCommandBuffer(self.id, 0),
-		'vkResetCommandBuffer'
-	)
+	return vkResult(vk.vkResetCommandBuffer(self.id, 0), 'vkResetCommandBuffer')
 end
 
 VKCommandBuffer.makeVkImageMemoryBarrier = makeStructCtor'VkImageMemoryBarrier'
