@@ -75,7 +75,7 @@ function VulkanSwapchain:init(args)
 	}
 
 	self.imageViews = self.obj:getImages():mapi(function(image, i)
-		return image:makeImageView{
+		return image:makeView{
 			viewType = vk.VK_IMAGE_VIEW_TYPE_2D,
 			format = surfaceFormat.format,
 			subresourceRange = {

@@ -58,7 +58,7 @@ function VKImage:init(args)
 	end
 
 	if not args.dontMakeView then
-		self.view = self:makeImageView{
+		self.view = self:makeView{
 			viewType = vk.VK_IMAGE_VIEW_TYPE_2D,
 			format = args.format,
 			subresourceRange = {
@@ -92,7 +92,7 @@ function VKImage:bindMemory(mem)
 	)
 end
 
-function VKImage:makeImageView(args)
+function VKImage:makeView(args)
 	args.device = self.device
 	args.image = self.id
 	return VKImageView(args)

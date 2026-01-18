@@ -10,36 +10,6 @@ local VKMemory = require 'vk.memory'
 
 local VulkanDeviceMemoryImage = class()
 
-function VulkanDeviceMemoryImage:makeImage(args)
-	local image = VKImage{
-		device = args.device,
-		format = args.format,
-		extent = {
-			width = args.width,
-			height = args.height,
-			depth = 1,
-		},
-		mipLevels = args.mipLevels or 1,
-		arrayLayers = 1,
-		samples = args.samples,
-		tiling = args.tiling,
-		usage = args.usage,
-		-- memory:
-		physDev = args.physDev,
-		memProps = args.properties,
-		-- view
-		aspectMask = args.aspectMask,
-		dontMakeView = args.dontMakeView,
-	}
-
-	return setmetatable({
-		device = args.device,
-		image = image,
-		imageMemory = image.mem,
-		imageView = image.view,
-	}, VulkanDeviceMemoryImage)
-end
-
 function VulkanDeviceMemoryImage:makeTextureFromStaged(args)
 	if args.dontMakeView == nil then
 		args.dontMakeView = true
@@ -58,24 +28,37 @@ function VulkanDeviceMemoryImage:makeTextureFromStaged(args)
 		data = args.srcBuffer,
 	}
 
-	local imageAndMemory = self:makeImage{
-		physDev = args.physDev,
+	local image = VKImage{
 		device = args.device,
-		width = args.width,
-		height = args.height,
+		format = args.format,
+		extent = {
+			width = args.width,
+			height = args.height,
+			depth = 1,
+		},
 		mipLevels = args.mipLevels or 1,
 		samples = vk.VK_SAMPLE_COUNT_1_BIT,
-		format = args.format,
-		tiling = vk.VK_IMAGE_TILING_OPTIMAL,
 		usage = bit.bor(
 			vk.VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 			vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT,
 			vk.VK_IMAGE_USAGE_SAMPLED_BIT
-		),
-		properties = vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		dontMakeView = args.dontMakeView,
+		),	
+		-- memory:
+		physDev = args.physDev,
+		memProps = vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		-- view
 		aspectMask = args.aspectMask,
+		dontMakeView = args.dontMakeView,
 	}
+
+	local imageAndMemory = setmetatable({
+		device = args.device,
+		image = image,
+		imageMemory = image.mem,
+		imageView = image.view,
+	}, VulkanDeviceMemoryImage)
+
+
 
 	args.queue:transitionImageLayout(
 		args.commandPool,
@@ -105,11 +88,6 @@ function VulkanDeviceMemoryImage:makeTextureFromStaged(args)
 	end
 
 	return imageAndMemory
-end
-
-function VulkanDeviceMemoryImage:makeImageAndView(args)
-	args.dontMakeView = false
-	return self:makeImage(args)
 end
 
 function VulkanDeviceMemoryImage:makeTextureFromStagedAndView(args)
