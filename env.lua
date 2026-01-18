@@ -385,22 +385,22 @@ function VKEnv:init(args)
 		local mipLevels = math.floor(math.log(math.max(image.width, image.height), 2)) + 1
 		
 		self.texture = VKImage:makeFromStaged{
-			physDev = self.physDev,
 			device = self.device.id,
-			data = image.buffer,
-			size = image:getBufferSize(),
 			extent = {
 				width = image.width,
 				height = image.height,
 			},
 			format = vk.VK_FORMAT_R8G8B8A8_SRGB,
 			mipLevels = mipLevels,
-			commandPool = self.commandPool,
-			queue = self.graphicsQueue,
 			-- VkImageView:
+			physDev = self.physDev,
 			aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT,
 			-- TODO NOTICE setting this to false fails
+			commandPool = self.commandPool,
+			queue = self.graphicsQueue,
 			generateMipmap = true,
+			size = image:getBufferSize(),
+			data = image.buffer,
 			-- is this staging-specific?
 			samples = vk.VK_SAMPLE_COUNT_1_BIT,
 			usage = bit.bor(
