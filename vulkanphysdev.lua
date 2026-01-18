@@ -6,12 +6,12 @@ local vk = require 'vk'
 
 local VulkanPhysicalDevice = class()
 
-function VulkanPhysicalDevice:init(common, deviceExtensions)
-	self.common = common
-	local instance = common.instance
-	local surface = common.surface
+function VulkanPhysicalDevice:init(args)
+	local instance = args.instance
+	local surface = args.surface
+	local deviceExtensions = args.deviceExtensions
 
-	local physDevs = instance.obj:getPhysDevs()
+	local physDevs = instance:getPhysDevs()
 	print'devices:'
 	for _,physDev in ipairs(physDevs) do
 		local props = physDev:getProps()

@@ -26,7 +26,7 @@ local VKSurface = class()
 function VKSurface:init(args)
 	local window = assert.index(args, 'window')
 	local instance = assert.index(args, 'instance')
-	if VKInstance:isa(instance) then instance = assert.index(instance, 'id') end
+	if VKInstance:isa(instance) then instance = instance.id end
 	self.instance = instance
 
 --[[ check() has the responsibility of passing the args to the function, which sdlAssert doesn't do

@@ -8,9 +8,8 @@ local timer = require 'ext.timer'
 local struct = require 'struct'
 local matrix_ffi = require 'matrix.ffi'
 local vk = require 'vk'
-local vkassert = require 'vk.util'.vkassert
-local vkGetVector = require 'vk.util'.vkGetVector
 local makeStructCtor = require 'vk.util'.makeStructCtor
+local VKInstance = require 'vk.instance'
 local VKSurface = require 'vk.surface'
 local VKQueue = require 'vk.queue'
 local VKDebugUtilsMessenger = require 'vk.debugutilsmessenger'
@@ -21,7 +20,6 @@ local VKFence = require 'vk.fence'
 require 'ffi.req' 'c.stdio'		-- debug: fprintf(stderr, ...)
 
 
-local VulkanInstance = require 'vk.vulkaninstance'
 local VulkanPhysicalDevice = require 'vk.vulkanphysdev'
 local VulkanDevice = require 'vk.vulkandevice'
 local VulkanDeviceMemoryImage = require 'vk.vulkandevicememoryimage'
@@ -29,13 +27,11 @@ local VulkanSwapchain = require 'vk.vulkanswapchain'
 local VulkanGraphicsPipeline = require 'vk.vulkangraphicspipeline'
 local VulkanCommandPool = require 'vk.vulkancommandpool'
 local VulkanDeviceMemoryBuffer = require 'vk.vulkandevicememorybuffer'
-local VulkanBufferMemoryAndMapped = require 'vk.vulkanbuffermemoryandmapped'
 local VulkanMesh = require 'vk.vulkanmesh'
 
 local float = ffi.typeof'float'
 local uint32_t_1 = ffi.typeof'uint32_t[1]'
 local uint64_t = ffi.typeof'uint64_t'
-local VkLayerProperties = ffi.typeof'VkLayerProperties'
 
 
 local makeVkAcquireNextImageInfoKHR = makeStructCtor'VkAcquireNextImageInfoKHR'
@@ -61,6 +57,17 @@ local validationLayerNames = {
 	'VK_LAYER_KHRONOS_validation'
 }
 
+
+-- but why not just use bitfields? meh
+local function VK_MAKE_VERSION(major, minor, patch)
+	return bit.bor(bit.lshift(major, 22), bit.lshift(minor, 12), patch)
+end
+local function VK_MAKE_API_VERSION(variant, major, minor, patch)
+	return bit.bor(bit.lshift(variant, 29), bit.lshift(major, 22), bit.lshift(minor, 12), patch)
+end
+local VK_API_VERISON_1_0 = VK_MAKE_API_VERSION(0, 1, 0, 0)
+
+
 local VulkanCommon = class()
 
 VulkanCommon.enableValidationLayers = true
@@ -75,8 +82,44 @@ function VulkanCommon:init(app)
 	self.viewMat = matrix_ffi({4,4}, float):zeros()
 	self.projMat = matrix_ffi({4,4}, float):zeros()
 
-	assert(not self.enableValidationLayers or self:checkValidationLayerSupport(), "validation layers requested, but not available!")
-	self.instance = VulkanInstance(self)
+	do
+		local layerProps = VKInstance:getLayerProps()
+		print'vulkan layers:'
+		for _,layerProp in ipairs(layerProps) do
+			print('',layerProp.layerName, layerProp.description)
+		end
+
+		local enabledLayers = table()
+		local enabledExtensions = VKInstance:getExts()
+
+		print'vulkan enabledExtensions:'
+		for _,s in ipairs(enabledExtensions) do
+			print('', s)
+		end
+
+		if self.enableValidationLayers then
+			for _,layerName in ipairs(validationLayerNames) do
+				if not layerProps:find(nil, function(layerProp) return layerProp.layerName == layerName end) then
+					error("validation layer "..layerName.." requested, but not available!")
+				end
+			end
+
+			enabledExtensions:insert'VK_EXT_debug_utils'
+			enabledLayers:insert'VK_LAYER_KHRONOS_validation'
+		end
+
+		self.instance = VKInstance{
+			applicationInfo = {
+				pApplicationName = app.title,
+				applicationVersion = VK_MAKE_API_VERSION(0, 1, 0, 0),
+				pEngineName = 'no engine',
+				engineVersion = VK_MAKE_API_VERSION(0, 1, 0, 0),
+				apiVersion = VK_API_VERISON_1_0,
+			},
+			enabledLayers = enabledLayers,
+			enabledExtensions = enabledExtensions,
+		}
+	end
 
 	-- debug:
 	if self.enableValidationLayers then
@@ -109,17 +152,21 @@ function VulkanCommon:init(app)
 
 	self.surface = VKSurface{
 		window = app.window,
-		instance = self.instance.obj,
+		instance = self.instance,
 	}
 
 	local deviceExtensions = table{
 		'VK_KHR_swapchain',
 	}
 
-	self.physDev = VulkanPhysicalDevice(self, deviceExtensions)
+	self.physDev = VulkanPhysicalDevice{
+		instance = self.instance,
+		surface = self.surface,
+		deviceExtensions = deviceExtensions,
+	}
 
 	self.msaaSamples = self.physDev:getMaxUsableSampleCount()
-print('msaaSamples', self.msaaSamples)
+	print('msaaSamples', self.msaaSamples)
 
 	do
 		local indices = self.physDev:findQueueFamilies(nil, self.surface)
@@ -185,10 +232,10 @@ print('msaaSamples', self.msaaSamples)
 				vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 			)
 		)
-		return VulkanBufferMemoryAndMapped(
-			bm,
-			bm.memory:map(size)
-		)
+		return {
+			bm = bm,
+			mapped = bm.memory:map(size),
+		}
 	end)
 
 	self.descriptorPool = VKDescriptorPool{
@@ -206,7 +253,32 @@ print('msaaSamples', self.msaaSamples)
 		},
 	}
 
-	self.descriptorSets = self:createDescriptorSets()
+	self.descriptorSets = range(self.maxFramesInFlight):mapi(function(i)
+		return self.descriptorPool:makeDescSets{
+			setLayout = self.graphicsPipeline.descriptorSetLayout.id,
+		}
+	end)
+	for i,descSet in ipairs(self.descriptorSets) do
+		self.device.obj:updateDescSets{
+			{
+				dstSet = descSet.id,
+				dstBinding = 0,
+				bufferInfo = {
+					buffer = assert(self.uniformBuffers[i].bm.buffer.id),
+					range = ffi.sizeof(UniformBufferObject),
+				},
+			},
+			{
+				dstSet = descSet.id,
+				dstBinding = 1,
+				imageInfo = {
+					sampler = self.textureSampler.id,
+					imageView = self.textureImageView.id,
+					imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				},
+			}
+		}
+	end
 
 	self.commandBuffers = range(self.maxFramesInFlight):mapi(function(i)
 		return self.commandPool.obj:makeCmds{
@@ -242,17 +314,6 @@ print('msaaSamples', self.msaaSamples)
 	self.presentInfo = makeVkPresentInfoKHR{
 		swapchains = {self.swapchain},
 	}
-end
-
-function VulkanCommon:checkValidationLayerSupport()
-	local availableLayers = vkGetVector(VkLayerProperties, vkassert, vk.vkEnumerateInstanceLayerProperties)
-	local layerName = validationLayerNames[1]
-	for i=0,#availableLayers-1 do
-		if layerName == ffi.string(availableLayers.v[i].layerName) then
-			return true
-		end
-	end
-	return false
 end
 
 function VulkanCommon:createSwapchain()
@@ -412,38 +473,6 @@ function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, m
 			)
 		end
 	)
-end
-
-function VulkanCommon:createDescriptorSets()
-	local descriptorSets = range(self.maxFramesInFlight):mapi(function(i)
-		return self.descriptorPool:makeDescSets{
-			setLayout = self.graphicsPipeline.descriptorSetLayout.id,
-		}
-	end)
-
-	for i,descSet in ipairs(descriptorSets) do
-		self.device.obj:updateDescSets{
-			{
-				dstSet = descSet.id,
-				dstBinding = 0,
-				bufferInfo = {
-					buffer = assert(self.uniformBuffers[i].bm.buffer.id),
-					range = ffi.sizeof(UniformBufferObject),
-				},
-			},
-			{
-				dstSet = descSet.id,
-				dstBinding = 1,
-				imageInfo = {
-					sampler = self.textureSampler.id,
-					imageView = self.textureImageView.id,
-					imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-				},
-			}
-		}
-	end
-
-	return descriptorSets
 end
 
 function VulkanCommon:setFramebufferResized()
@@ -743,7 +772,7 @@ function VulkanCommon:exit()
 	self.debug = nil
 
 	if self.instance then
-		self.instance.obj:destroy()
+		self.instance:destroy()
 	end
 	self.instance = nil
 end

@@ -16,12 +16,8 @@ local makeVkDebugUtilsMessengerCreateInfoEXT = makeStructCtor'VkDebugUtilsMessen
 local DebugUtilsMesseger = class()
 
 function DebugUtilsMesseger:init(args)
-	-- VulkanInstance:
-	local instanceObj = assert.index(args, 'instance')
+	local instance = assert.index(args, 'instance')
 	args.instance = nil
-	-- VKInstance:
-	local instance = instanceObj.obj
-	-- VkInstance:
 	local instanceID = instance.id
 	self.instance = instanceID
 
