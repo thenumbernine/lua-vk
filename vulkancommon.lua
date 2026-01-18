@@ -415,24 +415,24 @@ function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, m
 end
 
 function VulkanCommon:createDescriptorSets()
-	local descriptorSets = self.descriptorPool:makeDescSets{
-		setLayouts = range(self.maxFramesInFlight):mapi(function(i)
-			return self.graphicsPipeline.descriptorSetLayout.id
-		end),
-	}
+	local descriptorSets = range(self.maxFramesInFlight):mapi(function(i)
+		return self.descriptorPool:makeDescSets{
+			setLayout = self.graphicsPipeline.descriptorSetLayout.id,
+		}
+	end)
 
-	for i=0,self.maxFramesInFlight-1 do
+	for i,descSet in ipairs(descriptorSets) do
 		self.device.obj:updateDescSets{
 			{
-				dstSet = descriptorSets.idptr[i],
+				dstSet = descSet.id,
 				dstBinding = 0,
 				bufferInfo = {
-					buffer = assert(self.uniformBuffers[i+1].bm.buffer.id),
+					buffer = assert(self.uniformBuffers[i].bm.buffer.id),
 					range = ffi.sizeof(UniformBufferObject),
 				},
 			},
 			{
-				dstSet = descriptorSets.idptr[i],
+				dstSet = descSet.id,
 				dstBinding = 1,
 				imageInfo = {
 					sampler = self.textureSampler.id,
@@ -613,7 +613,7 @@ function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 		self.graphicsPipeline.pipelineLayout.id,
 		0,
 		1,
-		self.descriptorSets.idptr + self.currentFrame,
+		self.descriptorSets[1+self.currentFrame].idptr,
 		0,
 		nil
 	)

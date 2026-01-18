@@ -20,7 +20,7 @@ local makeVkDescriptorSetAllocateInfo = makeStructCtor(
 		{
 			name = 'setLayout',
 			ptrname = 'pSetLayouts',
-			type = 'VkDescriptorSetLayout',
+			type = 'VkDescriptorSetLayout[1]',
 			notarray = true,
 			also = function(args)
 				args.descriptorSetCount = 1
@@ -43,8 +43,15 @@ function VKDescriptorSets:init(args)
 
 	self.descriptorPool = args.descriptorPool
 
-	self.count = args.descriptorSetCount
-		or #args.setLayouts
+	if args.descriptorSetCount then
+		self.count = args.descriptorSetCount
+	elseif args.setLayouts then
+		self.count = #args.setLayouts
+	elseif args.setLayout then
+		self.count = 1
+	else
+		error("idk how to count the size of the descriptorSets")
+	end
 
 	-- same as vk.commandbuffers
 	self.idptr = VkDescriptorSet_array(self.count)
