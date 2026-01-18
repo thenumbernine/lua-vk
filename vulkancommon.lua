@@ -805,6 +805,5 @@ function VulkanCommon:exit()
 	end
 	self.instance = nil
 end
---]]
 
 return VulkanCommon
