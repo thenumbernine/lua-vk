@@ -31,9 +31,9 @@ local VKDescriptorPool = require 'vk.descriptorpool'
 local VKSemaphore = require 'vk.semaphore'
 local VKFence = require 'vk.fence'
 local VKBuffer = require 'vk.buffer'
+local VKImage = require 'vk.image'
 
 
-local VulkanDeviceMemoryImage = require 'vk.vulkandevicememoryimage'
 local VulkanSwapchain = require 'vk.vulkanswapchain'
 local VulkanMesh = require 'vk.vulkanmesh'
 
@@ -384,20 +384,30 @@ function VKEnv:init(args)
 		
 		local mipLevels = math.floor(math.log(math.max(image.width, image.height), 2)) + 1
 		
-		self.textureImageAndMemory = VulkanDeviceMemoryImage:makeTextureFromStagedAndView{
+		self.texture = VKImage:makeFromStaged{
 			physDev = self.physDev,
 			device = self.device.id,
-			commandPool = self.commandPool,
-			queue = self.graphicsQueue,
-			srcBuffer = image.buffer,
-			bufferSize = image:getBufferSize(),
-			width = image.width,
-			height = image.height,
+			data = image.buffer,
+			size = image:getBufferSize(),
+			extent = {
+				width = image.width,
+				height = image.height,
+			},
 			format = vk.VK_FORMAT_R8G8B8A8_SRGB,
 			mipLevels = mipLevels,
-			generateMipmap = true,
+			commandPool = self.commandPool,
+			queue = self.graphicsQueue,
 			-- VkImageView:
 			aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT,
+			-- TODO NOTICE setting this to false fails
+			generateMipmap = true,
+			-- is this staging-specific?
+			samples = vk.VK_SAMPLE_COUNT_1_BIT,
+			usage = bit.bor(
+				vk.VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+				vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+				vk.VK_IMAGE_USAGE_SAMPLED_BIT
+			),	
 		}
 
 		self.textureSampler = VKSampler{
@@ -480,7 +490,7 @@ function VKEnv:init(args)
 				dstBinding = 1,
 				imageInfo = {
 					sampler = self.textureSampler.id,
-					imageView = self.textureImageAndMemory.imageView.id,
+					imageView = self.texture.view.id,
 					imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				},
 			}
@@ -768,10 +778,10 @@ function VKEnv:exit()
 	end
 	self.textureSampler = nil
 
-	if self.textureImageAndMemory then
-		self.textureImageAndMemory:destroy()
+	if self.texture then
+		self.texture:destroy()
 	end
-	self.textureImageAndMemory = nil
+	self.texture = nil
 
 	if self.uniformBuffers then
 		for _,ub in ipairs(self.uniformBuffers) do

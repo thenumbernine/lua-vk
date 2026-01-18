@@ -5,7 +5,7 @@ surface is sort of similar, paired with instance, but no createinfo
 require 'ext.gc'	-- make sure luajit can __gc lua-tables
 local ffi = require 'ffi'
 local class = require 'ext.class'
-local assertindex = require 'ext.assert'.index
+local assert = require 'ext.assert'
 local vk = require 'vk'
 local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
@@ -23,7 +23,7 @@ local makeVkBufferCreateInfo = makeStructCtor'VkBufferCreateInfo'
 local VKBuffer = class()
 
 function VKBuffer:init(args)
-	local device = assertindex(args, 'device')
+	local device = assert.index(args, 'device')
 	if VKDevice:isa(device) then device = device.id end
 
 	args.sharingMode = args.sharingMode or vk.VK_SHARING_MODE_EXCLUSIVE
@@ -104,7 +104,7 @@ end
 -- helper function
 
 --[[
-static function
+static
 args used by staging:
 	device
 	physDev
@@ -112,14 +112,15 @@ args used by staging:
 	data
 	queue
 	commandPool
-args overridden:
+args overridden before VKBuffer:init:
 	memProps
+	data
 all others forwarded to VKBuffer:init
 --]]
 function VKBuffer:makeFromStaged(args)
 	local staging = VKBuffer{
 		device = args.device,
-		size = args.size,
+		size = assert.index(args, 'size'),
 		usage = vk.VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 		-- memory fields:
 		physDev = args.physDev,
