@@ -25,7 +25,7 @@ function VulkanApp:update()
 end
 
 function VulkanCommon:resize()
-	self.vkCommon:setFramebufferResized()
+	self.vkCommon.framebufferResized = true
 end
 
 function VulkanApp:exit()

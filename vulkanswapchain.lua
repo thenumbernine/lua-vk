@@ -24,8 +24,6 @@ function VulkanSwapchain:init(args)
 	local device = args.device
 	local surface = args.surface
 	local samples = args.samples
-	self.width = width
-	self.height = height
 
 	local VKDevice = require 'vk.device'
 	if VKDevice:isa(device) then device = device.id end
@@ -47,16 +45,10 @@ function VulkanSwapchain:init(args)
 		imageCount = math.min(imageCount, swapChainSupport.capabilities.maxImageCount)
 	end
 
-	local availableFormats = swapChainSupport.formats:totable() 
-	local surfaceFormat = select(2, availableFormats:find(nil, function(format)
+	local surfaceFormat = select(2, swapChainSupport.formats:totable():find(nil, function(format)
 		return format.format == vk.VK_FORMAT_B8G8R8A8_SRGB
 		and format.colorSpace == vk.VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
-	end)) or availableFormats[1] 
-
-	local presentMode = select(2, swapChainSupport.presentModes:totable():find(nil, function(presentMode)
-		return presentMode == vk.VK_PRESENT_MODE_MAILBOX_KHR
-	end)) or vk.VK_PRESENT_MODE_FIFO_KHR
-
+	end)) or swapChainSupport.formats:begin()
 
 	local indices = physDev:findQueueFamilies(surface)
 	indices = table.keys{
@@ -76,7 +68,9 @@ function VulkanSwapchain:init(args)
 		imageUsage = vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
 		preTransform = swapChainSupport.capabilities.currentTransform,
 		compositeAlpha = vk.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-		presentMode = presentMode,
+		presentMode = select(2, swapChainSupport.presentModes:totable():find(nil, function(presentMode)
+				return presentMode == vk.VK_PRESENT_MODE_MAILBOX_KHR
+			end)) or vk.VK_PRESENT_MODE_FIFO_KHR,
 		clipped = vk.VK_TRUE,
 		imageSharingMode = familiesDiffer and vk.VK_SHARING_MODE_CONCURRENT or vk.VK_SHARING_MODE_EXCLUSIVE,
 		queueFamilyIndices = familiesDiffer and indices,
@@ -171,31 +165,30 @@ function VulkanSwapchain:init(args)
 		},
 	}
 
-	local colorFormat = surfaceFormat.format
 	self.colorImageAndMemory = VulkanDeviceMemoryImage:makeImageAndView{
 		physDev = physDev,
 		device = device,
 		width = width,
 		height = height,
-		mipLevels = 1,
 		samples = samples,
-		format = colorFormat,
+		format = surfaceFormat.format,
 		tiling = vk.VK_IMAGE_TILING_OPTIMAL,
-		usage = bit.bor(vk.VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT, vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT),
+		usage = bit.bor(
+			vk.VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
+			vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+		),
 		properties = vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		-- VkImageView:
 		aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT,
 	}
 
-	local depthFormat = physDev:findDepthFormat()
 	self.depthImageAndMemory = VulkanDeviceMemoryImage:makeImageAndView{
 		physDev = physDev,
 		device = device,
 		width = width,
 		height = height,
-		mipLevels = 1,
 		samples = samples,
-		format = depthFormat,
+		format = physDev:findDepthFormat(),
 		tiling = vk.VK_IMAGE_TILING_OPTIMAL,
 		usage = vk.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
 		properties = vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,

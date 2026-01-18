@@ -214,7 +214,7 @@ function VulkanCommon:init(app)
 		}
 	end
 
-	self:createSwapchain()
+	self:resetSwapchain()
 
 	-- graphics pipeline related:
 	do
@@ -336,34 +336,49 @@ function VulkanCommon:init(app)
 
 	self.commandPool = VulkanCommandPool(self, self.physDev, self.device, self.surface)
 
-	self.textureImageAndMemory = self:createTextureImage()
-	self.textureImageView = self.textureImageAndMemory.image:makeImageView{
-		viewType = vk.VK_IMAGE_VIEW_TYPE_2D,
-		format = vk.VK_FORMAT_R8G8B8A8_SRGB,
-		subresourceRange = {
+	do
+		local texturePath = 'viking_room.png'
+		local image = assert(Image(texturePath))
+		image = image:rgba()
+		assert.eq(image.channels, 4)
+		
+		local mipLevels = math.floor(math.log(math.max(image.width, image.height), 2)) + 1
+		
+		self.textureImageAndMemory = VulkanDeviceMemoryImage:makeTextureFromStagedAndView{
+			physDev = self.physDev,
+			device = self.device.id,
+			commandPool = self.commandPool,
+			srcBuffer = image.buffer,
+			bufferSize = image:getBufferSize(),
+			width = image.width,
+			height = image.height,
+			format = vk.VK_FORMAT_R8G8B8A8_SRGB,
+			mipLevels = mipLevels,
+			generateMipmap = true,
+			-- for generateMipmap:
+			graphicsQueue = self.graphicsQueue,
+			-- VkImageView:
 			aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT,
-			levelCount = self.mipLevels,
-			layerCount = 1,
-		},
-	}
+		}
 
-	self.textureSampler = VKSampler{
-		device = self.device,
-		magFilter = vk.VK_FILTER_LINEAR,
-		minFilter = vk.VK_FILTER_LINEAR,
-		mipmapMode = vk.VK_SAMPLER_MIPMAP_MODE_LINEAR,
-		addressModeU = vk.VK_SAMPLER_ADDRESS_MODE_REPEAT,
-		addressModeV = vk.VK_SAMPLER_ADDRESS_MODE_REPEAT,
-		addressModeW = vk.VK_SAMPLER_ADDRESS_MODE_REPEAT,
-		anisotropyEnable = vk.VK_TRUE,
-		maxAnisotropy = self.physDev:getProps().limits.maxSamplerAnisotropy,
-		compareEnable = vk.VK_FALSE,
-		compareOp = vk.VK_COMPARE_OP_ALWAYS,
-		minLod = 0,
-		maxLod = self.mipLevels,
-		borderColor = vk.VK_BORDER_COLOR_INT_OPAQUE_BLACK,
-		unnormalizedCoordinates = vk.VK_FALSE,
-	}
+		self.textureSampler = VKSampler{
+			device = self.device,
+			magFilter = vk.VK_FILTER_LINEAR,
+			minFilter = vk.VK_FILTER_LINEAR,
+			mipmapMode = vk.VK_SAMPLER_MIPMAP_MODE_LINEAR,
+			addressModeU = vk.VK_SAMPLER_ADDRESS_MODE_REPEAT,
+			addressModeV = vk.VK_SAMPLER_ADDRESS_MODE_REPEAT,
+			addressModeW = vk.VK_SAMPLER_ADDRESS_MODE_REPEAT,
+			anisotropyEnable = vk.VK_TRUE,
+			maxAnisotropy = self.physDev:getProps().limits.maxSamplerAnisotropy,
+			compareEnable = vk.VK_FALSE,
+			compareOp = vk.VK_COMPARE_OP_ALWAYS,
+			minLod = 0,
+			maxLod = mipLevels,
+			borderColor = vk.VK_BORDER_COLOR_INT_OPAQUE_BLACK,
+			unnormalizedCoordinates = vk.VK_FALSE,
+		}
+	end
 
 	self.mesh = VulkanMesh(self.physDev, self.device, self.commandPool)
 	self.uniformBuffers = range(self.maxFramesInFlight):mapi(function(i)
@@ -419,7 +434,7 @@ function VulkanCommon:init(app)
 				dstBinding = 1,
 				imageInfo = {
 					sampler = self.textureSampler.id,
-					imageView = self.textureImageView.id,
+					imageView = self.textureImageAndMemory.imageView.id,
 					imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				},
 			}
@@ -462,167 +477,15 @@ function VulkanCommon:init(app)
 	}
 end
 
-function VulkanCommon:createSwapchain()
-	local app = self.app
+function VulkanCommon:resetSwapchain()
 	self.swapchain = VulkanSwapchain{
-		width = app.width,
-		height = app.height,
+		width = self.app.width,
+		height = self.app.height,
 		physDev = self.physDev,
 		device = self.device,
 		surface = self.surface,
 		samples = self.msaaSamples,
 	}
-end
-
-function VulkanCommon:createTextureImage()
-	local texturePath = 'viking_room.png'
-	local image = assert(Image(texturePath))
-	image = image:setChannels(4)
-	assert.eq(image.channels, 4)
-	local bufferSize = image.width * image.height * image.channels
-
-	-- TODO why store in 'self', why not store with 'textureImageAndMemory' and 'textureImageView' all in one place?
-	self.mipLevels = math.floor(math.log(math.max(image.width, image.height), 2)) + 1
-	local textureImageAndMemory = VulkanDeviceMemoryImage:makeTextureFromStaged{
-		physDev = self.physDev,
-		device = self.device.id,
-		commandPool = self.commandPool,
-		srcBuffer = image.buffer,
-		bufferSize = bufferSize,
-		width = image.width,
-		height = image.height,
-		mipLevels = self.mipLevels
-	}
-
-	self:generateMipmaps(
-		textureImageAndMemory.image.id,
-		vk.VK_FORMAT_R8G8B8A8_SRGB,
-		image.width,
-		image.height,
-		self.mipLevels
-	)
-
-	return textureImageAndMemory
-end
-
-function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, mipLevels)
-	local formatProperties = self.physDev:getFormatProps(imageFormat)
-
-	if 0 == bit.band(formatProperties.optimalTilingFeatures, vk.VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) then
-		error "texture image format does not support linear blitting!"
-	end
-
-	self.graphicsQueue:singleTimeCommand(
-		self.commandPool.obj,
-		function(commandBuffer)
-			local barrier = commandBuffer.makeVkImageMemoryBarrier{
-				srcQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED,
-				dstQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED,
-				image = image,
-				subresourceRange = {
-					aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT,
-					levelCount = 1,
-					layerCount = 1,
-				},
-			}
-
-			local mipWidth = texWidth
-			local mipHeight = texHeight
-
-			for i=1,mipLevels-1 do
-				barrier.subresourceRange.baseMipLevel = i - 1
-				barrier.oldLayout = vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
-				barrier.newLayout = vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
-				barrier.srcAccessMask = vk.VK_ACCESS_TRANSFER_WRITE_BIT
-				barrier.dstAccessMask = vk.VK_ACCESS_TRANSFER_READ_BIT
-				commandBuffer:pipelineBarrier(
-					vk.VK_PIPELINE_STAGE_TRANSFER_BIT,  -- srcStageMask
-					vk.VK_PIPELINE_STAGE_TRANSFER_BIT,	-- dstStageMask
-					0,									-- dependencyFlags
-					0,									-- memoryBarrierCount
-					nil,								-- pMemoryBarriers
-					0,									-- bufferMemoryBarrierCount
-					nil,								-- pBufferMemoryBarriers
-					1,									-- imageMemoryBarrierCount
-					barrier								-- pImageMemoryBarriers
-				)
-
-				commandBuffer:blitImage(
-					image,
-					vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-					image,
-					vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-					1,
-					commandBuffer.VkImageBlit{
-						srcSubresource = {
-							aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT,
-							mipLevel = i-1,
-							layerCount = 1,
-						},
-						srcOffsets = {
-							{x=0, y=0, z=0},
-							{x=mipWidth, y=mipHeight, z=1},
-						},
-						dstSubresource = {
-							aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT,
-							mipLevel = i,
-							layerCount = 1,
-						},
-						dstOffsets = {
-							{x=0, y=0, z=0},
-							{
-								x = mipWidth > 1 and bit.rshift(mipWidth, 1) or 1,
-								y = mipHeight > 1 and bit.rshift(mipHeight, 1) or 1,
-								z = 1,
-							},
-						},
-					},
-					vk.VK_FILTER_LINEAR
-				)
-
-				barrier.oldLayout = vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
-				barrier.newLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-				barrier.srcAccessMask = vk.VK_ACCESS_TRANSFER_READ_BIT
-				barrier.dstAccessMask = vk.VK_ACCESS_SHADER_READ_BIT
-				commandBuffer:pipelineBarrier(
-					vk.VK_PIPELINE_STAGE_TRANSFER_BIT,  		-- srcStageMask
-					vk.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,   -- dstStageMask
-					0,											-- dependencyFlags
-					0,											-- memoryBarrierCount
-					nil,										-- pMemoryBarriers
-					0,											-- bufferMemoryBarrierCount
-					nil,										-- pBufferMemoryBarriers
-					1,											-- imageMemoryBarrierCount
-					barrier										-- pImageMemoryBarriers
-				)
-
-				if mipWidth > 1 then mipWidth = bit.rshift(mipWidth, 1) end
-				if mipHeight > 1 then mipHeight = bit.rshift(mipHeight, 1) end
-			end
-
-			barrier.subresourceRange.baseMipLevel = mipLevels - 1;
-			barrier.oldLayout = vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
-			barrier.newLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-			barrier.srcAccessMask = vk.VK_ACCESS_TRANSFER_WRITE_BIT
-			barrier.dstAccessMask = vk.VK_ACCESS_SHADER_READ_BIT
-
-			commandBuffer:pipelineBarrier(
-				vk.VK_PIPELINE_STAGE_TRANSFER_BIT,  		-- srcStageMask
-				vk.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,   -- dstStageMask
-				0,											-- dependencyFlags
-				0,											-- memoryBarrierCount
-				nil,										-- pMemoryBarriers
-				0,											-- bufferMemoryBarrierCount
-				nil,										-- pBufferMemoryBarriers
-				1,											-- imageMemoryBarrierCount
-				barrier										-- pImageMemoryBarriers
-			)
-		end
-	)
-end
-
-function VulkanCommon:setFramebufferResized()
-	self.framebufferResized = true
 end
 
 function VulkanCommon:drawFrame()
@@ -812,7 +675,7 @@ function VulkanCommon:recreateSwapchain()
 	end
 	assert(self.device:waitIdle())
 	self.swapchain.obj:destroy()
-	self:createSwapchain()
+	self:resetSwapchain()
 end
 
 function VulkanCommon:exit()
@@ -854,11 +717,6 @@ function VulkanCommon:exit()
 	end
 	--]]
 	self.descriptorSets = nil
-
-	if self.textureImageView then
-		self.textureImageView:destroy()
-	end
-	self.textureImageView = nil
 
 	if self.textureImageAndMemory then
 		self.textureImageAndMemory:destroy()
