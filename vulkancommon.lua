@@ -11,6 +11,7 @@ local vk = require 'vk'
 local makeStructCtor = require 'vk.util'.makeStructCtor
 local VKInstance = require 'vk.instance'
 local VKSurface = require 'vk.surface'
+local VKPhysDev = require 'vk.physdev'
 local VKQueue = require 'vk.queue'
 local VKDebugUtilsMessenger = require 'vk.debugutilsmessenger'
 local VKSampler = require 'vk.sampler'
@@ -20,7 +21,6 @@ local VKFence = require 'vk.fence'
 require 'ffi.req' 'c.stdio'		-- debug: fprintf(stderr, ...)
 
 
-local VulkanPhysicalDevice = require 'vk.vulkanphysdev'
 local VulkanDevice = require 'vk.vulkandevice'
 local VulkanDeviceMemoryImage = require 'vk.vulkandevicememoryimage'
 local VulkanSwapchain = require 'vk.vulkanswapchain'
@@ -155,23 +155,33 @@ function VulkanCommon:init(app)
 		instance = self.instance,
 	}
 
+	print'devices:'
+	for _,physDev in ipairs(self.instance:getPhysDevs()) do
+		local props = physDev:getProps()
+		print('',
+			ffi.string(props.deviceName)
+			..' type='..tostring(props.deviceType)
+		)
+	end
+
 	local deviceExtensions = table{
 		'VK_KHR_swapchain',
 	}
 
-	self.physDev = VulkanPhysicalDevice{
-		instance = self.instance,
-		surface = self.surface,
-		deviceExtensions = deviceExtensions,
-	}
+	self.physDev = assert(select(2, self.instance
+		:getPhysDevs()
+		:find(nil, function(physDev)
+			return physDev:isDeviceSuitable(self.surface, deviceExtensions)
+		end)),
+		"failed to find a suitable GPU")
 
 	self.msaaSamples = self.physDev:getMaxUsableSampleCount()
 	print('msaaSamples', self.msaaSamples)
 
 	do
-		local indices = self.physDev:findQueueFamilies(nil, self.surface)
+		local indices = self.physDev:findQueueFamilies(self.surface)
 		self.device = VulkanDevice(
-			self.physDev.obj,
+			self.physDev,
 			deviceExtensions,
 			self.enableValidationLayers and validationLayerNames or nil,
 			indices
@@ -188,7 +198,7 @@ function VulkanCommon:init(app)
 
 	self:createSwapchain()
 
-	self.graphicsPipeline = VulkanGraphicsPipeline(self.physDev, self.device.obj.id, self.swapchain.renderPass.id, self.msaaSamples)
+	self.graphicsPipeline = VulkanGraphicsPipeline(self.device.obj.id, self.swapchain.renderPass.id, self.msaaSamples)
 
 	self.commandPool = VulkanCommandPool(self, self.physDev, self.device, self.surface)
 
@@ -210,7 +220,7 @@ function VulkanCommon:init(app)
 		addressModeV = vk.VK_SAMPLER_ADDRESS_MODE_REPEAT,
 		addressModeW = vk.VK_SAMPLER_ADDRESS_MODE_REPEAT,
 		anisotropyEnable = vk.VK_TRUE,
-		maxAnisotropy = self.physDev.obj:getProps().limits.maxSamplerAnisotropy,
+		maxAnisotropy = self.physDev:getProps().limits.maxSamplerAnisotropy,
 		compareEnable = vk.VK_FALSE,
 		compareOp = vk.VK_COMPARE_OP_ALWAYS,
 		minLod = 0,
@@ -360,7 +370,7 @@ function VulkanCommon:createTextureImage()
 end
 
 function VulkanCommon:generateMipmaps(image, imageFormat, texWidth, texHeight, mipLevels)
-	local formatProperties = self.physDev.obj:getFormatProps(imageFormat)
+	local formatProperties = self.physDev:getFormatProps(imageFormat)
 
 	if 0 == bit.band(formatProperties.optimalTilingFeatures, vk.VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) then
 		error "texture image format does not support linear blitting!"

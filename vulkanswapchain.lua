@@ -25,7 +25,7 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 	if VKDevice:isa(device) then device = device.id end
 	self.device = device
 
-	local swapChainSupport = physDev:querySwapChainSupport(nil, surface)
+	local swapChainSupport = physDev:querySwapChainSupport(surface)
 	self.extent = self:chooseSwapExtent(width, height, swapChainSupport.capabilities)
 
 	local imageCount = swapChainSupport.capabilities.minImageCount + 1
@@ -36,7 +36,7 @@ function VulkanSwapchain:init(width, height, physDev, device, surface, msaaSampl
 	local surfaceFormat = self:chooseSwapSurfaceFormat(swapChainSupport.formats)
 	local presentMode = self:chooseSwapPresentMode(swapChainSupport.presentModes)
 
-	local indices = physDev:findQueueFamilies(nil, surface)
+	local indices = physDev:findQueueFamilies(surface)
 	indices = table.keys{
 		[indices.graphicsFamily] = true,
 		[indices.presentFamily] = true,

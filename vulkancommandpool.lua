@@ -12,7 +12,7 @@ function VulkanCommandPool:init(common, physDev, device, surface)
 	self.obj = VKCommandPool{
 		device = device,
 		flags = vk.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-		queueFamilyIndex = assert.index(physDev:findQueueFamilies(nil, surface), 'graphicsFamily'),
+		queueFamilyIndex = assert.index(physDev:findQueueFamilies(surface), 'graphicsFamily'),
 	}
 	self.graphicsQueue = common.graphicsQueue
 end

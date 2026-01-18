@@ -11,7 +11,7 @@ local VulkanVertex = require 'vk.vulkanmesh'.VulkanVertex
 
 local VulkanGraphicsPipeline = class()
 
-function VulkanGraphicsPipeline:init(physDev, device, renderPass, msaaSamples)
+function VulkanGraphicsPipeline:init(device, renderPass, msaaSamples)
 	self.descriptorSetLayout = VKDescriptorSetLayout{
 		device = device,
 		bindings = {
