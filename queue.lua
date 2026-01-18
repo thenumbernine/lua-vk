@@ -82,8 +82,8 @@ function VKQueue:waitIdle()
 end
 
 VKQueue.makeVkPresentInfoKHR = makeVkPresentInfoKHR 
-function VKQueue:present(presentInfo)
-	return vkResult(vk.vkQueuePresentKHR(self.id, presentInfo))
+function VKQueue:present(...)
+	return vkResult(vk.vkQueuePresentKHR(self.id, ...), 'vkQueuePresentKHR')
 end
 
 -- helper functionality

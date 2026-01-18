@@ -475,7 +475,29 @@ function VulkanCommon:init(app)
 	-- structs used by drawFrame (so I don't have to realloc)
 	self.imageIndex = uint32_t_1()
 	self.acquireNextImageInfo = VKDevice.makeVkAcquireNextImageInfoKHR()
-	self.beginInfo = VKCommandBuffer.makeVkCommandBufferBeginInfo()
+	self.cmdBufBeginInfo = VKCommandBuffer.makeVkCommandBufferBeginInfo()
+	self.cmdBufRenderPassBeginInfo = VKCommandBuffer.makeVkRenderPassBeginInfo{
+		clearValues = {
+			{
+				color = {
+					float32 = {0,0,0,1},
+				},
+			},
+			{
+				depthStencil = {
+					depth = 1,
+					stencil = 0,
+				},
+			},
+		},
+	}
+	self.viewports = VKCommandBuffer.VkViewport{
+		minDepth = 0,
+		maxDepth = 1,
+	}
+	self.scissors = VKCommandBuffer.VkRect2D()
+	self.vertexBuffers = VKCommandBuffer.VkBuffer_array(1, self.mesh.vertexBufferAndMemory.buffer.id)
+	self.vertexOffsets = VKCommandBuffer.VkDeviceSize_array(1, 0)
 	self.submitInfo = makeVkSubmitInfo{
 		waitDstStageMask = vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 	}
@@ -533,7 +555,6 @@ function VulkanCommon:drawFrame()
 	submitInfo.pCommandBuffers = self.commandBuffers[1+self.currentFrame].idptr
 	submitInfo.signalSemaphoreCount = 1
 	submitInfo.pSignalSemaphores = self.renderFinishedSemaphores[1+self.currentFrame].idptr
-
 	assert(self.graphicsQueue:submit(submitInfo, nil, self.inFlightFences[1+self.currentFrame].id))
 
 	-- TODO what's info.pResults vs the results returned from vkQueuePresentKHR ?
@@ -586,32 +607,17 @@ end
 
 function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 	-- TODO per vulkan api, if we just have null info, can we pass null?
-	assert(commandBuffer:begin(self.beginInfo))
+	assert(commandBuffer:begin(self.cmdBufBeginInfo))
 
+	local cmdBufRenderPassBeginInfo = self.cmdBufRenderPassBeginInfo
+	cmdBufRenderPassBeginInfo.renderPass = self.swapchain.renderPass.id
+	-- TODO how do we know the framebuffer index is less than the image from teh swapchain?
+	-- framebufer[] is sized b imge of swapchain,
+	-- but her it's indexed by maxFramesInFlight which is set to 2
+	cmdBufRenderPassBeginInfo.framebuffer = self.swapchain.framebuffers[1+imageIndex].id
+	cmdBufRenderPassBeginInfo.renderArea.extent = self.swapchain.extent
 	commandBuffer:beginRenderPass(
-		commandBuffer.makeVkRenderPassBeginInfo{
-			renderPass = self.swapchain.renderPass.id,
-			-- TODO how do we know the framebuffer index is less than the image from teh swapchain?
-			-- framebufer[] is sized b imge of swapchain,
-			-- but her it's indexed by maxFramesInFlight which is set to 2
-			framebuffer = self.swapchain.framebuffers[1+imageIndex].id,
-			renderArea = {
-				extent = self.swapchain.extent,
-			},
-			clearValues = {
-				{
-					color = {
-						float32 = {0,0,0,1},
-					},
-				},
-				{
-					depthStencil = {
-						depth = 1,
-						stencil = 0,
-					},
-				},
-			},
-		},
+		cmdBufRenderPassBeginInfo,
 		vk.VK_SUBPASS_CONTENTS_INLINE
 	)
 
@@ -620,25 +626,21 @@ function VulkanCommon:recordCommandBuffer(commandBuffer, imageIndex)
 		self.pipeline.id
 	)
 
-	local viewports = commandBuffer.VkViewport()
+	local viewports = self.viewports
 	viewports.width = self.swapchain.extent.width
 	viewports.height = self.swapchain.extent.height
-	viewports.minDepth = 0
-	viewports.maxDepth = 1
 	commandBuffer:setViewport(0, 1, viewports)
 
-	local scissors = commandBuffer.VkRect2D()
+	local scissors = self.scissors
 	scissors.extent.width = self.swapchain.extent.width
 	scissors.extent.height = self.swapchain.extent.height
 	commandBuffer:setScissors(0, 1, scissors)
 
-	local vertexBuffers = commandBuffer.VkBuffer_array(1, self.mesh.vertexBufferAndMemory.buffer.id)
-	local vertexOffsets = commandBuffer.VkDeviceSize_array(1, 0)
 	commandBuffer:bindVertexBuffers(
 		0,
 		1,
-		vertexBuffers,
-		vertexOffsets
+		self.vertexBuffers,
+		self.vertexOffsets
 	)
 
 	commandBuffer:bindIndexBuffer(
