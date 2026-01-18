@@ -12,6 +12,7 @@ local makeStructCtor = require 'vk.util'.makeStructCtor
 local VKInstance = require 'vk.instance'
 local VKSurface = require 'vk.surface'
 local VKPhysDev = require 'vk.physdev'
+local VKDevice = require 'vk.device'
 local VKQueue = require 'vk.queue'
 local VKDebugUtilsMessenger = require 'vk.debugutilsmessenger'
 local VKSampler = require 'vk.sampler'
@@ -21,7 +22,6 @@ local VKFence = require 'vk.fence'
 require 'ffi.req' 'c.stdio'		-- debug: fprintf(stderr, ...)
 
 
-local VulkanDevice = require 'vk.vulkandevice'
 local VulkanDeviceMemoryImage = require 'vk.vulkandevicememoryimage'
 local VulkanSwapchain = require 'vk.vulkanswapchain'
 local VulkanGraphicsPipeline = require 'vk.vulkangraphicspipeline'
@@ -82,6 +82,7 @@ function VulkanCommon:init(app)
 	self.viewMat = matrix_ffi({4,4}, float):zeros()
 	self.projMat = matrix_ffi({4,4}, float):zeros()
 
+	local enabledLayers = table()
 	do
 		local layerProps = VKInstance:getLayerProps()
 		print'vulkan layers:'
@@ -89,7 +90,6 @@ function VulkanCommon:init(app)
 			print('',layerProp.layerName, layerProp.description)
 		end
 
-		local enabledLayers = table()
 		local enabledExtensions = VKInstance:getExts()
 
 		print'vulkan enabledExtensions:'
@@ -105,7 +105,7 @@ function VulkanCommon:init(app)
 			end
 
 			enabledExtensions:insert'VK_EXT_debug_utils'
-			enabledLayers:insert'VK_LAYER_KHRONOS_validation'
+			enabledLayers:append(validationLayerNames)
 		end
 
 		self.instance = VKInstance{
@@ -180,31 +180,45 @@ function VulkanCommon:init(app)
 
 	do
 		local indices = self.physDev:findQueueFamilies(self.surface)
-		self.device = VulkanDevice(
-			self.physDev,
-			deviceExtensions,
-			self.enableValidationLayers and validationLayerNames or nil,
-			indices
-		)
+		
+		self.device = VKDevice{
+			physDev = self.physDev,
+			queueCreateInfos = table.keys{
+				[indices.graphicsFamily] = true,
+				[indices.presentFamily] = true,
+			}:mapi(function(queueFamily)
+				return {
+					queueFamilyIndex = queueFamily,
+					queuePriorities = {1},
+				}
+			end),
+			enabledLayers = enabledLayers,
+			enabledExtensions = deviceExtensions,
+			enabledFeatures = {
+				samplerAnisotropy = vk.VK_TRUE,
+			},
+		}
+
 		self.graphicsQueue = VKQueue{
-			device = self.device.obj,
+			device = self.device,
 			family = indices.graphicsFamily,
 		}
+
 		self.presentQueue = VKQueue{
-			device = self.device.obj,
+			device = self.device,
 			family = indices.presentFamily,
 		}
 	end
 
 	self:createSwapchain()
 
-	self.graphicsPipeline = VulkanGraphicsPipeline(self.device.obj.id, self.swapchain.renderPass.id, self.msaaSamples)
+	self.graphicsPipeline = VulkanGraphicsPipeline(self.device.id, self.swapchain.renderPass.id, self.msaaSamples)
 
 	self.commandPool = VulkanCommandPool(self, self.physDev, self.device, self.surface)
 
 	self.textureImageAndMemory = self:createTextureImage()
 	self.textureImageView = self.swapchain:createImageView(
-		self.device.obj.id,
+		self.device.id,
 		self.textureImageAndMemory.image.id,
 		vk.VK_FORMAT_R8G8B8A8_SRGB,
 		vk.VK_IMAGE_ASPECT_COLOR_BIT,
@@ -234,7 +248,7 @@ function VulkanCommon:init(app)
 		local size = ffi.sizeof(UniformBufferObject)
 		local bm = VulkanDeviceMemoryBuffer(
 			self.physDev,
-			self.device.obj.id,
+			self.device.id,
 			size,
 			vk.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 			bit.bor(
@@ -269,7 +283,7 @@ function VulkanCommon:init(app)
 		}
 	end)
 	for i,descSet in ipairs(self.descriptorSets) do
-		self.device.obj:updateDescSets{
+		self.device:updateDescSets{
 			{
 				dstSet = descSet.id,
 				dstBinding = 0,
@@ -332,7 +346,7 @@ function VulkanCommon:createSwapchain()
 		app.width,
 		app.height,
 		self.physDev,
-		self.device.obj,
+		self.device,
 		self.surface,
 		self.msaaSamples)
 end
@@ -349,7 +363,7 @@ function VulkanCommon:createTextureImage()
 	self.mipLevels = math.floor(math.log(math.max(image.width, image.height), 2)) + 1
 	local textureImageAndMemory = VulkanDeviceMemoryImage:makeTextureFromStaged(
 		self.physDev,
-		self.device.obj.id,
+		self.device.id,
 		self.commandPool,
 		image.buffer,
 		bufferSize,
@@ -501,7 +515,7 @@ function VulkanCommon:drawFrame()
 	--acquireNextImageInfo.fence = nil
 	acquireNextImageInfo.deviceMask = 1
 	local result = vk.vkAcquireNextImage2KHR(
-		self.device.obj.id,
+		self.device.id,
 		self.acquireNextImageInfo,
 		self.imageIndex
 	)
@@ -674,14 +688,14 @@ function VulkanCommon:recreateSwapchain()
 	if app.width == 0 or app.height == 0 then
 		error "here"
 	end
-	assert(self.device.obj:waitIdle())
+	assert(self.device:waitIdle())
 	self.swapchain.obj:destroy()
 	self:createSwapchain()
 end
 
 function VulkanCommon:exit()
 	if self.device then
-		assert(self.device.obj:waitIdle())
+		assert(self.device:waitIdle())
 	end
 
 	if self.imageAvailableSemaphores then
@@ -767,7 +781,7 @@ function VulkanCommon:exit()
 	self.swapchain = nil
 
 	if self.device then
-		self.device.obj:destroy()
+		self.device:destroy()
 	end
 	self.device = nil
 

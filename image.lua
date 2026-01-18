@@ -19,8 +19,6 @@ local VKImage = class()
 function VKImage:init(args)
 	local device = assert.index(args, 'device')
 	args.device = nil
-	local VulkanDevice = require 'vk.vulkandevice'
-	if VulkanDevice:isa(device) then device = device.obj end
 	local VKDevice = require 'vk.device'
 	if VKDevice:isa(device) then device = device.id end
 	self.device = device

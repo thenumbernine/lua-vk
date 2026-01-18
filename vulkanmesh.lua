@@ -75,8 +75,6 @@ function VulkanMesh:init(physDev, device, commandPool)
 		dstv.color:set(1, 1, 1)	-- do our objects have normal properties?  nope, just v vt vn ... why doesn't the demo use normals? does it bake lighting?
 	end
 
-	local VulkanDevice = require 'vk.vulkandevice'
-	if VulkanDevice:isa(device) then device = device.obj end
 	local VKDevice = require 'vk.device'
 	if VKDevice:isa(device) then device = device.id end
 
