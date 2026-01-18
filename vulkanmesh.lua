@@ -50,8 +50,8 @@ function VulkanMesh:init(args)
 		device = device,
 		commandPool = args.commandPool,
 		queue = args.queue,
-		srcData = vertices.v,
-		bufferSize = vertices:getNumBytes(),
+		data = vertices.v,
+		size = vertices:getNumBytes(),
 		usage = bit.bor(
 			vk.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 			vk.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
@@ -64,8 +64,8 @@ function VulkanMesh:init(args)
 		device = device,
 		commandPool = args.commandPool,
 		queue = args.queue,
-		srcData = indices.v,
-		bufferSize = indices:getNumBytes(),
+		data = indices.v,
+		size = indices:getNumBytes(),
 		usage = bit.bor(
 			vk.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 			vk.VK_BUFFER_USAGE_INDEX_BUFFER_BIT

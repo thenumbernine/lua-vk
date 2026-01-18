@@ -103,11 +103,23 @@ end
 
 -- helper function
 
--- static function
+--[[
+static function
+args used by staging:
+	device
+	physDev
+	size
+	data
+	queue
+	commandPool
+args overridden:
+	memProps
+all others forwarded to VKBuffer:init
+--]]
 function VKBuffer:makeFromStaged(args)
 	local staging = VKBuffer{
 		device = args.device,
-		size = args.bufferSize,
+		size = args.size,
 		usage = vk.VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 		-- memory fields:
 		physDev = args.physDev,
@@ -115,22 +127,18 @@ function VKBuffer:makeFromStaged(args)
 			vk.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
 			vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 		),
-		data = args.srcData,
+		data = args.data,
 	}
 
-	local buffer = VKBuffer{
-		device = args.device,
-		size = args.bufferSize,
-		usage = args.usage,
-		physDev = args.physDev,
-		memProps = vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-	}
+	args.data = nil
+	args.memProps = vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+	local buffer = VKBuffer(args)
 
 	args.queue:copyBuffer(
 		args.commandPool,
 		staging,
 		buffer,
-		args.bufferSize
+		args.size
 	)
 
 	staging:destroy()
