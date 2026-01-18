@@ -54,7 +54,7 @@ function VKBuffer:init(args)
 				args.memProps
 			),
 		}
-		self.memory = mem
+		self.mem = mem
 
 		assert(self:bindMemory(mem.id))
 	
@@ -90,10 +90,10 @@ function VKBuffer:bindMemory(mem)
 end
 
 function VKBuffer:destroy()
-	if self.memory then
-		self.memory:destroy()
+	if self.mem then
+		self.mem:destroy()
 	end
-	self.memory = nil
+	self.mem = nil
 
 	if self.id then
 		vk.vkDestroyBuffer(self.device, self.id, nil)

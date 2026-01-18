@@ -24,6 +24,13 @@ function VKImage:init(args)
 	args.device = nil
 	if VKDevice:isa(device) then device = device.id end
 	self.device = device
+		
+	args.imageType = args.imageType or vk.VK_IMAGE_TYPE_2D
+	args.mipLevels = args.mipLevels or 1
+	args.arrayLayers = args.arrayLayers or 1
+	args.tiling = args.tiling or vk.VK_IMAGE_TILING_OPTIMAL
+	args.sharingMode = args.sharingMode or vk.VK_SHARING_MODE_EXCLUSIVE
+	args.initialLayout = args.initialLayout or vk.VK_IMAGE_LAYOUT_UNDEFINED
 
 	self.id, self.idptr = vkGet(
 		VkImage,
@@ -45,9 +52,21 @@ function VKImage:init(args)
 				args.memProps
 			),
 		}
-		self.memory = mem
+		self.mem = mem
 
 		assert(self:bindMemory(mem.id))
+	end
+
+	if not args.dontMakeView then
+		self.view = self:makeImageView{
+			viewType = vk.VK_IMAGE_VIEW_TYPE_2D,
+			format = args.format,
+			subresourceRange = {
+				aspectMask = assert.index(args, 'aspectMask'),
+				levelCount = args.mipLevels or 1,
+				layerCount = args.layerCount or 1,
+			},
+		}
 	end
 end
 
@@ -80,10 +99,15 @@ function VKImage:makeImageView(args)
 end
 
 function VKImage:destroy()
-	if self.memory then
-		self.memory:destroy()
+	if self.view then
+		self.view:destroy()
 	end
-	self.memory = nil
+	self.view = nil
+
+	if self.mem then
+		self.mem:destroy()
+	end
+	self.mem = nil
 
 	if self.id then
 		vk.vkDestroyImage(self.device, self.id, nil)

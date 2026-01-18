@@ -4,10 +4,10 @@ local math = require 'ext.math'	-- clamp
 local class = require 'ext.class'
 local table = require 'ext.table'
 local vk = require 'vk'
-local VulkanDeviceMemoryImage = require 'vk.vulkandevicememoryimage'
 local VKSwapchain = require 'vk.swapchain'
 local VKRenderPass = require 'vk.renderpass'
 local VKFramebuffer = require 'vk.framebuffer'
+local VKImage = require 'vk.image'
 
 
 local VkExtent2D = ffi.typeof'VkExtent2D'
@@ -163,33 +163,41 @@ function VulkanSwapchain:init(args)
 		},
 	}
 
-	self.colorImageAndMemory = VulkanDeviceMemoryImage:makeImageAndView{
-		physDev = physDev,
+	self.colorImage = VKImage{
 		device = device,
-		width = width,
-		height = height,
-		samples = samples,
 		format = surfaceFormat.format,
-		tiling = vk.VK_IMAGE_TILING_OPTIMAL,
+		extent = {
+			width = width,
+			height = height,
+			depth = 1,
+		},
+		samples = samples,
 		usage = bit.bor(
 			vk.VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
 			vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
 		),
-		properties = vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		-- TODO should sharing mode match swapchain sharing mode, which changes when families differ?
+		--sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE,
+		-- VKMemory:
+		physDev = physDev,
+		memProps = vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		-- VkImageView:
 		aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT,
 	}
 
-	self.depthImageAndMemory = VulkanDeviceMemoryImage:makeImageAndView{
-		physDev = physDev,
+	self.depthImage = VKImage{
 		device = device,
-		width = width,
-		height = height,
-		samples = samples,
 		format = physDev:findDepthFormat(),
-		tiling = vk.VK_IMAGE_TILING_OPTIMAL,
+		extent = {
+			width = width,
+			height = height,
+			depth = 1,
+		},
+		samples = samples,
 		usage = vk.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-		properties = vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		-- VKMemory
+		physDev = physDev,
+		memProps = vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		-- VkImageView:
 		aspectMask = vk.VK_IMAGE_ASPECT_DEPTH_BIT,
 	}
@@ -199,8 +207,8 @@ function VulkanSwapchain:init(args)
 			device = device,
 			renderPass = self.renderPass.id,
 			attachments = {
-				self.colorImageAndMemory.imageView.id,
-				self.depthImageAndMemory.imageView.id,
+				self.colorImage.view.id,
+				self.depthImage.view.id,
 				imageView.id,
 			},
 			width = width,
@@ -230,15 +238,15 @@ function VulkanSwapchain:destroy()
 	end
 	self.renderPass = nil
 
-	if self.colorImageAndMemory then
-		self.colorImageAndMemory:destroy()
+	if self.colorImage then
+		self.colorImage:destroy()
 	end
-	self.colorImageAndMemory = nil
+	self.colorImage = nil
 	
-	if self.depthImageAndMemory then
-		self.depthImageAndMemory:destroy()
+	if self.depthImage then
+		self.depthImage:destroy()
 	end
-	self.depthImageAndMemory = nil
+	self.depthImage = nil
 
 	if self.obj then
 		self.obj:destroy()

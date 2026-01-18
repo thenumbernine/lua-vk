@@ -11,13 +11,8 @@ local VKMemory = require 'vk.memory'
 local VulkanDeviceMemoryImage = class()
 
 function VulkanDeviceMemoryImage:makeImage(args)
-	if args.dontMakeView == nil then
-		args.dontMakeView = true
-	end
-
 	local image = VKImage{
 		device = args.device,
-		imageType = vk.VK_IMAGE_TYPE_2D,
 		format = args.format,
 		extent = {
 			width = args.width,
@@ -29,31 +24,19 @@ function VulkanDeviceMemoryImage:makeImage(args)
 		samples = args.samples,
 		tiling = args.tiling,
 		usage = args.usage,
-		sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE,
-		initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED,
 		-- memory:
 		physDev = args.physDev,
 		memProps = args.properties,
+		-- view
+		aspectMask = args.aspectMask,
+		dontMakeView = args.dontMakeView,
 	}
-
-	local imageView 
-	if not args.dontMakeView then
-		imageView = image:makeImageView{
-			viewType = vk.VK_IMAGE_VIEW_TYPE_2D,
-			format = args.format,
-			subresourceRange = {
-				aspectMask = assert.index(args, 'aspectMask'),
-				levelCount = args.mipLevels or 1,
-				layerCount = args.layerCount or 1,
-			},
-		}
-	end
 
 	return setmetatable({
 		device = args.device,
 		image = image,
-		imageMemory = image.memory,
-		imageView = imageView,
+		imageMemory = image.mem,
+		imageView = image.view,
 	}, VulkanDeviceMemoryImage)
 end
 
@@ -255,7 +238,6 @@ function VulkanDeviceMemoryImage:textureGenerateMipmap(args)
 		end
 	)
 end
-
 
 function VulkanDeviceMemoryImage:destroy()
 	if self.imageView then

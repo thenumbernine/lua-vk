@@ -440,7 +440,7 @@ function VKEnv:init(args)
 		}
 		return {
 			bm = bm,
-			mapped = bm.memory:map(size),
+			mapped = bm.mem:map(size),
 		}
 	end)
 
