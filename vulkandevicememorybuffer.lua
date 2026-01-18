@@ -16,47 +16,39 @@ function VulkanDeviceMemoryBuffer:init(args)
 		usage = args.usage,
 		-- memory fields:
 		physDev = args.physDev,
-		memProps = args.properties,
+		memProps = args.memProps,
 	}
 
 	self.memory = self.buffer.memory
 end
 
 function VulkanDeviceMemoryBuffer:makeBufferFromStaged(args)
-	local physDev = args.physDev
-	local device = args.device
-	local commandPool = args.commandPool
-	local queue = args.queue
-	local srcData = args.srcData
-	local bufferSize = args.bufferSize
-	local usage = args.usage
-
 	local stagingBufferAndMemory = VKBuffer{
-		device = device,
-		size = bufferSize,
+		device = args.device,
+		size = args.bufferSize,
 		usage = vk.VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 		-- memory fields:
-		physDev = physDev,
+		physDev = args.physDev,
 		memProps = bit.bor(
 			vk.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
 			vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 		),
-		data = srcData,
+		data = args.srcData,
 	}
 
-	local bufferAndMemory = VulkanDeviceMemoryBuffer{
-		physDev = physDev,
-		device = device,
-		size = bufferSize,
-		usage = usage,
-		properties = vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+	local bufferAndMemory = VKBuffer{
+		device = args.device,
+		size = args.bufferSize,
+		usage = args.usage,
+		physDev = args.physDev,
+		memProps = vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 	}
 
-	queue:copyBuffer(
-		commandPool,
+	args.queue:copyBuffer(
+		args.commandPool,
 		stagingBufferAndMemory,
-		bufferAndMemory.buffer,
-		bufferSize
+		bufferAndMemory,
+		args.bufferSize
 	)
 
 	stagingBufferAndMemory:destroy()

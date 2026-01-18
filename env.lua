@@ -30,11 +30,11 @@ local VKSampler = require 'vk.sampler'
 local VKDescriptorPool = require 'vk.descriptorpool'
 local VKSemaphore = require 'vk.semaphore'
 local VKFence = require 'vk.fence'
+local VKBuffer = require 'vk.buffer'
 
 
 local VulkanDeviceMemoryImage = require 'vk.vulkandevicememoryimage'
 local VulkanSwapchain = require 'vk.vulkanswapchain'
-local VulkanDeviceMemoryBuffer = require 'vk.vulkandevicememorybuffer'
 local VulkanMesh = require 'vk.vulkanmesh'
 
 local float = ffi.typeof'float'
@@ -428,12 +428,12 @@ function VKEnv:init(args)
 
 	self.uniformBuffers = range(self.maxFramesInFlight):mapi(function(i)
 		local size = ffi.sizeof(UniformBufferObject)
-		local bm = VulkanDeviceMemoryBuffer{
-			physDev = self.physDev,
+		local bm = VKBuffer{
 			device = self.device.id,
 			size = size,
 			usage = vk.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-			properties = bit.bor(
+			physDev = self.physDev,
+			memProps = bit.bor(
 				vk.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
 				vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 			),
@@ -470,7 +470,7 @@ function VKEnv:init(args)
 				dstSet = descSet.id,
 				dstBinding = 0,
 				bufferInfo = {
-					buffer = assert(self.uniformBuffers[i].bm.buffer.id),
+					buffer = assert(self.uniformBuffers[i].bm.id),
 					range = ffi.sizeof(UniformBufferObject),
 				},
 			},
@@ -537,7 +537,7 @@ function VKEnv:init(args)
 	}
 	self.scissors = VKCommandBuffer.VkRect2D()
 	self.vertexBuffers = VKCommandBuffer.VkBuffer_array(1,
-		self.mesh.vertexBufferAndMemory.buffer.id
+		self.mesh.vertexBufferAndMemory.id
 	)
 	self.vertexOffsets = VKCommandBuffer.VkDeviceSize_array(1, 0)
 	self.submitInfo = VKQueue.makeVkSubmitInfo{
@@ -686,7 +686,7 @@ function VKEnv:recordCommandBuffer(commandBuffer, imageIndex)
 	)
 
 	commandBuffer:bindIndexBuffer(
-		self.mesh.indexBufferAndMemory.buffer.id,
+		self.mesh.indexBufferAndMemory.id,
 		0,
 		vk.VK_INDEX_TYPE_UINT32
 	)

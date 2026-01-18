@@ -3,13 +3,11 @@ local ffi = require 'ffi'
 local math = require 'ext.math'	-- clamp
 local class = require 'ext.class'
 local table = require 'ext.table'
-local range = require 'ext.range'
 local vk = require 'vk'
 local VulkanDeviceMemoryImage = require 'vk.vulkandevicememoryimage'
 local VKSwapchain = require 'vk.swapchain'
 local VKRenderPass = require 'vk.renderpass'
 local VKFramebuffer = require 'vk.framebuffer'
-local VKImageView = require 'vk.imageview'
 
 
 local VkExtent2D = ffi.typeof'VkExtent2D'
