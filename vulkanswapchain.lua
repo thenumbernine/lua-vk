@@ -5,10 +5,6 @@ local class = require 'ext.class'
 local table = require 'ext.table'
 local assert = require 'ext.assert'
 local vk = require 'vk'
-local VKSwapchain = require 'vk.swapchain'
-local VKRenderPass = require 'vk.renderpass'
-local VKFramebuffer = require 'vk.framebuffer'
-local VKImage = require 'vk.image'
 
 
 local VkExtent2D = ffi.typeof'VkExtent2D'
@@ -24,9 +20,6 @@ function VulkanSwapchain:init(args)
 	local surface = args.surface
 	local msaaSamples = args.msaaSamples
 	
-	local deviceID = assert.index(device, 'id')
-	self.device = device
-
 	local swapChainSupport = physDev:querySwapChainSupport(surface)
 	
 	if swapChainSupport.capabilities.currentExtent.width ~= -1 then
@@ -55,8 +48,7 @@ function VulkanSwapchain:init(args)
 	}
 
 	local familiesDiffer = (indices.graphicsFamily ~= indices.presentFamily) or nil
-	self.obj = VKSwapchain{
-		device = deviceID,
+	self.obj = device:makeSwapchain{
 		surface = surface.id,
 		minImageCount = imageCount,
 		imageFormat = surfaceFormat.format,
@@ -87,8 +79,7 @@ function VulkanSwapchain:init(args)
 	end)
 
 	local swapChainImageFormat = surfaceFormat.format
-	self.renderPass = VKRenderPass{
-		device = deviceID,
+	self.renderPass = device:makeRenderPass{
 		attachments = {
 			{	-- colorAttachment
 				format = swapChainImageFormat,
@@ -201,8 +192,7 @@ function VulkanSwapchain:init(args)
 	}
 
 	self.framebuffers = self.imageViews:mapi(function(imageView)
-		return VKFramebuffer{
-			device = deviceID,
+		return device:makeFramebuffer{
 			renderPass = self.renderPass.id,
 			attachments = {
 				self.colorImage.view.id,

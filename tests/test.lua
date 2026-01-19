@@ -262,8 +262,7 @@ function VulkanApp:initVK()
 		
 		local mipLevels = math.floor(math.log(math.max(image.width, image.height), 2)) + 1
 		
-		self.texture = VKImage:makeFromStaged{
-			device = self.device.id,
+		self.texture = self.device:makeImageFromStaged{
 			extent = {
 				width = image.width,
 				height = image.height,

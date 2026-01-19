@@ -185,10 +185,34 @@ function VKDevice:makeCmdPool(args, ...)
 	return VKCmdPool(args, ...)
 end
 
+function VKDevice:makeSwapchain(args, ...)
+	args.device = self.id
+	local VKSwapchain = require 'vk.swapchain'
+	return VKSwapchain(args, ...)
+end
+
+function VKDevice:makeRenderPass(args, ...)
+	args.device = self.id
+	local VKRenderPass = require 'vk.renderpass'
+	return VKRenderPass(args, ...)
+end
+
+function VKDevice:makeFramebuffer(args, ...)
+	args.device = self.id
+	local VKFramebuffer = require 'vk.framebuffer'
+	return VKFramebuffer(args, ...)
+end
+
 function VKDevice:makeImage(args, ...)
 	args.device = self
 	local VKImage = require 'vk.image'
 	return VKImage(args, ...)
+end
+
+function VKDevice:makeImageFromStaged(args, ...)
+	args.device = self
+	local VKImage = require 'vk.image'
+	return VKImage:makeFromStaged(args, ...)
 end
 
 return VKDevice
