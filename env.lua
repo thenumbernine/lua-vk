@@ -218,4 +218,21 @@ function VKEnv:__gc()
 	return self:exit()
 end
 
+-- helper function
+
+-- static function
+function VKEnv:buildShader(src, dst)
+	local os = require 'ext.os'
+	local Targets = require 'make.targets'
+	local targets = Targets()
+	targets:add{
+		dsts = {dst},
+		srcs = {src},
+		rule = function(r)
+			os.exec('glslangValidator -V "'..r.srcs[1]..'" -o "'..r.dsts[1]..'"')
+		end,
+	}
+	targets:run(dst)
+end
+
 return VKEnv

@@ -56,9 +56,8 @@ function VulkanApp:initVK()
 	self.tmpMat = matrix_ffi({4,4}, 'float'):zeros()
 	self.currentFrame = 0
 
-	local VKShader = require 'vk.shader'
-	VKShader:build('shader.vert', 'shader-vert.spv')
-	VKShader:build('shader.frag', 'shader-frag.spv')
+	self.vkenv:buildShader('shader.vert', 'shader-vert.spv')
+	self.vkenv:buildShader('shader.frag', 'shader-frag.spv')
 
 	local args = {
 		-- TODO ...
@@ -91,8 +90,8 @@ function VulkanApp:initVK()
 	}
 
 
-	-- map args.vertex|fragment|geometryCode|File to shaderModules.vertex|fragment|geometry
-	self.shaderModules = {}
+	-- map args.vertex|fragment|geometryCode|File to shaders.vertex|fragment|geometry
+	self.shaders = {}
 	if args.shaders then
 		for _,k in ipairs(shaderStageFields) do
 			local code = args.shaders[k..'Code']
@@ -103,7 +102,7 @@ function VulkanApp:initVK()
 				end
 			end
 			if code then
-				self.shaderModules[k] = self.device:makeShader{
+				self.shaders[k] = self.device:makeShader{
 					code = code,
 				}
 			end
@@ -138,7 +137,7 @@ function VulkanApp:initVK()
 	local VulkanVertex = VulkanMesh.VulkanVertex
 	self.pipeline = self.device:makePipeline{
 		stages = shaderStageFields:mapi(function(field,_,t)
-			local shader = self.shaderModules[field]
+			local shader = self.shaders[field]
 			if not shader then return end
 			return {
 				stage = stageForField[field],
@@ -642,12 +641,12 @@ function VulkanApp:exit()
 	end
 	self.pipelineLayout = nil
 
-	if self.shaderModules then
-		for _,shader in pairs(self.shaderModules) do
+	if self.shaders then
+		for _,shader in pairs(self.shaders) do
 			shader:destroy()
 		end
 	end
-	self.shaderModules = nil
+	self.shaders = nil
 
 	if self.pipeline then
 		self.pipeline:destroy()

@@ -77,21 +77,4 @@ function VKShader:__gc()
 	return self:destroy()
 end
 
--- helper function
-
--- static function 
-function VKShader:build(src, dst)
-	local os = require 'ext.os'
-	local Targets = require 'make.targets'
-	local targets = Targets()
-	targets:add{
-		dsts = {dst},
-		srcs = {src},
-		rule = function(r)
-			os.exec('glslangValidator -V "'..r.srcs[1]..'" -o "'..r.dsts[1]..'"')
-		end,
-	}
-	targets:run(dst)
-end
-
 return VKShader
