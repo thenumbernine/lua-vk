@@ -11,8 +11,6 @@ local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
 local vkResult = require 'vk.util'.vkResult
 local makeStructCtor = require 'vk.util'.makeStructCtor
-local VKDevice = require 'vk.device'
-local VKMemory = require 'vk.memory'
 
 
 local VkBuffer = ffi.typeof'VkBuffer'
@@ -23,18 +21,15 @@ local makeVkBufferCreateInfo = makeStructCtor'VkBufferCreateInfo'
 local VKBuffer = class()
 
 function VKBuffer:init(args)
-	local device = assert.index(args, 'device')
-	if VKDevice:isa(device) then device = device.id end
+	self.device = assert.index(args, 'device')
 
 	args.sharingMode = args.sharingMode or vk.VK_SHARING_MODE_EXCLUSIVE
-
-	self.device = device
 
 	self.id = vkGet(
 		VkBuffer,
 		vkassert,
 		vk.vkCreateBuffer,
-		device,
+		self.device.id,
 		makeVkBufferCreateInfo(args),
 		nil
 	)
@@ -45,8 +40,7 @@ function VKBuffer:init(args)
 		-- needs args.physDev, args.memProps
 		-- optionally args.data
 		local memReq = self:getMemReq()
-		local mem = VKMemory{
-			device = device,
+		local mem = self.device:makeMem{
 			-- is this same as args.size?
 			allocationSize = memReq.size,
 			memoryTypeIndex = args.physDev:findMemoryType(
@@ -72,7 +66,7 @@ function VKBuffer:getMemReq()
 		VkMemoryRequirements,
 		nil,
 		vk.vkGetBufferMemoryRequirements,
-		self.device,
+		self.device.id,
 		self.id
 	)
 end
@@ -80,7 +74,7 @@ end
 function VKBuffer:bindMemory(mem)
 	return vkResult(
 		vk.vkBindBufferMemory(
-			self.device,
+			self.device.id,
 			self.id,
 			mem,
 			0
@@ -96,7 +90,7 @@ function VKBuffer:destroy()
 	self.mem = nil
 
 	if self.id then
-		vk.vkDestroyBuffer(self.device, self.id, nil)
+		vk.vkDestroyBuffer(self.device.id, self.id, nil)
 	end
 	self.id = nil
 end
@@ -118,8 +112,7 @@ args overridden before VKBuffer:init:
 all others forwarded to VKBuffer:init
 --]]
 function VKBuffer:makeFromStaged(args)
-	local staging = VKBuffer{
-		device = args.device,
+	local staging = args.device:makeBuffer{
 		size = assert.index(args, 'size'),
 		usage = vk.VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 		-- memory fields:

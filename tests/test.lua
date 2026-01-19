@@ -357,7 +357,7 @@ function VulkanApp:initVK()
 		}
 	end
 
-	self.commandBuffers = range(self.maxFramesInFlight):mapi(function(i)
+	self.cmdBufs = range(self.maxFramesInFlight):mapi(function(i)
 		return self.cmdPool:makeCmds{
 			level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 		}
@@ -441,10 +441,10 @@ function VulkanApp:update()
 	self:updateUniformBuffer()
 
 	assert(self.inFlightFences[1+self.currentFrame]:reset())
-	assert(self.commandBuffers[1+self.currentFrame]:reset())
+	assert(self.cmdBufs[1+self.currentFrame]:reset())
 
 	self:recordCommandBuffer(
-		self.commandBuffers[1+self.currentFrame],
+		self.cmdBufs[1+self.currentFrame],
 		self.imageIndex[0]
 	)
 
@@ -452,7 +452,7 @@ function VulkanApp:update()
 	submitInfo.waitSemaphoreCount = 1
 	submitInfo.pWaitSemaphores = self.imageAvailableSemaphores[1+self.currentFrame].idptr
 	submitInfo.commandBufferCount = 1
-	submitInfo.pCommandBuffers = self.commandBuffers[1+self.currentFrame].idptr
+	submitInfo.pCommandBuffers = self.cmdBufs[1+self.currentFrame].idptr
 	submitInfo.signalSemaphoreCount = 1
 	submitInfo.pSignalSemaphores = self.renderFinishedSemaphores[1+self.currentFrame].idptr
 	assert(self.graphicsQueue:submit(submitInfo, nil, self.inFlightFences[1+self.currentFrame].id))
@@ -610,12 +610,12 @@ function VulkanApp:exit()
 	end
 	self.inFlightFences = nil
 
-	if self.commandBuffers then
-		for _,cmds in ipairs(self.commandBuffers) do
+	if self.cmdBufs then
+		for _,cmds in ipairs(self.cmdBufs) do
 			cmds:destroy()
 		end
 	end
-	self.commandBuffers = nil
+	self.cmdBufs = nil
 
 	--[[ gives "descriptorPool must have been created with the VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT flag"
 	if self.descriptorSets then

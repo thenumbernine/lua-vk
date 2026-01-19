@@ -216,6 +216,13 @@ function VKDevice:makeBuffer(args, ...)
 	return VKBuffer(args, ...)
 end
 
+function VKDevice:makeBufferFromStaged(args, ...)
+	args = args or {}
+	args.device = self
+	local VKBuffer = require 'vk.buffer'
+	return VKBuffer:makeFromStaged(args, ...)
+end
+
 function VKDevice:makeFramebuffer(args, ...)
 	args = args or {}
 	args.device = self.id

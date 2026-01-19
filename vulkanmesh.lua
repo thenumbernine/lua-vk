@@ -27,8 +27,6 @@ VulkanMesh.VulkanVertex = VulkanVertex
 
 function VulkanMesh:init(args)
 	local device = args.device
-	local VKDevice = require 'vk.device'
-	if VKDevice:isa(device) then device = device.id end
 
 	local mesh = ObjLoader():load(args.filename)
 
@@ -45,9 +43,8 @@ function VulkanMesh:init(args)
 		dstv.color:set(1, 1, 1)	-- do our objects have normal properties?  nope, just v vt vn ... why doesn't the demo use normals? does it bake lighting?
 	end
 
-	self.vertexBufferAndMemory = VKBuffer:makeFromStaged{
+	self.vertexBufferAndMemory = device:makeBufferFromStaged{
 		physDev = args.physDev,
-		device = device,
 		cmdPool = args.cmdPool,
 		queue = args.queue,
 		data = vertices.v,
@@ -59,9 +56,8 @@ function VulkanMesh:init(args)
 	}
 
 	self.numIndices = #indices
-	self.indexBufferAndMemory = VKBuffer:makeFromStaged{
+	self.indexBufferAndMemory = device:makeBufferFromStaged{
 		physDev = args.physDev,
-		device = device,
 		cmdPool = args.cmdPool,
 		queue = args.queue,
 		data = indices.v,
