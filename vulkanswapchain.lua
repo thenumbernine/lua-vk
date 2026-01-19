@@ -21,7 +21,7 @@ function VulkanSwapchain:init(args)
 	local physDev = args.physDev
 	local device = args.device
 	local surface = args.surface
-	local samples = args.samples
+	local msaaSamples = args.msaaSamples
 
 	local VKDevice = require 'vk.device'
 	if VKDevice:isa(device) then device = device.id end
@@ -92,7 +92,7 @@ function VulkanSwapchain:init(args)
 		attachments = {
 			{	-- colorAttachment
 				format = swapChainImageFormat,
-				samples = samples,
+				samples = msaaSamples,
 				loadOp = vk.VK_ATTACHMENT_LOAD_OP_CLEAR,
 				storeOp = vk.VK_ATTACHMENT_STORE_OP_STORE,
 				stencilLoadOp = vk.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
@@ -102,7 +102,7 @@ function VulkanSwapchain:init(args)
 			},
 			{	-- depthAttachment
 				format = physDev:findDepthFormat(),
-				samples = samples,
+				samples = msaaSamples,
 				loadOp = vk.VK_ATTACHMENT_LOAD_OP_CLEAR,
 				storeOp = vk.VK_ATTACHMENT_STORE_OP_DONT_CARE,
 				stencilLoadOp = vk.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
@@ -171,7 +171,7 @@ function VulkanSwapchain:init(args)
 			height = height,
 			depth = 1,
 		},
-		samples = samples,
+		samples = msaaSamples,
 		usage = bit.bor(
 			vk.VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
 			vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
@@ -193,7 +193,7 @@ function VulkanSwapchain:init(args)
 			height = height,
 			depth = 1,
 		},
-		samples = samples,
+		samples = msaaSamples,
 		usage = vk.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
 		-- VKMemory
 		physDev = physDev,

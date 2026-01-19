@@ -1,3 +1,4 @@
+local table = require 'ext.table'
 local sdl = require 'sdl'
 local VKEnv = require 'vk.env'
 local SDLApp = require 'sdl.app'
@@ -21,18 +22,16 @@ end
 
 -- default, feel free to override
 function VulkanApp:initVK()
-	self.vkenv = VKEnv{
-		app = self,
-	}
+	local args = table(self.vkenvArgs):setmetatable(nil)
+	-- for vkenv.surface
+	args.window = self.window
+	-- for vkenv:resetSwapchain()
+	args.width = self.width
+	args.height = self.height
+
+	self.vkenv = VKEnv(args)
 end
 
-function VulkanApp:update()
-	self.vkenv:drawFrame()
-end
-
-function VKEnv:resize()
-	self.vkenv.framebufferResized = true
-end
 
 function VulkanApp:exit()
 	if self.vkenv then self.vkenv:exit() end

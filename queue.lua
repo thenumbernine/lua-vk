@@ -32,11 +32,6 @@ local makeVkPresentInfoKHR = makeStructCtor(
 		{
 			name = 'swapchains',
 			type = 'VkSwapchainKHR',
-			gen = function(x)
-				if x.obj then x = x.obj end
-				if x.id then x = x.id end
-				return x
-			end,
 		},
 		{
 			name = 'waitSemaphores',
