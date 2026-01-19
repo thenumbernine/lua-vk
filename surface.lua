@@ -6,7 +6,6 @@ local sdl = require 'sdl'
 local sdlAssert = require 'sdl.assert'.assert
 local vk = require 'vk'
 local vkGet = require 'vk.util'.vkGet
-local VKInstance = require 'vk.instance'
 
 -- TODO put this in sdl/ffi/sdl3.lua ...
 ffi.cdef[[
@@ -26,7 +25,6 @@ local VKSurface = class()
 function VKSurface:init(args)
 	local window = assert.index(args, 'window')
 	local instance = assert.index(args, 'instance')
-	if VKInstance:isa(instance) then instance = instance.id end
 	self.instance = instance
 
 --[[ check() has the responsibility of passing the args to the function, which sdlAssert doesn't do

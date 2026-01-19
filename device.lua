@@ -185,4 +185,10 @@ function VKDevice:makeCmdPool(args, ...)
 	return VKCmdPool(args, ...)
 end
 
+function VKDevice:makeImage(args, ...)
+	args.device = self
+	local VKImage = require 'vk.image'
+	return VKImage(args, ...)
+end
+
 return VKDevice

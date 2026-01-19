@@ -436,15 +436,8 @@ function VulkanApp:initVK()
 	self.presentSwapchains = ffi.new'VkSwapchainKHR[1]'
 	self.presentSwapchains[0] = assert(self.swapchain.obj.id)
 	self.presentInfo = self.graphicsQueue.makeVkPresentInfoKHR{
-		--[[ not working?
-		swapchains = {
-			(assert(self.vkenv.swapchain.obj.id)),
-		},
-		--]]
-		-- [[
 		pSwapchains = self.presentSwapchains,
 		swapchainCount = 1,
-		--]]
 	}
 end
 

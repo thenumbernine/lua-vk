@@ -3,6 +3,7 @@ local ffi = require 'ffi'
 local math = require 'ext.math'	-- clamp
 local class = require 'ext.class'
 local table = require 'ext.table'
+local assert = require 'ext.assert'
 local vk = require 'vk'
 local VKSwapchain = require 'vk.swapchain'
 local VKRenderPass = require 'vk.renderpass'
@@ -22,9 +23,8 @@ function VulkanSwapchain:init(args)
 	local device = args.device
 	local surface = args.surface
 	local msaaSamples = args.msaaSamples
-
-	local VKDevice = require 'vk.device'
-	if VKDevice:isa(device) then device = device.id end
+	
+	local deviceID = assert.index(device, 'id')
 	self.device = device
 
 	local swapChainSupport = physDev:querySwapChainSupport(surface)
@@ -56,7 +56,7 @@ function VulkanSwapchain:init(args)
 
 	local familiesDiffer = (indices.graphicsFamily ~= indices.presentFamily) or nil
 	self.obj = VKSwapchain{
-		device = device,
+		device = deviceID,
 		surface = surface.id,
 		minImageCount = imageCount,
 		imageFormat = surfaceFormat.format,
@@ -88,7 +88,7 @@ function VulkanSwapchain:init(args)
 
 	local swapChainImageFormat = surfaceFormat.format
 	self.renderPass = VKRenderPass{
-		device = device,
+		device = deviceID,
 		attachments = {
 			{	-- colorAttachment
 				format = swapChainImageFormat,
@@ -163,8 +163,7 @@ function VulkanSwapchain:init(args)
 		},
 	}
 
-	self.colorImage = VKImage{
-		device = device,
+	self.colorImage = device:makeImage{
 		format = surfaceFormat.format,
 		extent = {
 			width = width,
@@ -185,8 +184,7 @@ function VulkanSwapchain:init(args)
 		aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT,
 	}
 
-	self.depthImage = VKImage{
-		device = device,
+	self.depthImage = device:makeImage{
 		format = physDev:findDepthFormat(),
 		extent = {
 			width = width,
@@ -204,7 +202,7 @@ function VulkanSwapchain:init(args)
 
 	self.framebuffers = self.imageViews:mapi(function(imageView)
 		return VKFramebuffer{
-			device = device,
+			device = deviceID,
 			renderPass = self.renderPass.id,
 			attachments = {
 				self.colorImage.view.id,

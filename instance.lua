@@ -137,4 +137,18 @@ function VKInstance:__gc()
 	return self:destroy()
 end
 
+-- helper functions
+
+function VKInstance:makeSurface(args, ...)
+	args.instance = self.id
+	local VKSurface = require 'vk.surface'
+	return VKSurface(args, ...)
+end
+
+function VKInstance:makeDebugUtilsMessenger(args, ...)
+	args.instance = self
+	local VKDebugUtilsMessenger = require 'vk.debugutilsmessenger'
+	return VKDebugUtilsMessenger(args, ...)
+end
+
 return VKInstance

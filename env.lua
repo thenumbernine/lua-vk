@@ -1,27 +1,17 @@
---[[
-helper
-TODO rename to VKEnv and make this like cl.env
-to just init one device, physdev, etc 
-and then use this for the other vulkan-helper stuff so I don't have to pass around so many different args
---]]
+-- helper
+require 'ext.gc'
 local ffi = require 'ffi'
 local assert = require 'ext.assert'
 local class = require 'ext.class'
 local table = require 'ext.table'
 local vk = require 'vk'
 local VKInstance = require 'vk.instance'
-local VKSurface = require 'vk.surface'
-local VKDebugUtilsMessenger = require 'vk.debugutilsmessenger'
-
-
 local VulkanSwapchain = require 'vk.vulkanswapchain'
-
 
 
 local validationLayerNames = {
 	'VK_LAYER_KHRONOS_validation'
 }
-
 
 -- but why not just use bitfields? meh
 local function VK_MAKE_VERSION(major, minor, patch)
@@ -78,8 +68,7 @@ function VKEnv:init(args)
 
 	-- debug:
 	if enableValidationLayers then
-		self.debug = VKDebugUtilsMessenger{
-			instance = self.instance,
+		self.debug = self.instance:makeDebugUtilsMessenger{
 			messageSeverity = bit.bor(
 				vk.VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT,
 				--vk.VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT,
@@ -105,9 +94,8 @@ function VKEnv:init(args)
 		}
 	end
 
-	self.surface = VKSurface{
+	self.surface = self.instance:makeSurface{
 		window = args.window,
-		instance = self.instance,
 	}
 
 --DEBUG:print'devices:'
@@ -224,6 +212,10 @@ function VKEnv:exit()
 		self.instance:destroy()
 	end
 	self.instance = nil
+end
+
+function VKEnv:__gc()
+	return self:exit()
 end
 
 return VKEnv
