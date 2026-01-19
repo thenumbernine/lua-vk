@@ -180,7 +180,7 @@ end
 
 function VKEnv:resetSwapchain(width, height)
 	if self.swapchain then
-		self.swapchain.obj:destroy()
+		self.swapchain:destroy()
 	end
 	self.swapchain = VulkanSwapchain{
 		width = assert(width),
@@ -196,6 +196,11 @@ function VKEnv:exit()
 	if self.device then
 		assert(self.device:waitIdle())
 	end
+
+	if self.swapchain then
+		self.swapchain:destroy()
+	end
+	self.swapchain = nil
 
 	if self.commandPool then
 		self.commandPool:destroy()
