@@ -34,7 +34,7 @@ function VKPipelineLayout:init(args)
 		VkPipelineLayout,
 		vkassert,
 		vk.vkCreatePipelineLayout,
-		self.device,
+		self.device.id,
 		makeVkPipelineLayoutCreateInfo(args),
 		nil
 	)
@@ -42,7 +42,7 @@ end
 
 function VKPipelineLayout:destroy()
 	if self.id then
-		vk.vkDestroyPipelineLayout(self.device, self.id, nil)
+		vk.vkDestroyPipelineLayout(self.device.id, self.id, nil)
 	end
 	self.id = nil
 end

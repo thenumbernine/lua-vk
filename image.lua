@@ -7,10 +7,6 @@ local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
 local vkResult = require 'vk.util'.vkResult
 local makeStructCtor = require 'vk.util'.makeStructCtor
-local VKDevice = require 'vk.device'
-local VKImageView = require 'vk.imageview'
-local VKMemory = require 'vk.memory'
-local VKBuffer = require 'vk.buffer'
 
 
 local VkImage = ffi.typeof'VkImage'
@@ -23,7 +19,7 @@ local VKImage = class()
 function VKImage:init(args)
 	local device = assert.index(args, 'device')
 	args.device = nil
-	if VKDevice:isa(device) then device = device.id end
+	local deviceID = device.id
 	self.device = device
 		
 	args.imageType = args.imageType or vk.VK_IMAGE_TYPE_2D
@@ -38,7 +34,7 @@ function VKImage:init(args)
 		VkImage,
 		vkassert,
 		vk.vkCreateImage,
-		device,
+		deviceID,
 		makeVkImageCreateInfo(args),
 		nil
 	)
@@ -46,8 +42,7 @@ function VKImage:init(args)
 	-- same as VKBuffer
 	if not args.dontMakeMem then
 		local memReq = self:getMemReq()
-		local mem = VKMemory{
-			device = device,
+		local mem = device:makeMem{
 			allocationSize = memReq.size,
 			memoryTypeIndex = args.physDev:findMemoryType(
 				memReq.memoryTypeBits,
@@ -77,7 +72,7 @@ function VKImage:getMemReq()
 		VkMemoryRequirements,
 		nil,
 		vk.vkGetImageMemoryRequirements,
-		self.device,
+		self.device.id,
 		self.id
 	)
 end
@@ -85,7 +80,7 @@ end
 function VKImage:bindMemory(mem)
 	return vkResult(
 		vk.vkBindImageMemory(
-			self.device,
+			self.device.id,
 			self.id,
 			mem,
 			0
@@ -97,6 +92,7 @@ end
 function VKImage:makeView(args)
 	args.device = self.device
 	args.image = self.id
+	local VKImageView = require 'vk.imageview'
 	return VKImageView(args)
 end
 
@@ -112,7 +108,7 @@ function VKImage:destroy()
 	self.mem = nil
 
 	if self.id then
-		vk.vkDestroyImage(self.device, self.id, nil)
+		vk.vkDestroyImage(self.device.id, self.id, nil)
 	end
 	self.id = nil
 end
@@ -127,8 +123,7 @@ end
 static
 --]]
 function VKImage:makeFromStaged(args)
-	local staging = VKBuffer{
-		device = args.device,
+	local staging = args.device:makeBuffer{
 		size = args.size,
 		usage = vk.VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 		-- VKMemory:

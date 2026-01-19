@@ -122,7 +122,7 @@ function VKPipeline:init(args)
 		VkPipeline,
 		vkassert,
 		vk.vkCreateGraphicsPipelines,
-		self.device,
+		self.device.id,
 		nil,
 		1,
 		makeVkGraphicsPipelineCreateInfo(args),
@@ -132,7 +132,7 @@ end
 
 function VKPipeline:destroy()
 	if self.id then
-		vk.vkDestroyPipeline(self.device, self.id, nil)
+		vk.vkDestroyPipeline(self.device.id, self.id, nil)
 	end
 	self.id = nil
 end

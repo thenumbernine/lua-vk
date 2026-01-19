@@ -174,45 +174,131 @@ end
 -- helper functions
 
 function VKDevice:makeQueue(args, ...)
+	args = args or {}
 	args.device = self.id
 	local VKQueue = require 'vk.queue'
 	return VKQueue(args, ...)
 end
 
 function VKDevice:makeCmdPool(args, ...)
+	args = args or {}
 	args.device = self.id
 	local VKCmdPool = require 'vk.cmdpool'
 	return VKCmdPool(args, ...)
 end
 
 function VKDevice:makeSwapchain(args, ...)
-	args.device = self.id
+	args = args or {}
+	args.device = self
 	local VKSwapchain = require 'vk.swapchain'
 	return VKSwapchain(args, ...)
 end
 
 function VKDevice:makeRenderPass(args, ...)
+	args = args or {}
 	args.device = self.id
 	local VKRenderPass = require 'vk.renderpass'
 	return VKRenderPass(args, ...)
 end
 
+-- TODO rename file
+function VKDevice:makeMem(args, ...)
+	args = args or {}
+	args.device = self
+	local VKMemory = require 'vk.memory'
+	return VKMemory(args, ...)
+end
+
+function VKDevice:makeBuffer(args, ...)
+	args = args or {}
+	args.device = self
+	local VKBuffer = require 'vk.buffer'
+	return VKBuffer(args, ...)
+end
+
 function VKDevice:makeFramebuffer(args, ...)
+	args = args or {}
 	args.device = self.id
 	local VKFramebuffer = require 'vk.framebuffer'
 	return VKFramebuffer(args, ...)
 end
 
 function VKDevice:makeImage(args, ...)
+	args = args or {}
 	args.device = self
 	local VKImage = require 'vk.image'
 	return VKImage(args, ...)
 end
 
 function VKDevice:makeImageFromStaged(args, ...)
+	args = args or {}
 	args.device = self
 	local VKImage = require 'vk.image'
 	return VKImage:makeFromStaged(args, ...)
+end
+
+-- make an image from an already-existing VkImage and don't destroy it upon gc
+function VKDevice:makeImageFromID(imageID)
+	local VKImage = require 'vk.image'
+	return setmetatable({
+		device = self,
+		id = imageID,
+		idptr = ffi.new('VkImage[1]', imageID),
+		-- don't destroy
+		destroy = function() end,
+	}, VKImage)
+end
+
+function VKDevice:makeSampler(args, ...)
+	args = args or {}
+	args.device = self
+	local VKSampler = require 'vk.sampler'
+	return VKSampler(args, ...)
+end
+
+function VKDevice:makeFence(args, ...)
+	args = args or {}
+	args.device = self
+	local VKFence = require 'vk.fence'
+	return VKFence(args, ...)
+end
+
+-- rename this too?
+function VKDevice:makeSemaphore(args, ...)
+	args = args or {}
+	args.device = self
+	local VKSemaphore = require 'vk.semaphore'
+	return VKSemaphore(args, ...)
+end
+
+-- TODO rename file
+function VKDevice:makeDescPool(args, ...)
+	args = args or {}
+	args.device = self
+	local VKDescriptorPool = require 'vk.descriptorpool'
+	return VKDescriptorPool(args, ...)
+end
+
+function VKDevice:makePipeline(args, ...)
+	args = args or {}
+	args.device = self
+	local VKPipeline = require 'vk.pipeline'
+	return VKPipeline(args, ...)
+end
+
+function VKDevice:makePipelineLayout(args, ...)
+	args = args or {}
+	args.device = self
+	local VKPipelineLayout = require 'vk.pipelinelayout'
+	return VKPipelineLayout(args, ...)
+end
+
+-- TODO rename file
+function VKDevice:makeShader(args, ...)
+	args = args or {}
+	args.device = self
+	local VKShaderModule = require 'vk.shadermodule'
+	return VKShaderModule(args, ...)
 end
 
 return VKDevice

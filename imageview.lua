@@ -17,17 +17,13 @@ local VKImageView = class()
 function VKImageView:init(args)
 	local device = assert.index(args, 'device')
 	args.device = nil
-	local VulkanDevice = require 'vk.device'
-	if VulkanDevice:isa(device) then device = device.obj end
-	local VKDevice = require 'vk.device'
-	if VKDevice:isa(device) then device = device.id end
 	self.device = device
 
 	self.id, self.idptr = vkGet(
 		VkImageView,
 		vkassert,
 		vk.vkCreateImageView,
-		device,
+		device.id,
 		makeVkImageViewCreateInfo(args),
 		nil
 	)
@@ -35,7 +31,7 @@ end
 
 function VKImageView:destroy()
 	if self.id then
-		vk.vkDestroyImageView(self.device, self.id, nil)
+		vk.vkDestroyImageView(self.device.id, self.id, nil)
 	end
 	self.id = nil
 end

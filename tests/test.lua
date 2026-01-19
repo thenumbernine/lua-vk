@@ -32,16 +32,7 @@ local struct = require 'struct'
 local matrix_ffi = require 'matrix.ffi'
 local Image = require 'image'
 local vk = require 'vk'
-local VKImage = require 'vk.image'
-local VKBuffer = require 'vk.buffer'
-local VKFence = require 'vk.fence'
-local VKSemaphore = require 'vk.semaphore'
-local VKDescriptorPool = require 'vk.descriptorpool'
-local VKSampler = require 'vk.sampler'
 local VKCmdBuf = require 'vk.cmdbuf'
-local VKPipeline = require 'vk.pipeline'
-local VKPipelineLayout = require 'vk.pipelinelayout'
-local VKShaderModule = require 'vk.shadermodule'
 local VKDescriptorSetLayout = require 'vk.descriptorsetlayout'
 local VulkanMesh = require 'vk.vulkanmesh'
 
@@ -133,8 +124,7 @@ function VulkanApp:initVK()
 				end
 			end
 			if code then
-				self.shaderModules[k] = VKShaderModule{
-					device = self.device.id,
+				self.shaderModules[k] = self.device:makeShader{
 					code = code,
 				}
 			end
@@ -161,16 +151,14 @@ function VulkanApp:initVK()
 			},
 		},
 	}
-	self.pipelineLayout = VKPipelineLayout{
-		device = self.device.id,
+	self.pipelineLayout = self.device:makePipelineLayout{
 		setLayouts = {
 			self.descriptorSetLayout,
 		},
 	}
 
 	local VulkanVertex = VulkanMesh.VulkanVertex
-	self.pipeline = VKPipeline{
-		device = self.device.id,
+	self.pipeline = self.device:makePipeline{
 		stages = shaderStageFields:mapi(function(field,_,t)
 			local shader = self.shaderModules[field]
 			if not shader then return end
@@ -287,8 +275,7 @@ function VulkanApp:initVK()
 			),	
 		}
 
-		self.textureSampler = VKSampler{
-			device = self.device,
+		self.textureSampler = self.device:makeSampler{
 			magFilter = vk.VK_FILTER_LINEAR,
 			minFilter = vk.VK_FILTER_LINEAR,
 			mipmapMode = vk.VK_SAMPLER_MIPMAP_MODE_LINEAR,
@@ -315,8 +302,7 @@ function VulkanApp:initVK()
 
 	self.uniformBuffers = range(self.maxFramesInFlight):mapi(function(i)
 		local size = ffi.sizeof(UniformBufferObject)
-		local bm = VKBuffer{
-			device = self.device.id,
+		local bm = self.device:makeBuffer{
 			size = size,
 			usage = vk.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 			physDev = self.physDev,
@@ -331,8 +317,7 @@ function VulkanApp:initVK()
 		}
 	end)
 
-	self.descriptorPool = VKDescriptorPool{
-		device = self.device,
+	self.descriptorPool = self.device:makeDescPool{
 		maxSets = self.maxFramesInFlight,
 		poolSizes = {
 			{
@@ -381,20 +366,15 @@ function VulkanApp:initVK()
 	end)
 
 	self.imageAvailableSemaphores = range(self.maxFramesInFlight):mapi(function(i)
-		return VKSemaphore{
-			device = self.device,
-		}
+		return self.device:makeSemaphore()
 	end)
 
 	self.renderFinishedSemaphores = range(self.maxFramesInFlight):mapi(function(i)
-		return VKSemaphore{
-			device = self.device,
-		}
+		return self.device:makeSemaphore()
 	end)
 
 	self.inFlightFences = range(self.maxFramesInFlight):mapi(function(i)
-		return VKFence{
-			device = self.device,
+		return self.device:makeFence{
 			flags = vk.VK_FENCE_CREATE_SIGNALED_BIT,
 		}
 	end)

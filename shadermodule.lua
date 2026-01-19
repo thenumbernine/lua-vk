@@ -51,7 +51,7 @@ function VKShaderModule:init(args)
 		VkShaderModule,
 		vkassert,
 		vk.vkCreateShaderModule,
-		self.device,
+		self.device.id,
 		makeVkShaderModuleCreateInfo{
 			code = code,
 		},
@@ -66,7 +66,7 @@ end
 
 function VKShaderModule:destroy()
 	if self.id then
-		vk.vkDestroyShaderModule(self.device, self.id, nil)
+		vk.vkDestroyShaderModule(self.device.id, self.id, nil)
 	end
 	self.id = nil
 end
