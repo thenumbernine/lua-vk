@@ -179,6 +179,9 @@ function VKEnv:init(args)
 end
 
 function VKEnv:resetSwapchain(width, height)
+	if self.swapchain then
+		self.swapchain.obj:destroy()
+	end
 	self.swapchain = VulkanSwapchain{
 		width = assert(width),
 		height = assert(height),

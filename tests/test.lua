@@ -435,10 +435,18 @@ function VulkanApp:initVK()
 	self.submitInfo = VKQueue.makeVkSubmitInfo{
 		waitDstStageMask = vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 	}
+	self.presentSwapchains = ffi.new'VkSwapchainKHR[1]'
+	self.presentSwapchains[0] = assert(self.swapchain.obj.id)
 	self.presentInfo = VKQueue.makeVkPresentInfoKHR{
+		--[[ not working?
 		swapchains = {
 			(assert(self.vkenv.swapchain.obj.id)),
 		},
+		--]]
+		-- [[
+		pSwapchains = self.presentSwapchains,
+		swapchainCount = 1,
+		--]]
 	}
 end
 
@@ -599,9 +607,9 @@ function VulkanApp:recreateSwapchain()
 		error "here"
 	end
 	assert(self.device:waitIdle())
-	self.vkenv.swapchain.obj:destroy()
 	self.vkenv:resetSwapchain(self.width, self.height)
 	self.swapchain = self.vkenv.swapchain
+	self.presentSwapchains[0] = assert(self.swapchain.obj.id)
 end
 
 function VulkanApp:resize()
