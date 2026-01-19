@@ -110,6 +110,8 @@ function VulkanApp:initVK()
 	end
 
 	-- TODO can you query this like you could in OpenGL?
+	-- no?
+	-- wtf is the point of Vulkan if it's a step backwards.
 	self.descriptorSetLayout = self.device:makeDescSetLayout{
 		bindings = {
 			-- must match the "layout(binding=0) uniform UniformBufferObject { ... }" in the vertex shader
@@ -484,7 +486,6 @@ function VulkanApp:updateUniformBuffer()
 end
 
 function VulkanApp:recordCommandBuffer(commandBuffer, imageIndex)
-	-- TODO per vulkan api, if we just have null info, can we pass null?
 	assert(commandBuffer:begin(self.cmdBufBeginInfo))
 
 	local cmdBufRenderPassBeginInfo = self.cmdBufRenderPassBeginInfo
