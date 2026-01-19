@@ -13,9 +13,9 @@ local VkDeviceMemory = ffi.typeof'VkDeviceMemory'
 local makeVkMemoryAllocateInfo = makeStructCtor'VkMemoryAllocateInfo'
 
 
-local VKMemory = class()
+local VKMem = class()
 
-function VKMemory:init(args)
+function VKMem:init(args)
 	local device = assert.index(args, 'device')
 	args.device = nil
 	local VKDevice = require 'vk.device'
@@ -32,7 +32,7 @@ function VKMemory:init(args)
 	)
 end
 
-function VKMemory:map(bufferSize)
+function VKMem:map(bufferSize)
 	return vkGet(
 		void_ptr,
 		vkassert,
@@ -44,19 +44,19 @@ function VKMemory:map(bufferSize)
 		0)
 end
 
-function VKMemory:unmap()
+function VKMem:unmap()
 	vk.vkUnmapMemory(self.device, self.id)
 end
 
-function VKMemory:destroy()
+function VKMem:destroy()
 	if self.id then
 		vk.vkFreeMemory(self.device, self.id, nil)
 	end
 	self.id = nil
 end
 
-function VKMemory:__gc()
+function VKMem:__gc()
 	return self:destroy()
 end
 
-return VKMemory
+return VKMem

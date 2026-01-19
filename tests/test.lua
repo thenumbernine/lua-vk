@@ -330,7 +330,7 @@ function VulkanApp:initVK()
 	}
 
 	self.descriptorSets = range(self.maxFramesInFlight):mapi(function(i)
-		return self.descriptorPool:makeDescSets{
+		return self.descriptorPool:makeDescSet{
 			setLayout = self.descriptorSetLayout.id,
 		}
 	end)

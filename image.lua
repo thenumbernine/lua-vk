@@ -17,10 +17,8 @@ local makeVkImageCreateInfo = makeStructCtor'VkImageCreateInfo'
 local VKImage = class()
 
 function VKImage:init(args)
-	local device = assert.index(args, 'device')
+	self.device = assert.index(args, 'device')
 	args.device = nil
-	local deviceID = device.id
-	self.device = device
 		
 	args.imageType = args.imageType or vk.VK_IMAGE_TYPE_2D
 	args.extent.depth = args.extent.depth or 1
@@ -34,7 +32,7 @@ function VKImage:init(args)
 		VkImage,
 		vkassert,
 		vk.vkCreateImage,
-		deviceID,
+		self.device.id,
 		makeVkImageCreateInfo(args),
 		nil
 	)
@@ -42,7 +40,7 @@ function VKImage:init(args)
 	-- same as VKBuffer
 	if not args.dontMakeMem then
 		local memReq = self:getMemReq()
-		local mem = device:makeMem{
+		local mem = self.device:makeMem{
 			allocationSize = memReq.size,
 			memoryTypeIndex = args.physDev:findMemoryType(
 				memReq.memoryTypeBits,
@@ -89,13 +87,6 @@ function VKImage:bindMemory(mem)
 	)
 end
 
-function VKImage:makeView(args)
-	args.device = self.device
-	args.image = self.id
-	local VKImageView = require 'vk.imageview'
-	return VKImageView(args)
-end
-
 function VKImage:destroy()
 	if self.view then
 		self.view:destroy()
@@ -119,9 +110,20 @@ end
 
 -- helper functions
 
---[[
-static
---]]
+function VKImage:makeView(args)
+	args.device = self.device
+	args.image = self.id
+	local VKImageView = require 'vk.imageview'
+	return VKImageView(args)
+end
+
+function VKImage:makeMemBarrier(args, ...)
+	args.image = self.id
+	local VKCmdBuf = require 'vk.cmdbuf'
+	return VKCmdBuf.makeVkImageMemoryBarrier(args, ...)
+end
+
+-- static
 function VKImage:makeFromStaged(args)
 	local staging = args.device:makeBuffer{
 		size = args.size,
@@ -166,7 +168,7 @@ function VKImage:makeFromStaged(args)
 end
 
 function VKImage:generateMipmap(args)
-	local image = self.id
+	local image = self
 	local physDev = args.physDev
 	local texWidth = args.extent.width
 	local texHeight = args.extent.height
@@ -181,10 +183,9 @@ function VKImage:generateMipmap(args)
 	args.queue:singleTimeCommand(
 		args.cmdPool,
 		function(cmds)
-			local barrier = cmds.makeVkImageMemoryBarrier{
+			local barrier = image:makeMemBarrier{
 				srcQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED,
 				dstQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED,
-				image = image,
 				subresourceRange = {
 					aspectMask = aspectMask,
 					levelCount = 1,
@@ -214,9 +215,9 @@ function VKImage:generateMipmap(args)
 				)
 
 				cmds:blitImage(
-					image,
+					image.id,
 					vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-					image,
+					image.id,
 					vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 					1,
 					cmds.VkImageBlit{

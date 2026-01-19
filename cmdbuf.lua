@@ -25,9 +25,9 @@ local makeVkRenderPassBeginInfo = makeStructCtor(
 )
 
 
-local VKCommandBuffer = class()
+local VKCmdBuf = class()
 
-function VKCommandBuffer:init(args)
+function VKCmdBuf:init(args)
 	local device = assert.index(args, 'device')
 	args.device = nil
 	local VKDevice = require 'vk.device'
@@ -41,7 +41,7 @@ function VKCommandBuffer:init(args)
 	self.count = args.commandBufferCount
 
 	-- not sure what to call this, .id, .ids, .idptr ...
-	-- same as vk.descriptorsets
+	-- same as vk.descsets
 	self.idptr = VkCommandBuffer_array(self.count)
 	vkassert(
 		vk.vkAllocateCommandBuffers,
@@ -53,81 +53,81 @@ function VKCommandBuffer:init(args)
 end
 
 -- only runs on the first one i.e. .id
-VKCommandBuffer.makeVkCommandBufferBeginInfo = makeVkCommandBufferBeginInfo
-function VKCommandBuffer:begin(...)
+VKCmdBuf.makeVkCommandBufferBeginInfo = makeVkCommandBufferBeginInfo
+function VKCmdBuf:begin(...)
 	return vkResult(vk.vkBeginCommandBuffer(self.id, ...), 'vkBeginCommandBuffer')
 end
 
-function VKCommandBuffer:done()	-- "end"
+function VKCmdBuf:done()	-- "end"
 	return vkResult(vk.vkEndCommandBuffer(self.id), 'vkEndCommandBuffer')
 end
 
-function VKCommandBuffer:reset()
+function VKCmdBuf:reset()
 	return vkResult(vk.vkResetCommandBuffer(self.id, 0), 'vkResetCommandBuffer')
 end
 
-VKCommandBuffer.makeVkImageMemoryBarrier = makeStructCtor'VkImageMemoryBarrier'
-function VKCommandBuffer:pipelineBarrier(...)
+VKCmdBuf.makeVkImageMemoryBarrier = makeStructCtor'VkImageMemoryBarrier'
+function VKCmdBuf:pipelineBarrier(...)
 	return vk.vkCmdPipelineBarrier(self.id, ...)
 end
 
-VKCommandBuffer.VkBufferCopy = ffi.typeof'VkBufferCopy'
-function VKCommandBuffer:copyBuffer(...)
+VKCmdBuf.VkBufferCopy = ffi.typeof'VkBufferCopy'
+function VKCmdBuf:copyBuffer(...)
 	return vk.vkCmdCopyBuffer(self.id, ...)
 end
 
-VKCommandBuffer.VkBufferImageCopy = ffi.typeof'VkBufferImageCopy'
-function VKCommandBuffer:copyBufferToImage(...)
+VKCmdBuf.VkBufferImageCopy = ffi.typeof'VkBufferImageCopy'
+function VKCmdBuf:copyBufferToImage(...)
 	return vk.vkCmdCopyBufferToImage(self.id, ...)
 end
 
-VKCommandBuffer.VkImageBlit = ffi.typeof'VkImageBlit'
-function VKCommandBuffer:blitImage(...)
+VKCmdBuf.VkImageBlit = ffi.typeof'VkImageBlit'
+function VKCmdBuf:blitImage(...)
 	return vk.vkCmdBlitImage(self.id, ...)
 end
 
-VKCommandBuffer.makeVkRenderPassBeginInfo = makeVkRenderPassBeginInfo 
-function VKCommandBuffer:beginRenderPass(...)
+VKCmdBuf.makeVkRenderPassBeginInfo = makeVkRenderPassBeginInfo 
+function VKCmdBuf:beginRenderPass(...)
 	return vk.vkCmdBeginRenderPass(self.id, ...)
 end
 
-function VKCommandBuffer:endRenderPass()
+function VKCmdBuf:endRenderPass()
 	return vk.vkCmdEndRenderPass(self.id)
 end
 
-function VKCommandBuffer:bindPipeline(...)
+function VKCmdBuf:bindPipeline(...)
 	return vk.vkCmdBindPipeline(self.id, ...)
 end
 
-VKCommandBuffer.VkViewport = ffi.typeof'VkViewport'
-function VKCommandBuffer:setViewport(...)
+VKCmdBuf.VkViewport = ffi.typeof'VkViewport'
+function VKCmdBuf:setViewport(...)
 	return vk.vkCmdSetViewport(self.id, ...)
 end
 
-VKCommandBuffer.VkRect2D = ffi.typeof'VkRect2D'
-function VKCommandBuffer:setScissors(...)
+VKCmdBuf.VkRect2D = ffi.typeof'VkRect2D'
+function VKCmdBuf:setScissors(...)
 	return vk.vkCmdSetScissor(self.id, ...)
 end
 
-VKCommandBuffer.VkBuffer_array = ffi.typeof'VkBuffer[?]'
-VKCommandBuffer.VkDeviceSize_array = ffi.typeof'VkDeviceSize[?]'
-function VKCommandBuffer:bindVertexBuffers(...)
+VKCmdBuf.VkBuffer_array = ffi.typeof'VkBuffer[?]'
+VKCmdBuf.VkDeviceSize_array = ffi.typeof'VkDeviceSize[?]'
+function VKCmdBuf:bindVertexBuffers(...)
 	return vk.vkCmdBindVertexBuffers(self.id, ...)
 end
 
-function VKCommandBuffer:bindIndexBuffer(...)
+function VKCmdBuf:bindIndexBuffer(...)
 	return vk.vkCmdBindIndexBuffer(self.id, ...)
 end
 
-function VKCommandBuffer:bindDescriptorSets(...)
+function VKCmdBuf:bindDescriptorSets(...)
 	return vk.vkCmdBindDescriptorSets(self.id, ...)
 end
 
-function VKCommandBuffer:drawIndexed(...)
+function VKCmdBuf:drawIndexed(...)
 	return vk.vkCmdDrawIndexed(self.id, ...)
 end
 
-function VKCommandBuffer:destroy()
+function VKCmdBuf:destroy()
 	if self.idptr then
 		vk.vkFreeCommandBuffers(self.device, self.commandPool, self.count, self.idptr)
 	end
@@ -135,8 +135,8 @@ function VKCommandBuffer:destroy()
 	self.idptr = nil
 end
 
-function VKCommandBuffer:__gc()
+function VKCmdBuf:__gc()
 	return self:destroy()
 end
 
-return VKCommandBuffer
+return VKCmdBuf

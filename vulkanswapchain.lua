@@ -159,7 +159,6 @@ function VulkanSwapchain:init(args)
 		extent = {
 			width = width,
 			height = height,
-			depth = 1,
 		},
 		samples = msaaSamples,
 		usage = bit.bor(
@@ -180,11 +179,10 @@ function VulkanSwapchain:init(args)
 		extent = {
 			width = width,
 			height = height,
-			depth = 1,
 		},
 		samples = msaaSamples,
 		usage = vk.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-		-- VKMemory
+		-- VKMemory:
 		physDev = physDev,
 		memProps = vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		-- VkImageView:

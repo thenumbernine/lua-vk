@@ -30,16 +30,14 @@ local makeVkDescriptorSetAllocateInfo = makeStructCtor(
 )
 
 
-local VKDescriptorSets = class()
+local VKDescSet = class()
 
-function VKDescriptorSets:init(args)
-	local device = assert.index(args, 'device')
+function VKDescSet:init(args)
+	self.device = assert.index(args, 'device')
 	args.device = nil
-	local VKDevice = require 'vk.device'
-	if VKDevice:isa(device) then device = device.id end
-	self.device = device
 
 	self.descriptorPool = args.descriptorPool
+	args.descriptorPool = self.descriptorPool.id
 
 	if args.descriptorSetCount then
 		self.count = args.descriptorSetCount
@@ -55,16 +53,16 @@ function VKDescriptorSets:init(args)
 	self.idptr = VkDescriptorSet_array(self.count)
 	vkassert(
 		vk.vkAllocateDescriptorSets,
-		self.device,
+		self.device.id,
 		makeVkDescriptorSetAllocateInfo(args),
 		self.idptr
 	)
 	self.id = self.idptr[0]
 end
 
-function VKDescriptorSets:destroy()
+function VKDescSet:destroy()
 	if self.idptr then
-		vk.vkFreeDescriptorSets(self.device, self.descriptorPool, self.count, self.idptr)
+		vk.vkFreeDescriptorSets(self.device.id, self.descriptorPool.id, self.count, self.idptr)
 	end
 	self.id = nil
 	self.idptr = nil
@@ -76,4 +74,4 @@ function VKDescriptorSet:__gc()
 end
 --]]
 
-return VKDescriptorSets
+return VKDescSet

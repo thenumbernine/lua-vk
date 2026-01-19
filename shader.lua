@@ -31,15 +31,16 @@ local makeVkShaderModuleCreateInfo = makeStructCtor(
 )
 
 
-local VKShaderModule = class()
+local VKShader = class()
 
 --[[
 args:
 	.device
 	.code -or- .filename
 --]]
-function VKShaderModule:init(args)
+function VKShader:init(args)
 	self.device = assert.index(args, 'device')
+	args.device = nil
 
 	local code = args.code
 	if not code and args.filename then
@@ -64,15 +65,15 @@ end
 -- glslangValidator -V shader.frag -o shader-frag.spv
 
 
-function VKShaderModule:destroy()
+function VKShader:destroy()
 	if self.id then
 		vk.vkDestroyShaderModule(self.device.id, self.id, nil)
 	end
 	self.id = nil
 end
 
-function VKShaderModule:__gc()
+function VKShader:__gc()
 	return self:destroy()
 end
 
-return VKShaderModule 
+return VKShader 

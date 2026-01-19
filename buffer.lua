@@ -22,6 +22,7 @@ local VKBuffer = class()
 
 function VKBuffer:init(args)
 	self.device = assert.index(args, 'device')
+	args.device = nil
 
 	args.sharingMode = args.sharingMode or vk.VK_SHARING_MODE_EXCLUSIVE
 

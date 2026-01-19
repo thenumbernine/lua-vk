@@ -19,9 +19,9 @@ local makeVkDescriptorSetLayoutCreateInfo = makeStructCtor(
 )
 
 
-local VKDescriptorSetLayout = class()
+local VKDescSetLayout = class()
 
-function VKDescriptorSetLayout:init(args)
+function VKDescSetLayout:init(args)
 	self.device = assert.index(args, 'device')
 	args.device = nil
 
@@ -35,15 +35,15 @@ function VKDescriptorSetLayout:init(args)
 	)
 end
 
-function VKDescriptorSetLayout:destroy()
+function VKDescSetLayout:destroy()
 	if self.id then
 		vk.vkDestroyDescriptorSetLayout(self.device.id, self.id, nil)
 	end
 	self.id = nil
 end
 
-function VKDescriptorSetLayout:__gc()
+function VKDescSetLayout:__gc()
 	return self:destroy()
 end
 
-return VKDescriptorSetLayout 
+return VKDescSetLayout 

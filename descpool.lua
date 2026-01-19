@@ -6,7 +6,6 @@ local vk = require 'vk'
 local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
 local makeStructCtor = require 'vk.util'.makeStructCtor
-local VKDescriptorSets = require 'vk.descriptorsets'
 
 
 local VkDescriptorPool = ffi.typeof'VkDescriptorPool'
@@ -21,40 +20,38 @@ local makeVkDescriptorPoolCreateInfo = makeStructCtor(
 )
 
 
-local VKDescriptorPool = class()
+local VKDescPool = class()
 
-function VKDescriptorPool:init(args)
-	local device = assert.index(args, 'device')
+function VKDescPool:init(args)
+	self.device = assert.index(args, 'device')
 	args.device = nil
-	device = device.obj or device
-	device = device.id or device
-	self.device = device
 
 	self.id, self.idptr = vkGet(
 		VkDescriptorPool,
 		vkassert,
 		vk.vkCreateDescriptorPool,
-		device,
+		self.device.id,
 		makeVkDescriptorPoolCreateInfo(args),
 		nil
 	)
 end
 
-function VKDescriptorPool:makeDescSets(args)
+function VKDescPool:makeDescSet(args)
 	args.device = self.device
-	args.descriptorPool = self.id
-	return VKDescriptorSets(args)
+	args.descriptorPool = self
+	local VKDescSet = require 'vk.descset'
+	return VKDescSet(args)
 end
 
-function VKDescriptorPool:destroy()
+function VKDescPool:destroy()
 	if self.id then
-		vk.vkDestroyDescriptorPool(self.device, self.id, nil)
+		vk.vkDestroyDescriptorPool(self.device.id, self.id, nil)
 	end
 	self.id = nil
 end
 
-function VKDescriptorPool:__gc()
+function VKDescPool:__gc()
 	return self:destroy()
 end
 
-return VKDescriptorPool
+return VKDescPool

@@ -2,13 +2,12 @@
 -- it's just a helper, and itself wraps 'mesh.objloader'
 local ffi = require 'ffi'
 local class = require 'ext.class'
-local asserteq = require 'ext.assert'.eq
-local vec3f = require 'vec-ffi.vec3f'
+local assert = require 'ext.assert'
+local vec3f = require 'vec-ffi.vec3f' -- vec3f_t
 local struct = require 'struct'
 local vector = require 'ffi.cpp.vector-lua'
 local ObjLoader = require 'mesh.objloader'
 local vk = require 'vk'
-local VKBuffer = require 'vk.buffer'
 
 
 local VulkanVertex
@@ -31,7 +30,7 @@ function VulkanMesh:init(args)
 	local mesh = ObjLoader():load(args.filename)
 
 	local indices = mesh.triIndexes	-- vector'int32_t'
-	asserteq(indices.type, ffi.typeof'int32_t') 	-- well, uint, but whatever
+	assert.eq(indices.type, ffi.typeof'int32_t') 	-- well, uint, but whatever
 	-- copy from MeshVertex_t to VulkanVertex ... TODO why bother ...
 	local vertices = vector(VulkanVertex)
 	vertices:resize(#mesh.vtxs)

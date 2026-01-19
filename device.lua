@@ -201,12 +201,11 @@ function VKDevice:makeRenderPass(args, ...)
 	return VKRenderPass(args, ...)
 end
 
--- TODO rename file
 function VKDevice:makeMem(args, ...)
 	args = args or {}
 	args.device = self
-	local VKMemory = require 'vk.memory'
-	return VKMemory(args, ...)
+	local VKMem = require 'vk.mem'
+	return VKMem(args, ...)
 end
 
 function VKDevice:makeBuffer(args, ...)
@@ -270,7 +269,6 @@ function VKDevice:makeFence(args, ...)
 	return VKFence(args, ...)
 end
 
--- rename this too?
 function VKDevice:makeSemaphore(args, ...)
 	args = args or {}
 	args.device = self
@@ -278,20 +276,18 @@ function VKDevice:makeSemaphore(args, ...)
 	return VKSemaphore(args, ...)
 end
 
--- TODO rename file
 function VKDevice:makeDescPool(args, ...)
 	args = args or {}
 	args.device = self
-	local VKDescriptorPool = require 'vk.descriptorpool'
-	return VKDescriptorPool(args, ...)
+	local VKDescPool = require 'vk.descpool'
+	return VKDescPool(args, ...)
 end
 
--- TODO rename file
 function VKDevice:makeDescSetLayout(args, ...)
 	args = args or {}
 	args.device = self
-	local VKDescriptorSetLayout = require 'vk.descriptorsetlayout'
-	return VKDescriptorSetLayout(args, ...)
+	local VKDescSetLayout = require 'vk.descsetlayout'
+	return VKDescSetLayout(args, ...)
 end
 
 
@@ -309,12 +305,11 @@ function VKDevice:makePipelineLayout(args, ...)
 	return VKPipelineLayout(args, ...)
 end
 
--- TODO rename file
 function VKDevice:makeShader(args, ...)
 	args = args or {}
 	args.device = self
-	local VKShaderModule = require 'vk.shadermodule'
-	return VKShaderModule(args, ...)
+	local VKShader = require 'vk.shader'
+	return VKShader(args, ...)
 end
 
 return VKDevice
