@@ -1,28 +1,4 @@
 #!/usr/bin/env luajit
-
--- [[ build shaders
-local os = require 'ext.os'
-local Targets = require 'make.targets'
-local targets = Targets()
-local fns = {
-	{src='shader.vert', dst='shader-vert.spv'},
-	{src='shader.frag', dst='shader-frag.spv'},
-}
-for _,fn in ipairs(fns) do
-	targets:add{
-		dsts = {fn.dst},
-		srcs = {fn.src},
-		rule = function(r)
-			os.exec('glslangValidator -V "'..r.srcs[1]..'" -o "'..r.dsts[1]..'"')
-		end,
-	}
-end
-for _,fn in ipairs(fns) do
-	targets:run(fn.dst)
-end
---]]
-
--- [[ app
 local ffi = require 'ffi'
 local assert = require 'ext.assert'
 local timer = require 'ext.timer'
@@ -79,6 +55,10 @@ function VulkanApp:initVK()
 
 	self.tmpMat = matrix_ffi({4,4}, 'float'):zeros()
 	self.currentFrame = 0
+
+	local VKShader = require 'vk.shader'
+	VKShader:build('shader.vert', 'shader-vert.spv')
+	VKShader:build('shader.frag', 'shader-frag.spv')
 
 	local args = {
 		-- TODO ...
@@ -679,4 +659,3 @@ function VulkanApp:exit()
 end
 
 return VulkanApp():run()
---]]
