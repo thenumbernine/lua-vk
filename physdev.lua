@@ -80,6 +80,12 @@ end
 
 -- helper functions:
 
+function VKPhysDev:makeDevice(args, ...)
+	args.physDev = self.id
+	local VKDevice = require 'vk.device'
+	return VKDevice(args, ...)
+end
+
 function VKPhysDev:findDepthFormat()
 	return self:findSupportedFormat(
 		{

@@ -144,7 +144,7 @@ function VKImage:makeFromStaged(args)
 	local image = VKImage(args)
 
 	args.queue:transitionImageLayout(
-		args.commandPool,
+		args.cmdPool,
 		image.id,
 		vk.VK_IMAGE_LAYOUT_UNDEFINED,
 		vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -152,7 +152,7 @@ function VKImage:makeFromStaged(args)
 	)
 
 	args.queue:copyBufferToImage(
-		args.commandPool,
+		args.cmdPool,
 		staging,
 		image.id,
 		args.extent.width,
@@ -184,7 +184,7 @@ function VKImage:generateMipmap(args)
 	end
 
 	args.queue:singleTimeCommand(
-		args.commandPool,
+		args.cmdPool,
 		function(cmds)
 			local barrier = cmds.makeVkImageMemoryBarrier{
 				srcQueueFamilyIndex = vk.VK_QUEUE_FAMILY_IGNORED,

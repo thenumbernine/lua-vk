@@ -51,7 +51,7 @@ function VKDescriptorSets:init(args)
 		error("idk how to count the size of the descriptorSets")
 	end
 
-	-- same as vk.commandbuffers
+	-- same as vk.cmdbuf
 	self.idptr = VkDescriptorSet_array(self.count)
 	vkassert(
 		vk.vkAllocateDescriptorSets,

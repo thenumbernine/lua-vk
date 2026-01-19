@@ -48,7 +48,7 @@ function VulkanMesh:init(args)
 	self.vertexBufferAndMemory = VKBuffer:makeFromStaged{
 		physDev = args.physDev,
 		device = device,
-		commandPool = args.commandPool,
+		cmdPool = args.cmdPool,
 		queue = args.queue,
 		data = vertices.v,
 		size = vertices:getNumBytes(),
@@ -62,7 +62,7 @@ function VulkanMesh:init(args)
 	self.indexBufferAndMemory = VKBuffer:makeFromStaged{
 		physDev = args.physDev,
 		device = device,
-		commandPool = args.commandPool,
+		cmdPool = args.cmdPool,
 		queue = args.queue,
 		data = indices.v,
 		size = indices:getNumBytes(),

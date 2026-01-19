@@ -111,7 +111,7 @@ args used by staging:
 	size
 	data
 	queue
-	commandPool
+	cmdPool
 args overridden before VKBuffer:init:
 	memProps
 	data
@@ -136,7 +136,7 @@ function VKBuffer:makeFromStaged(args)
 	local buffer = VKBuffer(args)
 
 	args.queue:copyBuffer(
-		args.commandPool,
+		args.cmdPool,
 		staging,
 		buffer,
 		args.size

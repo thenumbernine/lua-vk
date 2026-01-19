@@ -5,7 +5,6 @@ local vk = require 'vk'
 local vkGet = require 'vk.util'.vkGet
 local vkResult = require 'vk.util'.vkResult
 local makeStructCtor = require 'vk.util'.makeStructCtor
-local VKCommandBuffer = require 'vk.commandbuffer'
 
 
 local VkQueue = ffi.typeof'VkQueue'

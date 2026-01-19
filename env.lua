@@ -11,9 +11,6 @@ local table = require 'ext.table'
 local vk = require 'vk'
 local VKInstance = require 'vk.instance'
 local VKSurface = require 'vk.surface'
-local VKDevice = require 'vk.device'
-local VKQueue = require 'vk.queue'
-local VKCommandPool = require 'vk.commandpool'
 local VKDebugUtilsMessenger = require 'vk.debugutilsmessenger'
 
 
@@ -138,8 +135,7 @@ function VKEnv:init(args)
 
 	local queueFamilyIndices = self.physDev:findQueueFamilies(self.surface)
 	
-	self.device = VKDevice{
-		physDev = self.physDev,
+	self.device = self.physDev:makeDevice{
 		queueCreateInfos = table.keys{
 			[queueFamilyIndices.graphicsFamily] = true,
 			[queueFamilyIndices.presentFamily] = true,
@@ -156,18 +152,15 @@ function VKEnv:init(args)
 		},
 	}
 
-	self.graphicsQueue = VKQueue{
-		device = self.device,
+	self.graphicsQueue = self.device:makeQueue{
 		family = queueFamilyIndices.graphicsFamily,
 	}
 
-	self.presentQueue = VKQueue{
-		device = self.device,
+	self.presentQueue = self.device:makeQueue{
 		family = queueFamilyIndices.presentFamily,
 	}
 
-	self.commandPool = VKCommandPool{
-		device = self.device,
+	self.cmdPool = self.device:makeCmdPool{
 		flags = vk.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
 		queueFamilyIndex = assert.index(self.physDev:findQueueFamilies(self.surface), 'graphicsFamily'),
 	}
@@ -202,10 +195,10 @@ function VKEnv:exit()
 	end
 	self.swapchain = nil
 
-	if self.commandPool then
-		self.commandPool:destroy()
+	if self.cmdPool then
+		self.cmdPool:destroy()
 	end
-	self.commandPool = nil
+	self.cmdPool = nil
 
 	if self.swapchain then
 		self.swapchain:destroy()

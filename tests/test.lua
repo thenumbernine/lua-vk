@@ -38,13 +38,11 @@ local VKFence = require 'vk.fence'
 local VKSemaphore = require 'vk.semaphore'
 local VKDescriptorPool = require 'vk.descriptorpool'
 local VKSampler = require 'vk.sampler'
-local VKCommandBuffer = require 'vk.commandbuffer'
+local VKCmdBuf = require 'vk.cmdbuf'
 local VKPipeline = require 'vk.pipeline'
 local VKPipelineLayout = require 'vk.pipelinelayout'
 local VKShaderModule = require 'vk.shadermodule'
 local VKDescriptorSetLayout = require 'vk.descriptorsetlayout'
-local VKQueue = require 'vk.queue'
-local VKDevice = require 'vk.device'
 local VulkanMesh = require 'vk.vulkanmesh'
 
 
@@ -85,7 +83,7 @@ function VulkanApp:initVK()
 	self.device = self.vkenv.device
 	self.graphicsQueue = self.vkenv.graphicsQueue
 	self.presentQueue = self.vkenv.presentQueue
-	self.commandPool = self.vkenv.commandPool
+	self.cmdPool = self.vkenv.cmdPool
 	self.swapchain = self.vkenv.swapchain
 
 
@@ -275,9 +273,9 @@ function VulkanApp:initVK()
 			-- VkImageView:
 			physDev = self.physDev,
 			aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT,
-			-- TODO NOTICE setting this to false fails
-			commandPool = self.commandPool,
+			cmdPool = self.cmdPool,
 			queue = self.graphicsQueue,
+			-- TODO NOTICE setting this to false fails
 			generateMipmap = true,
 			size = image:getBufferSize(),
 			data = image.buffer,
@@ -311,7 +309,7 @@ function VulkanApp:initVK()
 	self.mesh = VulkanMesh{
 		physDev = self.physDev,
 		device = self.device,
-		commandPool = self.commandPool,
+		cmdPool = self.cmdPool,
 		queue = self.graphicsQueue,
 		filename = args.mesh,
 	}
@@ -378,7 +376,7 @@ function VulkanApp:initVK()
 	end
 
 	self.commandBuffers = range(self.maxFramesInFlight):mapi(function(i)
-		return self.commandPool:makeCmds{
+		return self.cmdPool:makeCmds{
 			level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 		}
 	end)
@@ -406,9 +404,9 @@ function VulkanApp:initVK()
 	-- structs used by update (so I don't have to realloc)
 	
 	self.imageIndex = uint32_t_1()
-	self.acquireNextImageInfo = VKDevice.makeVkAcquireNextImageInfoKHR()
-	self.cmdBufBeginInfo = VKCommandBuffer.makeVkCommandBufferBeginInfo()
-	self.cmdBufRenderPassBeginInfo = VKCommandBuffer.makeVkRenderPassBeginInfo{
+	self.acquireNextImageInfo = self.device.makeVkAcquireNextImageInfoKHR()
+	self.cmdBufBeginInfo = VKCmdBuf.makeVkCommandBufferBeginInfo()
+	self.cmdBufRenderPassBeginInfo = VKCmdBuf.makeVkRenderPassBeginInfo{
 		clearValues = {
 			{
 				color = {
@@ -423,21 +421,21 @@ function VulkanApp:initVK()
 			},
 		},
 	}
-	self.viewports = VKCommandBuffer.VkViewport{
+	self.viewports = VKCmdBuf.VkViewport{
 		minDepth = 0,
 		maxDepth = 1,
 	}
-	self.scissors = VKCommandBuffer.VkRect2D()
-	self.vertexBuffers = VKCommandBuffer.VkBuffer_array(1,
+	self.scissors = VKCmdBuf.VkRect2D()
+	self.vertexBuffers = VKCmdBuf.VkBuffer_array(1,
 		self.mesh.vertexBufferAndMemory.id
 	)
-	self.vertexOffsets = VKCommandBuffer.VkDeviceSize_array(1, 0)
-	self.submitInfo = VKQueue.makeVkSubmitInfo{
+	self.vertexOffsets = VKCmdBuf.VkDeviceSize_array(1, 0)
+	self.submitInfo = self.graphicsQueue.makeVkSubmitInfo{
 		waitDstStageMask = vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 	}
 	self.presentSwapchains = ffi.new'VkSwapchainKHR[1]'
 	self.presentSwapchains[0] = assert(self.swapchain.obj.id)
-	self.presentInfo = VKQueue.makeVkPresentInfoKHR{
+	self.presentInfo = self.graphicsQueue.makeVkPresentInfoKHR{
 		--[[ not working?
 		swapchains = {
 			(assert(self.vkenv.swapchain.obj.id)),

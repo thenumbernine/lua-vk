@@ -1,3 +1,4 @@
+require 'ext.gc'
 local ffi = require 'ffi'
 local class = require 'ext.class'
 local assertindex = require 'ext.assert'.index
@@ -7,7 +8,6 @@ local vkGet = require 'vk.util'.vkGet
 local vkResult = require 'vk.util'.vkResult
 local makeStructCtor = require 'vk.util'.makeStructCtor
 local makeTableToArray = require 'vk.util'.makeTableToArray
-local VKPhysDev = require 'vk.physdev'
 
 
 local makeVkDeviceQueueCreateInfo = makeStructCtor(
@@ -129,9 +129,8 @@ function VKDevice:init(args)
 	-- can I still pass args to ffi.new?  will it ignore extra fields?  seems alright ...
 	local physDev = assertindex(args, 'physDev')
 	args.physDev = nil
-	if VKPhysDev:isa(physDev) then physDev = physDev.id end
 
-	self.id = vkGet(
+	self.id, self.idptr = vkGet(
 		VkDevice,
 		vkassert,
 		vk.vkCreateDevice,
@@ -166,6 +165,24 @@ function VKDevice:destroy()
 		vk.vkDestroyDevice(self.id, nil)
 	end
 	self.id = nil
+end
+
+function VKDevice:__gc()
+	return self:destroy()
+end
+
+-- helper functions
+
+function VKDevice:makeQueue(args, ...)
+	args.device = self.id
+	local VKQueue = require 'vk.queue'
+	return VKQueue(args, ...)
+end
+
+function VKDevice:makeCmdPool(args, ...)
+	args.device = self.id
+	local VKCmdPool = require 'vk.cmdpool'
+	return VKCmdPool(args, ...)
 end
 
 return VKDevice
