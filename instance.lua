@@ -48,7 +48,7 @@ local makeVkInstanceCreateInfo = makeStructCtor(
 )
 
 
-local VKInstance = class() 
+local VKInstance = class()
 
 function VKInstance:init(args)
 	self.id, self.idptr = vkGet(
@@ -123,7 +123,7 @@ function VKInstance:getProcAddr(name, ctype)
 	ctype = ctype or 'PFN_'..name
 	local ptr = vk.vkGetInstanceProcAddr(self.id, name)
 	ptr = ffi.cast(ctype, ptr)
-	return ptr 
+	return ptr
 end
 
 function VKInstance:destroy()
@@ -131,6 +131,7 @@ function VKInstance:destroy()
 		vk.vkDestroyInstance(self.id, nil)
 	end
 	self.id = nil
+	self.idptr = nil
 end
 
 function VKInstance:__gc()

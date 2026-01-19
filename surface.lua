@@ -39,11 +39,12 @@ function VKSurface:init(args)
 end
 
 function VKSurface:destroy()
-	if self.id then 
+	if self.id then
 		vk.vkDestroySurfaceKHR(self.instance, self.id, nil)
 		-- what about SDL_Vulkan_DestroySurface?  same? both?
 	end
 	self.id = nil
+	self.idptr = nil
 end
 
 function VKSurface:__gc()

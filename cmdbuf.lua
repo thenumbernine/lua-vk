@@ -28,14 +28,11 @@ local makeVkRenderPassBeginInfo = makeStructCtor(
 local VKCmdBuf = class()
 
 function VKCmdBuf:init(args)
-	local device = assert.index(args, 'device')
+	self.device = assert.index(args, 'device')
 	args.device = nil
-	local VKDevice = require 'vk.device'
-	if VKDevice:isa(device) then device = device.id end
-	self.device = device
 
-	-- needed for destroy
 	self.commandPool = assert.index(args, 'commandPool')
+	args.commandPool = self.commandPool.id
 
 	args.commandBufferCount = args.commandBufferCount or 1
 	self.count = args.commandBufferCount
@@ -45,7 +42,7 @@ function VKCmdBuf:init(args)
 	self.idptr = VkCommandBuffer_array(self.count)
 	vkassert(
 		vk.vkAllocateCommandBuffers,
-		device,
+		self.device.id,
 		makeVkCommandBufferAllocateInfo(args),
 		self.idptr
 	)
@@ -86,7 +83,7 @@ function VKCmdBuf:blitImage(...)
 	return vk.vkCmdBlitImage(self.id, ...)
 end
 
-VKCmdBuf.makeVkRenderPassBeginInfo = makeVkRenderPassBeginInfo 
+VKCmdBuf.makeVkRenderPassBeginInfo = makeVkRenderPassBeginInfo
 function VKCmdBuf:beginRenderPass(...)
 	return vk.vkCmdBeginRenderPass(self.id, ...)
 end
@@ -129,7 +126,7 @@ end
 
 function VKCmdBuf:destroy()
 	if self.idptr then
-		vk.vkFreeCommandBuffers(self.device, self.commandPool, self.count, self.idptr)
+		vk.vkFreeCommandBuffers(self.device.id, self.commandPool.id, self.count, self.idptr)
 	end
 	self.id = nil
 	self.idptr = nil

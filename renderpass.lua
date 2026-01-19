@@ -67,7 +67,7 @@ function VKRenderPass:init(args)
 		VkRenderPass,
 		vkassert,
 		vk.vkCreateRenderPass,
-		self.device,
+		self.device.id,
 		makeVkRenderPassCreateInfo(args),
 		nil
 	)
@@ -75,9 +75,10 @@ end
 
 function VKRenderPass:destroy()
 	if self.id then
-		vk.vkDestroyRenderPass(self.device, self.id, nil)
+		vk.vkDestroyRenderPass(self.device.id, self.id, nil)
 	end
 	self.id = nil
+	self.idptr = nil
 end
 
 function VKRenderPass:__gc()

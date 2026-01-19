@@ -245,9 +245,9 @@ function VulkanApp:initVK()
 		local image = assert(Image(texturePath))
 		image = image:rgba()
 		assert.eq(image.channels, 4)
-		
+
 		local mipLevels = math.floor(math.log(math.max(image.width, image.height), 2)) + 1
-		
+
 		self.texture = self.device:makeImageFromStaged{
 			extent = {
 				width = image.width,
@@ -270,7 +270,7 @@ function VulkanApp:initVK()
 				vk.VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 				vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT,
 				vk.VK_IMAGE_USAGE_SAMPLED_BIT
-			),	
+			),
 		}
 
 		self.textureSampler = self.device:makeSampler{
@@ -379,7 +379,7 @@ function VulkanApp:initVK()
 
 
 	-- structs used by update (so I don't have to realloc)
-	
+
 	self.imageIndex = uint32_t_1()
 	self.acquireNextImageInfo = self.device.makeVkAcquireNextImageInfoKHR()
 	self.cmdBufBeginInfo = VKCmdBuf.makeVkCommandBufferBeginInfo()

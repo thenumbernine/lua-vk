@@ -15,17 +15,14 @@ local makeVkSamplerCreateInfo = makeStructCtor'VkSamplerCreateInfo'
 local VKSampler = class()
 
 function VKSampler:init(args)
-	local device = assert.index(args, 'device')
+	self.device = assert.index(args, 'device')
 	args.device = nil
-	device = device.obj or device
-	device = device.id or device
-	self.device = device
 
 	self.id, self.idptr = vkGet(
 		VkSampler,
 		vkassert,
 		vk.vkCreateSampler,
-		device,
+		self.device.id,
 		makeVkSamplerCreateInfo(args),
 		nil
 	)
@@ -33,9 +30,10 @@ end
 
 function VKSampler:destroy()
 	if self.id then
-		vk.vkDestroySampler(self.device, self.id, nil)
+		vk.vkDestroySampler(self.device.id, self.id, nil)
 	end
 	self.id = nil
+	self.idptr = nil
 end
 
 function VKSampler:__gc()

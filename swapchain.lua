@@ -61,6 +61,7 @@ function VKSwapchain:destroy()
 		vk.vkDestroySwapchainKHR(self.device.id, self.id, nil)
 	end
 	self.id = nil
+	self.idptr = nil
 end
 
 function VKSwapchain:__gc()

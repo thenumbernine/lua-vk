@@ -32,7 +32,7 @@ function DebugUtilsMesseger:init(args)
 	self.vkCreateDebugUtilsMessengerEXT = instance:getProcAddr'vkCreateDebugUtilsMessengerEXT'
 	self.vkDestroyDebugUtilsMessengerEXT = instance:getProcAddr'vkDestroyDebugUtilsMessengerEXT'
 
-	self.id, self.idptr= vkGet(
+	self.id, self.idptr = vkGet(
 		VkDebugUtilsMessengerEXT,
 		vkassert,
 		self.vkCreateDebugUtilsMessengerEXT,
@@ -47,6 +47,7 @@ function DebugUtilsMesseger:destroy()
 		self.vkDestroyDebugUtilsMessengerEXT(self.instance, self.id, nil)
 	end
 	self.id = nil
+	self.idptr = nil
 	
 	if self.userCallbackClosure then
 		self.userCallbackClosure:free()

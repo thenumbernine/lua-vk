@@ -45,6 +45,7 @@ function VKPipelineLayout:destroy()
 		vk.vkDestroyPipelineLayout(self.device.id, self.id, nil)
 	end
 	self.id = nil
+	self.idptr = nil
 end
 
 function VKPipelineLayout:__gc()

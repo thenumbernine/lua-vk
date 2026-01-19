@@ -25,7 +25,7 @@ end
 local VKEnv = class()
 
 function VKEnv:init(args)
-	local enableValidationLayers = args.enableValidationLayers 
+	local enableValidationLayers = args.enableValidationLayers
 
 	local enabledLayers = table()
 	do
@@ -122,7 +122,7 @@ function VKEnv:init(args)
 --DEBUG:print('msaaSamples', self.msaaSamples)
 
 	local queueFamilyIndices = self.physDev:findQueueFamilies(self.surface)
-	
+
 	self.device = self.physDev:makeDevice{
 		queueCreateInfos = table.keys{
 			[queueFamilyIndices.graphicsFamily] = true,

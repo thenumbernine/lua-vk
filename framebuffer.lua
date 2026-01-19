@@ -30,7 +30,7 @@ function VKFramebuffer:init(args)
 		VkFramebuffer,
 		vkassert,
 		vk.vkCreateFramebuffer,
-		self.device,
+		self.device.id,
 		makeVkFramebufferCreateInfo(args),
 		nil
 	)
@@ -38,13 +38,14 @@ end
 
 function VKFramebuffer:destroy()
 	if self.id then
-		vk.vkDestroyFramebuffer(self.device, self.id, nil)
+		vk.vkDestroyFramebuffer(self.device.id, self.id, nil)
 	end
 	self.id = nil
+	self.idptr = nil
 end
 
 function VKFramebuffer:__gc()
 	return self:destroy()
 end
 
-return VKFramebuffer 
+return VKFramebuffer

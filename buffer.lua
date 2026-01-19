@@ -26,7 +26,7 @@ function VKBuffer:init(args)
 
 	args.sharingMode = args.sharingMode or vk.VK_SHARING_MODE_EXCLUSIVE
 
-	self.id = vkGet(
+	self.id, self.idptr = vkGet(
 		VkBuffer,
 		vkassert,
 		vk.vkCreateBuffer,
@@ -52,7 +52,7 @@ function VKBuffer:init(args)
 		self.mem = mem
 
 		assert(self:bindMemory(mem.id))
-	
+
 		if args.data then
 			local size = args.size
 			local dstData = mem:map(size)
@@ -94,6 +94,7 @@ function VKBuffer:destroy()
 		vk.vkDestroyBuffer(self.device.id, self.id, nil)
 	end
 	self.id = nil
+	self.idptr = nil
 end
 
 -- helper function

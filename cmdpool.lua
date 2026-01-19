@@ -15,15 +15,14 @@ local makeVkCommandPoolCreateInfo = makeStructCtor'VkCommandPoolCreateInfo'
 local VKCmdPool = class()
 
 function VKCmdPool:init(args)
-	local device = assert.index(args, 'device')
-	self.device = device
+	self.device = assert.index(args, 'device')
 	args.device = nil
 
 	self.id, self.idptr = vkGet(
 		VkCommandPool,
 		vkassert,
 		vk.vkCreateCommandPool,
-		self.device,
+		self.device.id,
 		makeVkCommandPoolCreateInfo(args),
 		nil
 	)
@@ -32,19 +31,20 @@ end
 function VKCmdPool:makeCmds(args)
 	local VKCmdBuf = require 'vk.cmdbuf'
 	args.device = self.device
-	args.commandPool = self.id
+	args.commandPool = self
 	return VKCmdBuf(args)
 end
 
 function VKCmdPool:destroy(args)
 	if self.id then
-		vk.vkDestroyCommandPool(self.device, self.id, nil)
+		vk.vkDestroyCommandPool(self.device.id, self.id, nil)
 	end
 	self.id = nil
+	self.idptr = nil
 end
 
 function VKCmdPool:__gc()
 	return self:destroy()
 end
 
-return VKCmdPool 
+return VKCmdPool

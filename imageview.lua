@@ -15,15 +15,14 @@ local makeVkImageViewCreateInfo = makeStructCtor'VkImageViewCreateInfo'
 local VKImageView = class()
 
 function VKImageView:init(args)
-	local device = assert.index(args, 'device')
+	self.device = assert.index(args, 'device')
 	args.device = nil
-	self.device = device
 
 	self.id, self.idptr = vkGet(
 		VkImageView,
 		vkassert,
 		vk.vkCreateImageView,
-		device.id,
+		self.device.id,
 		makeVkImageViewCreateInfo(args),
 		nil
 	)
@@ -34,6 +33,7 @@ function VKImageView:destroy()
 		vk.vkDestroyImageView(self.device.id, self.id, nil)
 	end
 	self.id = nil
+	self.idptr = nil
 end
 
 function VKImageView:__gc()

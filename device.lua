@@ -1,7 +1,7 @@
 require 'ext.gc'
 local ffi = require 'ffi'
 local class = require 'ext.class'
-local assertindex = require 'ext.assert'.index
+local assert = require 'ext.assert'
 local vk = require 'vk'
 local vkassert = require 'vk.util'.vkassert
 local vkGet = require 'vk.util'.vkGet
@@ -26,15 +26,15 @@ local makeVkWriteDescriptorSet = makeStructCtor(
 	'VkWriteDescriptorSet',
 	--[[
 	what a messed up struct ...
-	"If the descriptor binding identified by dstSet 
-		and dstBinding has a descriptor type of VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK, 
+	"If the descriptor binding identified by dstSet
+		and dstBinding has a descriptor type of VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK,
 		then descriptorCount specifies the number of bytes to update."
 	"Otherwise, descriptorCount is one of
 		the number of elements in pImageInfo
 		the number of elements in pBufferInfo
 		the number of elements in pTexelBufferView
 		... or some options related to pNext ...
-	--]]	
+	--]]
 	{
 		{
 			name = 'bufferInfos',
@@ -80,7 +80,7 @@ local makeVkWriteDescriptorSet = makeStructCtor(
 
 local makeVkWriteDescriptorSetArray = makeTableToArray(
 	'VkWriteDescriptorSet',
-	makeVkWriteDescriptorSet 
+	makeVkWriteDescriptorSet
 )
 
 
@@ -127,7 +127,7 @@ local VKDevice = class()
 
 function VKDevice:init(args)
 	-- can I still pass args to ffi.new?  will it ignore extra fields?  seems alright ...
-	local physDev = assertindex(args, 'physDev')
+	local physDev = assert.index(args, 'physDev')
 	args.physDev = nil
 
 	self.id, self.idptr = vkGet(
@@ -155,7 +155,7 @@ function VKDevice:updateDescSets(...)
 end
 
 local makeVkAcquireNextImageInfoKHR = makeStructCtor'VkAcquireNextImageInfoKHR'
-VKDevice.makeVkAcquireNextImageInfoKHR = makeVkAcquireNextImageInfoKHR 
+VKDevice.makeVkAcquireNextImageInfoKHR = makeVkAcquireNextImageInfoKHR
 function VKDevice:acquireNextImage(...)
 	return vkResult(vk.vkAcquireNextImage2KHR(self.id, ...), 'vkAcquireNextImage2KHR')
 end
@@ -165,6 +165,7 @@ function VKDevice:destroy()
 		vk.vkDestroyDevice(self.id, nil)
 	end
 	self.id = nil
+	self.idptr = nil
 end
 
 function VKDevice:__gc()
@@ -175,14 +176,14 @@ end
 
 function VKDevice:makeQueue(args, ...)
 	args = args or {}
-	args.device = self.id
+	args.device = self
 	local VKQueue = require 'vk.queue'
 	return VKQueue(args, ...)
 end
 
 function VKDevice:makeCmdPool(args, ...)
 	args = args or {}
-	args.device = self.id
+	args.device = self
 	local VKCmdPool = require 'vk.cmdpool'
 	return VKCmdPool(args, ...)
 end
@@ -196,7 +197,7 @@ end
 
 function VKDevice:makeRenderPass(args, ...)
 	args = args or {}
-	args.device = self.id
+	args.device = self
 	local VKRenderPass = require 'vk.renderpass'
 	return VKRenderPass(args, ...)
 end
@@ -224,7 +225,7 @@ end
 
 function VKDevice:makeFramebuffer(args, ...)
 	args = args or {}
-	args.device = self.id
+	args.device = self
 	local VKFramebuffer = require 'vk.framebuffer'
 	return VKFramebuffer(args, ...)
 end
@@ -289,7 +290,6 @@ function VKDevice:makeDescSetLayout(args, ...)
 	local VKDescSetLayout = require 'vk.descsetlayout'
 	return VKDescSetLayout(args, ...)
 end
-
 
 function VKDevice:makePipeline(args, ...)
 	args = args or {}

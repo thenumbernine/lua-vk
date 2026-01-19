@@ -44,9 +44,8 @@ local makeVkPresentInfoKHR = makeStructCtor(
 local VKQueue = class()
 
 function VKQueue:init(args)
-	local device = assert.index(args, 'device')
-	local VKDevice = require 'vk.device'
-	if VKDevice:isa(device) then device = device.id end
+	self.device = assert.index(args, 'device')
+	args.device = nil
 
 	local queueFamilyIndex = assert.index(args, 'family')
 	local queueIndex = args.index or 0
@@ -55,7 +54,7 @@ function VKQueue:init(args)
 		VkQueue,
 		nil,
 		vk.vkGetDeviceQueue,
-		device,
+		self.device.id,
 		queueFamilyIndex,
 		queueIndex
 	)

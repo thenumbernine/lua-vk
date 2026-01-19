@@ -48,6 +48,7 @@ function VKDescPool:destroy()
 		vk.vkDestroyDescriptorPool(self.device.id, self.id, nil)
 	end
 	self.id = nil
+	self.idptr = nil
 end
 
 function VKDescPool:__gc()

@@ -19,7 +19,7 @@ local VKImage = class()
 function VKImage:init(args)
 	self.device = assert.index(args, 'device')
 	args.device = nil
-		
+
 	args.imageType = args.imageType or vk.VK_IMAGE_TYPE_2D
 	args.extent.depth = args.extent.depth or 1
 	args.mipLevels = args.mipLevels or 1
@@ -102,6 +102,7 @@ function VKImage:destroy()
 		vk.vkDestroyImage(self.device.id, self.id, nil)
 	end
 	self.id = nil
+	self.idptr = nil
 end
 
 function VKImage:__gc()

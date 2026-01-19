@@ -135,6 +135,7 @@ function VKPipeline:destroy()
 		vk.vkDestroyPipeline(self.device.id, self.id, nil)
 	end
 	self.id = nil
+	self.idptr = nil
 end
 
 function VKPipeline:__gc()

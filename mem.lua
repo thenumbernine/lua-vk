@@ -16,17 +16,14 @@ local makeVkMemoryAllocateInfo = makeStructCtor'VkMemoryAllocateInfo'
 local VKMem = class()
 
 function VKMem:init(args)
-	local device = assert.index(args, 'device')
+	self.device = assert.index(args, 'device')
 	args.device = nil
-	local VKDevice = require 'vk.device'
-	if VKDevice:isa(device) then device = device.id end
-	self.device = device
 
 	self.id, self.idptr = vkGet(
 		VkDeviceMemory,
 		vkassert,
 		vk.vkAllocateMemory,
-		device,
+		self.device.id,
 		makeVkMemoryAllocateInfo(args),
 		nil
 	)
@@ -37,22 +34,23 @@ function VKMem:map(bufferSize)
 		void_ptr,
 		vkassert,
 		vk.vkMapMemory,
-		self.device,
+		self.device.id,
 		self.id,
 		0,
-		bufferSize, 
+		bufferSize,
 		0)
 end
 
 function VKMem:unmap()
-	vk.vkUnmapMemory(self.device, self.id)
+	vk.vkUnmapMemory(self.device.id, self.id)
 end
 
 function VKMem:destroy()
 	if self.id then
-		vk.vkFreeMemory(self.device, self.id, nil)
+		vk.vkFreeMemory(self.device.id, self.id, nil)
 	end
 	self.id = nil
+	self.idptr = nil
 end
 
 function VKMem:__gc()

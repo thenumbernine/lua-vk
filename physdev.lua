@@ -206,4 +206,4 @@ function VKPhysDev:findQueueFamilies(surface)
 	error "couldn't find all indices"
 end
 
-return VKPhysDev 
+return VKPhysDev

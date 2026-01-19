@@ -70,10 +70,11 @@ function VKShader:destroy()
 		vk.vkDestroyShaderModule(self.device.id, self.id, nil)
 	end
 	self.id = nil
+	self.idptr = nil
 end
 
 function VKShader:__gc()
 	return self:destroy()
 end
 
-return VKShader 
+return VKShader

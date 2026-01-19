@@ -40,10 +40,11 @@ function VKDescSetLayout:destroy()
 		vk.vkDestroyDescriptorSetLayout(self.device.id, self.id, nil)
 	end
 	self.id = nil
+	self.idptr = nil
 end
 
 function VKDescSetLayout:__gc()
 	return self:destroy()
 end
 
-return VKDescSetLayout 
+return VKDescSetLayout

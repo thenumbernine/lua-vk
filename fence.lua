@@ -17,17 +17,14 @@ local makeVkFenceCreateInfo = makeStructCtor'VkFenceCreateInfo'
 local VKFence = class()
 
 function VKFence:init(args)
-	local device = assert.index(args, 'device')
+	self.device = assert.index(args, 'device')
 	args.device = nil
-	device = device.obj or device
-	device = device.id or device
-	self.device = device
 
 	self.id, self.idptr = vkGet(
 		VkFence,
 		vkassert,
 		vk.vkCreateFence,
-		device,
+		self.device.id,
 		makeVkFenceCreateInfo(args),
 		nil
 	)
@@ -35,7 +32,7 @@ end
 
 function VKFence:wait()
 	return vkResult(vk.vkWaitForFences(
-		self.device,
+		self.device.id,
 		1,
 		self.idptr,
 		vk.VK_TRUE,
@@ -44,14 +41,15 @@ function VKFence:wait()
 end
 
 function VKFence:reset()
-	return vkResult(vk.vkResetFences(self.device, 1, self.idptr), 'vkResetFences')
+	return vkResult(vk.vkResetFences(self.device.id, 1, self.idptr), 'vkResetFences')
 end
 
 function VKFence:destroy()
 	if self.id then
-		vk.vkDestroyFence(self.device, self.id, nil)
+		vk.vkDestroyFence(self.device.id, self.id, nil)
 	end
 	self.id = nil
+	self.idptr = nil
 end
 
 function VKFence:__gc()

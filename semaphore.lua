@@ -15,18 +15,14 @@ local makeVkSemaphoreCreateInfo = makeStructCtor'VkSemaphoreCreateInfo'
 local VKSemaphore = class()
 
 function VKSemaphore:init(args)
-	local device = assert.index(args, 'device')
+	self.device = assert.index(args, 'device')
 	args.device = nil
-	device = device.obj or device
-	device = device.id or device
-	self.device = device
 
-	-- keep the [1] ptr for later, cuz some ppl want ptrs-to-id
 	self.id, self.idptr = vkGet(
 		VkSemaphore,
 		vkassert,
 		vk.vkCreateSemaphore,
-		device,
+		self.device.id,
 		makeVkSemaphoreCreateInfo(),
 		nil
 	)
@@ -34,9 +30,10 @@ end
 
 function VKSemaphore:destroy()
 	if self.id then
-		vk.vkDestroySemaphore(self.device, self.id, nil) 
+		vk.vkDestroySemaphore(self.device.id, self.id, nil)
 	end
 	self.id = nil
+	self.idptr = nil
 end
 
 function VKSemaphore:__gc()
