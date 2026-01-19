@@ -29,7 +29,7 @@ function VKDescriptorSetLayout:init(args)
 		VkDescriptorSetLayout,
 		nil,
 		vk.vkCreateDescriptorSetLayout,
-		self.device,
+		self.device.id,
 		makeVkDescriptorSetLayoutCreateInfo(args),
 		nil
 	)
@@ -37,7 +37,7 @@ end
 
 function VKDescriptorSetLayout:destroy()
 	if self.id then
-		vk.vkDestroyDescriptorSetLayout(self.device, self.id, nil)
+		vk.vkDestroyDescriptorSetLayout(self.device.id, self.id, nil)
 	end
 	self.id = nil
 end

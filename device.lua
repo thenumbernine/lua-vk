@@ -279,6 +279,15 @@ function VKDevice:makeDescPool(args, ...)
 	return VKDescriptorPool(args, ...)
 end
 
+-- TODO rename file
+function VKDevice:makeDescSetLayout(args, ...)
+	args = args or {}
+	args.device = self
+	local VKDescriptorSetLayout = require 'vk.descriptorsetlayout'
+	return VKDescriptorSetLayout(args, ...)
+end
+
+
 function VKDevice:makePipeline(args, ...)
 	args = args or {}
 	args.device = self

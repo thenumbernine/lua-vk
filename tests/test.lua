@@ -33,7 +33,6 @@ local matrix_ffi = require 'matrix.ffi'
 local Image = require 'image'
 local vk = require 'vk'
 local VKCmdBuf = require 'vk.cmdbuf'
-local VKDescriptorSetLayout = require 'vk.descriptorsetlayout'
 local VulkanMesh = require 'vk.vulkanmesh'
 
 
@@ -132,8 +131,7 @@ function VulkanApp:initVK()
 	end
 
 	-- TODO can you query this like you could in OpenGL?
-	self.descriptorSetLayout = VKDescriptorSetLayout{
-		device = self.device.id,
+	self.descriptorSetLayout = self.device:makeDescSetLayout{
 		bindings = {
 			-- must match the "layout(binding=0) uniform UniformBufferObject { ... }" in the vertex shader
 			{
