@@ -19,10 +19,10 @@ function VulkanSwapchain:init(args)
 	local device = args.device
 	local surface = args.surface
 	local msaaSamples = args.msaaSamples
-	
+
 	local swapChainSupport = physDev:querySwapChainSupport(surface)
-	
-	if swapChainSupport.capabilities.currentExtent.width ~= -1 then
+
+	if swapChainSupport.capabilities.currentExtent.width ~= 0xFFFFFFFF then
 		self.extent = VkExtent2D(swapChainSupport.capabilities.currentExtent)
 	else
 		local actualExtent = VkExtent2D(width, height)
@@ -228,7 +228,7 @@ function VulkanSwapchain:destroy()
 		self.colorImage:destroy()
 	end
 	self.colorImage = nil
-	
+
 	if self.depthImage then
 		self.depthImage:destroy()
 	end
