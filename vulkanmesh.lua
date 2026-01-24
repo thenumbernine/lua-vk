@@ -28,6 +28,7 @@ function VulkanMesh:init(args)
 	local device = args.device
 
 	local mesh = ObjLoader():load(args.filename)
+	self.mesh = mesh	-- don't gc
 
 	local indices = mesh.triIndexes	-- vector'int32_t'
 	assert.eq(indices.type, ffi.typeof'int32_t') 	-- well, uint, but whatever

@@ -14,7 +14,8 @@ local VulkanMesh = require 'vk.vulkanmesh'
 
 local uint64_t = ffi.typeof'uint64_t'
 local uint32_t_1 = ffi.typeof'uint32_t[1]'
-
+local VkPipelineStageFlags_1 = ffi.typeof'VkPipelineStageFlags[1]'
+local VkSwapchainKHR_1 = ffi.new'VkSwapchainKHR[1]'
 
 local UniformBufferObject = struct{
 	name = 'UniformBufferObject',
@@ -27,7 +28,6 @@ local UniformBufferObject = struct{
 }
 assert.eq(ffi.sizeof(UniformBufferObject), ffi.sizeof'float' * 4 * 4 * 3)
 local UniformBufferObject_ptr = ffi.typeof('$*', UniformBufferObject)
-
 
 
 local VulkanApp = require 'vk.app':subclass()
@@ -388,10 +388,13 @@ function VulkanApp:initVK()
 		self.mesh.vertexBufferAndMemory.id
 	)
 	self.vertexOffsets = VKCmdBuf.VkDeviceSize_array(1, 0)
+	self.submitWaitDstStageMask = VkPipelineStageFlags_1(	-- was gc'ing
+		vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+	)
 	self.submitInfo = self.graphicsQueue.makeVkSubmitInfo{
-		waitDstStageMask = vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		pWaitDstStageMask = self.submitWaitDstStageMask,
 	}
-	self.presentSwapchains = ffi.new'VkSwapchainKHR[1]'
+	self.presentSwapchains = VkSwapchainKHR_1()
 	self.presentSwapchains[0] = assert(self.swapchain.obj.id)
 	self.presentInfo = self.graphicsQueue.makeVkPresentInfoKHR{
 		pSwapchains = self.presentSwapchains,
