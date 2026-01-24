@@ -15,7 +15,7 @@ local VulkanMesh = require 'vk.vulkanmesh'
 local uint64_t = ffi.typeof'uint64_t'
 local uint32_t_1 = ffi.typeof'uint32_t[1]'
 local VkPipelineStageFlags_1 = ffi.typeof'VkPipelineStageFlags[1]'
-local VkSwapchainKHR_1 = ffi.new'VkSwapchainKHR[1]'
+local VkSwapchainKHR_1 = ffi.typeof'VkSwapchainKHR[1]'
 
 local UniformBufferObject = struct{
 	name = 'UniformBufferObject',
