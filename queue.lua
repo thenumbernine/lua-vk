@@ -5,6 +5,7 @@ local vk = require 'vk'
 local vkGet = require 'vk.util'.vkGet
 local vkResult = require 'vk.util'.vkResult
 local makeStructCtor = require 'vk.util'.makeStructCtor
+local makeTableToArray = require 'vk.util'.makeTableToArray
 
 
 local VkQueue = ffi.typeof'VkQueue'
@@ -39,6 +40,12 @@ local makeVkPresentInfoKHR = makeStructCtor(
 	}
 )
 
+-- turns out pSwapchains in VkPresentInfoKHR isn't copied, so we don't want it to gc...
+local makeVkSwapchainKHRArray = makeTableToArray'VkSwapchainKHR'
+
+-- this one too
+local makeVkPipelineStageFlagsArray = makeTableToArray'VkPipelineStageFlags'
+
 
 
 local VKQueue = class()
@@ -60,7 +67,8 @@ function VKQueue:init(args)
 	)
 end
 
-VKQueue.makeVkSubmitInfo = makeVkSubmitInfo 
+VKQueue.makeVkPipelineStageFlagsArray = makeVkPipelineStageFlagsArray
+VKQueue.makeVkSubmitInfo = makeVkSubmitInfo
 function VKQueue:submit(submitInfo, numInfo, fences)
 	return vkResult(vk.vkQueueSubmit(
 		self.id,
@@ -74,7 +82,8 @@ function VKQueue:waitIdle()
 	return vkResult(vk.vkQueueWaitIdle(self.id), 'vkQueueWaitIdle')
 end
 
-VKQueue.makeVkPresentInfoKHR = makeVkPresentInfoKHR 
+VKQueue.makeVkPresentInfoKHR = makeVkPresentInfoKHR
+VKQueue.makeVkSwapchainKHRArray = makeVkSwapchainKHRArray
 function VKQueue:present(...)
 	return vkResult(vk.vkQueuePresentKHR(self.id, ...), 'vkQueuePresentKHR')
 end

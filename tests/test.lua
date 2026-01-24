@@ -8,14 +8,13 @@ local struct = require 'struct'
 local matrix_ffi = require 'matrix.ffi'
 local Image = require 'image'
 local vk = require 'vk'
+local countof = require 'vk.util'.countof
 local VKCmdBuf = require 'vk.cmdbuf'
 local VulkanMesh = require 'vk.vulkanmesh'
 
 
 local uint64_t = ffi.typeof'uint64_t'
 local uint32_t_1 = ffi.typeof'uint32_t[1]'
-local VkPipelineStageFlags_1 = ffi.typeof'VkPipelineStageFlags[1]'
-local VkSwapchainKHR_1 = ffi.typeof'VkSwapchainKHR[1]'
 
 local UniformBufferObject = struct{
 	name = 'UniformBufferObject',
@@ -364,21 +363,25 @@ function VulkanApp:initVK()
 	self.imageIndex = uint32_t_1()
 	self.acquireNextImageInfo = self.device.makeVkAcquireNextImageInfoKHR()
 	self.cmdBufBeginInfo = VKCmdBuf.makeVkCommandBufferBeginInfo()
-	self.cmdBufRenderPassBeginInfo = VKCmdBuf.makeVkRenderPassBeginInfo{
-		clearValues = {
-			{
-				color = {
-					float32 = {0,0,0,1},
-				},
+
+	self.clearValues =  VKCmdBuf.makeVkClearValueArray{
+		{
+			color = {
+				float32 = {0,0,0,1},
 			},
-			{
-				depthStencil = {
-					depth = 1,
-					stencil = 0,
-				},
+		},
+		{
+			depthStencil = {
+				depth = 1,
+				stencil = 0,
 			},
 		},
 	}
+	self.cmdBufRenderPassBeginInfo = VKCmdBuf.makeVkRenderPassBeginInfo{
+		pClearValues = self.clearValues,
+		clearValueCount = countof(self.clearValues),
+	}
+
 	self.viewports = VKCmdBuf.VkViewport{
 		minDepth = 0,
 		maxDepth = 1,
@@ -388,17 +391,18 @@ function VulkanApp:initVK()
 		self.mesh.vertexBufferAndMemory.id
 	)
 	self.vertexOffsets = VKCmdBuf.VkDeviceSize_array(1, 0)
-	self.submitWaitDstStageMask = VkPipelineStageFlags_1(	-- was gc'ing
+	self.submitWaitDstStageMask = self.graphicsQueue.makeVkPipelineStageFlagsArray{	-- was gc'ing
 		vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-	)
+	}
 	self.submitInfo = self.graphicsQueue.makeVkSubmitInfo{
 		pWaitDstStageMask = self.submitWaitDstStageMask,
 	}
-	self.presentSwapchains = VkSwapchainKHR_1()
-	self.presentSwapchains[0] = assert(self.swapchain.obj.id)
+	self.presentSwapchains = self.graphicsQueue.makeVkSwapchainKHRArray{
+		self.swapchain.obj.id,
+	}
 	self.presentInfo = self.graphicsQueue.makeVkPresentInfoKHR{
 		pSwapchains = self.presentSwapchains,
-		swapchainCount = 1,
+		swapchainCount = countof(self.presentSwapchains),
 	}
 end
 

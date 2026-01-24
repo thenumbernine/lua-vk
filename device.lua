@@ -147,7 +147,7 @@ end
 function VKDevice:updateDescSets(...)
 	local x = ...
 	if type(x) == 'table' then
-		local count, arr = makeVkWriteDescriptorSetArray(x)
+		local arr, count = makeVkWriteDescriptorSetArray(x)
 		vk.vkUpdateDescriptorSets(self.id, count, arr, 0, nil)
 	else
 		vk.vkUpdateDescriptorSets(self.id, ...)

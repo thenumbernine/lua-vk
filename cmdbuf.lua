@@ -8,6 +8,7 @@ local vk = require 'vk'
 local vkassert = require 'vk.util'.vkassert
 local vkResult = require 'vk.util'.vkResult
 local makeStructCtor = require 'vk.util'.makeStructCtor
+local makeTableToArray = require 'vk.util'.makeTableToArray
 
 
 local VkCommandBuffer_array = ffi.typeof'VkCommandBuffer[?]'
@@ -23,6 +24,7 @@ local makeVkRenderPassBeginInfo = makeStructCtor(
 		},
 	}
 )
+local makeVkClearValueArray = makeTableToArray'VkClearValue'
 
 
 local VKCmdBuf = class()
@@ -84,6 +86,7 @@ function VKCmdBuf:blitImage(...)
 end
 
 VKCmdBuf.makeVkRenderPassBeginInfo = makeVkRenderPassBeginInfo
+VKCmdBuf.makeVkClearValueArray = makeVkClearValueArray
 function VKCmdBuf:beginRenderPass(...)
 	return vk.vkCmdBeginRenderPass(self.id, ...)
 end

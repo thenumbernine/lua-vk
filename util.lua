@@ -96,7 +96,7 @@ local function makeTableToArray(ctype, gen)
 		for i=0,count-1 do
 			arr[i] = gen(v[i+1])
 		end
-		return count, arr
+		return arr, count
 	end
 end
 
@@ -159,11 +159,11 @@ local function makeStructCtor(
 						local fieldType = info.type
 						local tp = type(v)
 						if tp == 'table' then
-							args[fieldName], args[info.countname], args[info.ptrname] = nil, info.tableToArray(v)
+							args[fieldName], args[info.ptrname], args[info.countname] = nil, info.tableToArray(v)
 						elseif tp == 'cdata' 
 						and ffi.typeof(v) == info.arrayType
 						then
-							args[fieldName], args[info.countname], args[info.ptrname] = nil, countof(v), v
+							args[fieldName], args[info.ptrname], args[info.countname] = nil, v, countof(v)
 						else
 							error('idk how to handle type '..tp)
 						end
