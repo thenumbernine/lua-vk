@@ -54,7 +54,7 @@ deps = {
 	"vec-ffi",
 }
 
-generateBindings = {
+generateBindings = function()return{
 	{
 		inc = '<vulkan/vulkan_core.h>',
 		out = 'vulkan.lua',
@@ -89,4 +89,4 @@ generateBindings = {
 			return code
 		end,
 	},
-}
+}end
