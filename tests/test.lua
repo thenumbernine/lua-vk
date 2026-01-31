@@ -4,8 +4,8 @@ local assert = require 'ext.assert'
 local timer = require 'ext.timer'
 local table = require 'ext.table'
 local range = require 'ext.range'
+local vec4x4f = require 'vec-ffi.vec4x4f'
 local struct = require 'struct'
-local matrix_ffi = require 'matrix.ffi'
 local Image = require 'image'
 local vk = require 'vk'
 local countof = require 'vk.util'.countof
@@ -20,9 +20,9 @@ local UniformBufferObject = struct{
 	name = 'UniformBufferObject',
 	packed = true,
 	fields = {
-		{name = 'model', type = 'float[16]'},
-		{name = 'view', type = 'float[16]'},
-		{name = 'proj', type = 'float[16]'},
+		{name = 'model', type = 'vec4x4f_t'},
+		{name = 'view', type = 'vec4x4f_t'},
+		{name = 'proj', type = 'vec4x4f_t'},
 	},
 }
 assert.eq(ffi.sizeof(UniformBufferObject), ffi.sizeof'float' * 4 * 4 * 3)
@@ -52,7 +52,6 @@ function VulkanApp:initVK()
 	self.swapchain = self.vkenv.swapchain
 
 
-	self.tmpMat = matrix_ffi({4,4}, 'float'):zeros()
 	self.currentFrame = 0
 
 	self.vkenv:buildShader('shader.vert', 'shader-vert.spv')
@@ -473,21 +472,17 @@ function VulkanApp:updateUniformBuffer()
 	local ar = tonumber(self.swapchain.extent.width) / tonumber(self.swapchain.extent.height)
 
 	local ubo = ffi.cast(UniformBufferObject_ptr, self.uniformBuffers[self.currentFrame+1].mapped)
-	-- really if I'm reassigning the underlying ptr then I just need one ...
-	local m = self.tmpMat
-	m.ptr = ubo.model
-	m:setRotate(time * math.rad(90), 0, 0, 1)
+
+	ubo.model:setRotate(time * math.rad(90), 0, 0, 1)
 --		:transpose4x4()
-	m.ptr = ubo.view
-	m:setLookAt(
+	ubo.view:setLookAt(
 		2,2,2,
 		0,0,0,
 		0,0,1
 	)
 --		:inv4x4()
 --		:transpose4x4()
-	m.ptr = ubo.proj
-	m:setPerspective(45, ar, .1, 10)
+	ubo.proj:setPerspective(45, ar, .1, 10)
 		:applyScale(1,-1)	-- hmm why?
 		:transpose4x4()
 end

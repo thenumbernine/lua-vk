@@ -47,7 +47,6 @@ deps = {
 	"glapp",
 	"image",
 	"make",
-	"matrix",
 	"mesh",
 	"sdl",
 	"struct",
