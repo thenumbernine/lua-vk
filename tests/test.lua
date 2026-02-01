@@ -474,17 +474,13 @@ function VulkanApp:updateUniformBuffer()
 	local ubo = ffi.cast(UniformBufferObject_ptr, self.uniformBuffers[self.currentFrame+1].mapped)
 
 	ubo.model:setRotate(time * math.rad(90), 0, 0, 1)
---		:transpose4x4()
 	ubo.view:setLookAt(
 		2,2,2,
 		0,0,0,
 		0,0,1
 	)
---		:inv4x4()
---		:transpose4x4()
 	ubo.proj:setPerspective(45, ar, .1, 10)
 		:applyScale(1,-1)	-- hmm why?
-		:transpose4x4()
 end
 
 function VulkanApp:recordCommandBuffer(commandBuffer, imageIndex)
