@@ -561,6 +561,7 @@ function VulkanApp:recreateSwapchain()
 end
 
 function VulkanApp:resize()
+	VulkanApp.super.resize(self)
 	self.framebufferResized = true
 end
 
