@@ -40,7 +40,12 @@ function VKDescPool:makeDescSet(args)
 	args.device = self.device
 	args.descriptorPool = self
 	local VKDescSet = require 'vk.descset'
+	--[[ gives "descriptorPool must have been created with the VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT flag"
+	return args.device:addAutoDestroy(VKDescSet(args))
+	--]]
+	-- [[
 	return VKDescSet(args)
+	--]]
 end
 
 function VKDescPool:destroy()

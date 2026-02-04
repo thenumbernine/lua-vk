@@ -1,6 +1,7 @@
 require 'ext.gc'
 local ffi = require 'ffi'
 local class = require 'ext.class'
+local table = require 'ext.table'
 local assert = require 'ext.assert'
 local vk = require 'vk'
 local vkassert = require 'vk.util'.vkassert
@@ -138,6 +139,11 @@ function VKDevice:init(args)
 		makeVkDeviceCreateInfo(args),
 		nil
 	)
+
+	-- keep track of everything :make*'d by this device
+	-- destroy it upon device:destroy() (unless manually removed)
+	-- TODO this here in device or in vkenv?
+	self.autodestroys = table()
 end
 
 function VKDevice:waitIdle()
@@ -160,7 +166,20 @@ function VKDevice:acquireNextImage(...)
 	return vkResult(vk.vkAcquireNextImage2KHR(self.id, ...), 'vkAcquireNextImage2KHR')
 end
 
+function VKDevice:addAutoDestroy(o, ...)
+	self.autodestroys:insert(o)
+	return o, ...
+end
+
 function VKDevice:destroy()
+	if self.autodestroys then
+		--for i=1,#self.autodestroys do
+		for i=#self.autodestroys,1,-1 do
+			self.autodestroys[i]:destroy()
+		end
+		self.autodestroys = nil
+	end
+
 	if self.id then
 		vk.vkDestroyDevice(self.id, nil)
 	end
@@ -185,35 +204,35 @@ function VKDevice:makeCmdPool(args, ...)
 	args = args or {}
 	args.device = self
 	local VKCmdPool = require 'vk.cmdpool'
-	return VKCmdPool(args, ...)
+	return self:addAutoDestroy(VKCmdPool(args, ...))
 end
 
 function VKDevice:makeSwapchain(args, ...)
 	args = args or {}
 	args.device = self
 	local VKSwapchain = require 'vk.swapchain'
-	return VKSwapchain(args, ...)
+	return self:addAutoDestroy(VKSwapchain(args, ...))
 end
 
 function VKDevice:makeRenderPass(args, ...)
 	args = args or {}
 	args.device = self
 	local VKRenderPass = require 'vk.renderpass'
-	return VKRenderPass(args, ...)
+	return self:addAutoDestroy(VKRenderPass(args, ...))
 end
 
 function VKDevice:makeMem(args, ...)
 	args = args or {}
 	args.device = self
 	local VKMem = require 'vk.mem'
-	return VKMem(args, ...)
+	return self:addAutoDestroy(VKMem(args, ...))
 end
 
 function VKDevice:makeBuffer(args, ...)
 	args = args or {}
 	args.device = self
 	local VKBuffer = require 'vk.buffer'
-	return VKBuffer(args, ...)
+	return self:addAutoDestroy(VKBuffer(args, ...))
 end
 
 function VKDevice:makeBufferFromStaged(args, ...)
@@ -227,21 +246,21 @@ function VKDevice:makeFramebuffer(args, ...)
 	args = args or {}
 	args.device = self
 	local VKFramebuffer = require 'vk.framebuffer'
-	return VKFramebuffer(args, ...)
+	return self:addAutoDestroy(VKFramebuffer(args, ...))
 end
 
 function VKDevice:makeImage(args, ...)
 	args = args or {}
 	args.device = self
 	local VKImage = require 'vk.image'
-	return VKImage(args, ...)
+	return self:addAutoDestroy(VKImage(args, ...))
 end
 
 function VKDevice:makeImageFromStaged(args, ...)
 	args = args or {}
 	args.device = self
 	local VKImage = require 'vk.image'
-	return VKImage:makeFromStaged(args, ...)
+	return self:addAutoDestroy(VKImage:makeFromStaged(args, ...))
 end
 
 -- make an image from an already-existing VkImage and don't destroy it upon gc
@@ -260,56 +279,56 @@ function VKDevice:makeSampler(args, ...)
 	args = args or {}
 	args.device = self
 	local VKSampler = require 'vk.sampler'
-	return VKSampler(args, ...)
+	return self:addAutoDestroy(VKSampler(args, ...))
 end
 
 function VKDevice:makeFence(args, ...)
 	args = args or {}
 	args.device = self
 	local VKFence = require 'vk.fence'
-	return VKFence(args, ...)
+	return self:addAutoDestroy(VKFence(args, ...))
 end
 
 function VKDevice:makeSemaphore(args, ...)
 	args = args or {}
 	args.device = self
 	local VKSemaphore = require 'vk.semaphore'
-	return VKSemaphore(args, ...)
+	return self:addAutoDestroy(VKSemaphore(args, ...))
 end
 
 function VKDevice:makeDescPool(args, ...)
 	args = args or {}
 	args.device = self
 	local VKDescPool = require 'vk.descpool'
-	return VKDescPool(args, ...)
+	return self:addAutoDestroy(VKDescPool(args, ...))
 end
 
 function VKDevice:makeDescSetLayout(args, ...)
 	args = args or {}
 	args.device = self
 	local VKDescSetLayout = require 'vk.descsetlayout'
-	return VKDescSetLayout(args, ...)
+	return self:addAutoDestroy(VKDescSetLayout(args, ...))
 end
 
 function VKDevice:makePipeline(args, ...)
 	args = args or {}
 	args.device = self
 	local VKPipeline = require 'vk.pipeline'
-	return VKPipeline(args, ...)
+	return self:addAutoDestroy(VKPipeline(args, ...))
 end
 
 function VKDevice:makePipelineLayout(args, ...)
 	args = args or {}
 	args.device = self
 	local VKPipelineLayout = require 'vk.pipelinelayout'
-	return VKPipelineLayout(args, ...)
+	return self:addAutoDestroy(VKPipelineLayout(args, ...))
 end
 
 function VKDevice:makeShader(args, ...)
 	args = args or {}
 	args.device = self
 	local VKShader = require 'vk.shader'
-	return VKShader(args, ...)
+	return self:addAutoDestroy(VKShader(args, ...))
 end
 
 return VKDevice

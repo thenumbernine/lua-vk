@@ -32,7 +32,7 @@ function VKCmdPool:makeCmds(args)
 	local VKCmdBuf = require 'vk.cmdbuf'
 	args.device = self.device
 	args.commandPool = self
-	return VKCmdBuf(args)
+	return self.device:addAutoDestroy(VKCmdBuf(args))
 end
 
 function VKCmdPool:destroy(args)

@@ -34,7 +34,9 @@ end
 
 
 function VulkanApp:exit()
-	if self.vkenv then self.vkenv:exit() end
+	if self.vkenv then 
+		self.vkenv:exit() 
+	end
 	VulkanApp.super.exit(self)
 end
 

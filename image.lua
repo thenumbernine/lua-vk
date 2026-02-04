@@ -115,7 +115,7 @@ function VKImage:makeView(args)
 	args.device = self.device
 	args.image = self.id
 	local VKImageView = require 'vk.imageview'
-	return VKImageView(args)
+	return self.device:addAutoDestroy(VKImageView(args))
 end
 
 function VKImage:makeMemBarrier(args, ...)

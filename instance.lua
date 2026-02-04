@@ -58,7 +58,16 @@ function VKInstance:init(args)
 		makeVkInstanceCreateInfo(args),
 		nil
 	)
+	
+	-- also in VKDevice
+	self.autodestroys = table()
 end
+
+function VKInstance:addAutoDestroy(o, ...)
+	self.autodestroys:insert(o)
+	return o, ...
+end
+
 
 -- static method
 local VkLayerProperties = ffi.typeof'VkLayerProperties'
@@ -127,6 +136,14 @@ function VKInstance:getProcAddr(name, ctype)
 end
 
 function VKInstance:destroy()
+	if self.autodestroys then
+		--for i=1,#self.autodestroys do
+		for i=#self.autodestroys,1,-1 do
+			self.autodestroys[i]:destroy()
+		end
+		self.autodestroys = nil
+	end
+
 	if self.id then
 		vk.vkDestroyInstance(self.id, nil)
 	end
@@ -143,13 +160,13 @@ end
 function VKInstance:makeSurface(args, ...)
 	args.instance = self.id
 	local VKSurface = require 'vk.surface'
-	return VKSurface(args, ...)
+	return self:addAutoDestroy(VKSurface(args, ...))
 end
 
 function VKInstance:makeDebugUtilsMessenger(args, ...)
 	args.instance = self
 	local VKDebugUtilsMessenger = require 'vk.debugutilsmessenger'
-	return VKDebugUtilsMessenger(args, ...)
+	return self:addAutoDestroy(VKDebugUtilsMessenger(args, ...))
 end
 
 return VKInstance

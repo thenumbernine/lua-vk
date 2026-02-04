@@ -22,6 +22,9 @@ function VulkanSwapchain:init(args)
 
 	local swapChainSupport = physDev:querySwapChainSupport(surface)
 
+	-- same as device.  superclass?
+	self.autodestroys = table()
+
 	if swapChainSupport.capabilities.currentExtent.width ~= 0xFFFFFFFF then
 		self.extent = VkExtent2D(swapChainSupport.capabilities.currentExtent)
 	else
@@ -65,9 +68,11 @@ function VulkanSwapchain:init(args)
 		imageSharingMode = familiesDiffer and vk.VK_SHARING_MODE_CONCURRENT or vk.VK_SHARING_MODE_EXCLUSIVE,
 		queueFamilyIndices = familiesDiffer and indices,
 	}
+	assert.eq(self.obj, device.autodestroys:remove())
+	self.autodestroys:insert(self.obj)
 
 	self.imageViews = self.obj:getImages():mapi(function(image, i)
-		return image:makeView{
+		local imageView = image:makeView{
 			viewType = vk.VK_IMAGE_VIEW_TYPE_2D,
 			format = surfaceFormat.format,
 			subresourceRange = {
@@ -76,6 +81,9 @@ function VulkanSwapchain:init(args)
 				layerCount = 1,
 			},
 		}
+		assert.eq(imageView, device.autodestroys:remove())
+		self.autodestroys:insert(imageView)
+		return imageView
 	end)
 
 	local swapChainImageFormat = surfaceFormat.format
@@ -153,6 +161,8 @@ function VulkanSwapchain:init(args)
 			},
 		},
 	}
+	assert.eq(self.renderPass, device.autodestroys:remove())
+	self.autodestroys:insert(self.renderPass)
 
 	self.colorImage = device:makeImage{
 		format = surfaceFormat.format,
@@ -173,6 +183,8 @@ function VulkanSwapchain:init(args)
 		-- VkImageView:
 		aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT,
 	}
+	assert.eq(self.colorImage, device.autodestroys:remove())
+	self.autodestroys:insert(self.colorImage)
 
 	self.depthImage = device:makeImage{
 		format = physDev:findDepthFormat(),
@@ -188,9 +200,11 @@ function VulkanSwapchain:init(args)
 		-- VkImageView:
 		aspectMask = vk.VK_IMAGE_ASPECT_DEPTH_BIT,
 	}
+	assert.eq(self.depthImage, device.autodestroys:remove())
+	self.autodestroys:insert(self.depthImage)
 
 	self.framebuffers = self.imageViews:mapi(function(imageView)
-		return device:makeFramebuffer{
+		local framebuffer = device:makeFramebuffer{
 			renderPass = self.renderPass.id,
 			attachments = {
 				self.colorImage.view.id,
@@ -201,43 +215,20 @@ function VulkanSwapchain:init(args)
 			height = height,
 			layers = 1,
 		}
+		assert.eq(framebuffer, device.autodestroys:remove())
+		self.autodestroys:insert(framebuffer)
+		return framebuffer
 	end)
 end
 
 function VulkanSwapchain:destroy()
-	if self.framebuffers then
-		for _,framebuffer in ipairs(self.framebuffers) do
-			framebuffer:destroy()
+	if self.autodestroys then
+		--for i=1,#self.autodestroys do
+		for i=#self.autodestroys,1,-1 do
+			self.autodestroys[i]:destroy()
 		end
+		self.autodestroys = nil
 	end
-	self.framebuffers = nil
-
-	if self.imageViews then
-		for _,imageView in ipairs(self.imageViews) do
-			imageView:destroy()
-		end
-	end
-	self.imageViews = nil
-
-	if self.renderPass then
-		self.renderPass:destroy()
-	end
-	self.renderPass = nil
-
-	if self.colorImage then
-		self.colorImage:destroy()
-	end
-	self.colorImage = nil
-
-	if self.depthImage then
-		self.depthImage:destroy()
-	end
-	self.depthImage = nil
-
-	if self.obj then
-		self.obj:destroy()
-	end
-	self.obj = nil
 end
 
 function VulkanSwapchain:__gc()

@@ -88,11 +88,6 @@ function VulkanApp:initVK()
 	}
 
 
-	-- need to make sure they are destroyed before vulkan shutdown so ...
-	-- TODO tempting to do this per device:make* to have it auto remember ...
-	-- but then I''d need a functionality for unlinking it when we want to make and destroy a temp obj
-	self.autodestroys = table()
-
 	-- map args.vertex|fragment|geometryCode|File to shaders.vertex|fragment|geometry
 	self.shaders = {}
 	if args.shaders then
@@ -108,7 +103,6 @@ function VulkanApp:initVK()
 				self.shaders[k] = self.device:makeShader{
 					code = code,
 				}
-				self.autodestroys:insert(self.shaders[k])
 			end
 		end
 	end
@@ -134,14 +128,12 @@ function VulkanApp:initVK()
 			},
 		},
 	}
-	self.autodestroys:insert(self.descriptorSetLayout)
 
 	self.pipelineLayout = self.device:makePipelineLayout{
 		setLayouts = {
 			self.descriptorSetLayout,
 		},
 	}
-	self.autodestroys:insert(self.pipelineLayout)
 
 	local VulkanVertex = VulkanMesh.VulkanVertex
 	self.pipeline = self.device:makePipeline{
@@ -227,7 +219,6 @@ function VulkanApp:initVK()
 		layout = self.pipelineLayout.id,
 		renderPass = self.swapchain.renderPass.id,
 	}
-	self.autodestroys:insert(self.pipeline)
 
 	do
 		local texturePath = args.tex
@@ -261,7 +252,6 @@ function VulkanApp:initVK()
 				vk.VK_IMAGE_USAGE_SAMPLED_BIT
 			),
 		}
-		self.autodestroys:insert(self.texture)
 
 		self.textureSampler = self.device:makeSampler{
 			magFilter = vk.VK_FILTER_LINEAR,
@@ -276,7 +266,6 @@ function VulkanApp:initVK()
 			maxLod = mipLevels,
 			borderColor = vk.VK_BORDER_COLOR_INT_OPAQUE_BLACK,
 		}
-		self.autodestroys:insert(self.textureSampler)
 	end
 
 	-- how to handle multiple meshes?
@@ -288,7 +277,6 @@ function VulkanApp:initVK()
 		queue = self.graphicsQueue,
 		filename = args.mesh,
 	}
-	self.autodestroys:insert(self.mesh)
 
 	self.uniformBuffers = range(self.maxFramesInFlight):mapi(function(i)
 		local size = ffi.sizeof(UniformBufferObject)
@@ -301,7 +289,6 @@ function VulkanApp:initVK()
 				vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 			),
 		}
-		self.autodestroys:insert(bm)
 		return {
 			bm = bm,
 			mapped = bm.mem:map(size),
@@ -321,16 +308,12 @@ function VulkanApp:initVK()
 			},
 		},
 	}
-	self.autodestroys:insert(self.descriptorPool)
 
 	self.descriptorSets = range(self.maxFramesInFlight):mapi(function(i)
 		return self.descriptorPool:makeDescSet{
 			setLayout = self.descriptorSetLayout.id,
 		}
 	end)
-	--[[ gives "descriptorPool must have been created with the VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT flag"
-	self.autodestroys:append(self.descriptorSets)
-	--]]
 
 	for i,descSet in ipairs(self.descriptorSets) do
 		self.device:updateDescSets{
@@ -360,24 +343,20 @@ function VulkanApp:initVK()
 			level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 		}
 	end)
-	self.autodestroys:append(self.cmdBufs)
 
 	self.imageAvailableSemaphores = range(self.maxFramesInFlight):mapi(function(i)
 		return self.device:makeSemaphore()
 	end)
-	self.autodestroys:append(self.imageAvailableSemaphores)
 
 	self.renderFinishedSemaphores = range(self.maxFramesInFlight):mapi(function(i)
 		return self.device:makeSemaphore()
 	end)
-	self.autodestroys:append(self.renderFinishedSemaphores)
 
 	self.inFlightFences = range(self.maxFramesInFlight):mapi(function(i)
 		return self.device:makeFence{
 			flags = vk.VK_FENCE_CREATE_SIGNALED_BIT,
 		}
 	end)
-	self.autodestroys:append(self.inFlightFences)
 
 
 	-- structs used by update (so I don't have to realloc)
@@ -583,21 +562,6 @@ end
 
 function VulkanApp:resize()
 	self.framebufferResized = true
-end
-
-function VulkanApp:exit()
-	if self.device then
-		assert(self.device:waitIdle())
-
-		if self.autodestroys then
-			for i=1,#self.autodestroys do
-				self.autodestroys[i]:destroy()
-			end
-			self.autodestroys = nil
-		end
-	end
-
-	VulkanApp.super.exit(self)
 end
 
 return VulkanApp():run()

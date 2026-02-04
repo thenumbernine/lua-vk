@@ -26,6 +26,7 @@ VulkanMesh.VulkanVertex = VulkanVertex
 
 function VulkanMesh:init(args)
 	local device = args.device
+	device.autodestroys:insert(self)
 
 	local mesh = ObjLoader():load(args.filename)
 	self.mesh = mesh	-- don't gc

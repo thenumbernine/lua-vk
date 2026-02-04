@@ -139,6 +139,9 @@ function VKEnv:init(args)
 			samplerAnisotropy = vk.VK_TRUE,
 		},
 	}
+	self.instance.autodestroys:insert(self.device)
+	-- or TODO maybe just use vkenv.autodestroys?
+	-- or merge instance's autodestroys with device's as well?
 
 	self.graphicsQueue = self.device:makeQueue{
 		family = queueFamilyIndices.graphicsFamily,
@@ -181,37 +184,17 @@ function VKEnv:exit()
 	if self.swapchain then
 		self.swapchain:destroy()
 	end
-	self.swapchain = nil
-
-	if self.cmdPool then
-		self.cmdPool:destroy()
-	end
-	self.cmdPool = nil
-
-	if self.swapchain then
-		self.swapchain:destroy()
-	end
-	self.swapchain = nil
-
-	if self.device then
-		self.device:destroy()
-	end
-	self.device = nil
-
-	if self.surface then
-		self.surface:destroy()
-	end
-	self.surface = nil
-
-	if self.debug then
-		self.debug:destroy()
-	end
-	self.debug = nil
 
 	if self.instance then
 		self.instance:destroy()
 	end
+
+	self.swapchain = nil
+	self.device = nil
 	self.instance = nil
+
+	-- don't need to call again on gc
+	self.__gc = function() end
 end
 
 function VKEnv:__gc()
