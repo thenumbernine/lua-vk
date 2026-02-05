@@ -3,7 +3,7 @@
 local ffi = require 'ffi'
 local class = require 'ext.class'
 local assert = require 'ext.assert'
-local vec3f = require 'vec-ffi.vec3f' -- vec3f_t
+local vec3f = require 'vec-ffi.vec3f'
 local struct = require 'struct'
 local vector = require 'ffi.cpp.vector-lua'
 local ObjLoader = require 'mesh.objloader'
@@ -14,9 +14,9 @@ local VulkanVertex
 VulkanVertex = struct{
 	name = 'VulkanVertex',
 	fields = {
-		{name = 'pos', type = 'vec3f_t'},
-		{name = 'color', type = 'vec3f_t'},
-		{name = 'texCoord', type = 'vec3f_t'},
+		{name = 'pos', type = 'vec3f'},
+		{name = 'color', type = 'vec3f'},
+		{name = 'texCoord', type = 'vec3f'},
 	},
 }
 

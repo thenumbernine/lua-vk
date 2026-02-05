@@ -20,9 +20,9 @@ local UniformBufferObject = struct{
 	name = 'UniformBufferObject',
 	packed = true,
 	fields = {
-		{name = 'model', type = 'vec4x4f_t'},
-		{name = 'view', type = 'vec4x4f_t'},
-		{name = 'proj', type = 'vec4x4f_t'},
+		{name = 'model', type = 'vec4x4f'},
+		{name = 'view', type = 'vec4x4f'},
+		{name = 'proj', type = 'vec4x4f'},
 	},
 }
 assert.eq(ffi.sizeof(UniformBufferObject), ffi.sizeof'float' * 4 * 4 * 3)
