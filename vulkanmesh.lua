@@ -5,7 +5,7 @@ local class = require 'ext.class'
 local assert = require 'ext.assert'
 local vec3f = require 'vec-ffi.vec3f'
 local struct = require 'struct'
-local vector = require 'ffi.cpp.vector-lua'
+local vector = require 'stl.vector-lua'
 local ObjLoader = require 'mesh.objloader'
 local vk = require 'vk'
 

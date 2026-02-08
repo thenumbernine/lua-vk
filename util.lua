@@ -3,7 +3,7 @@ local asserteq = require 'ext.assert'.eq
 local assertindex = require 'ext.assert'.index
 local vk = require 'vk'
 local sdl = require 'sdl'
-local vector = require 'ffi.cpp.vector-lua'
+local vector = require 'stl.vector-lua'
 
 
 local uint32_t_1 = ffi.typeof'uint32_t[1]'

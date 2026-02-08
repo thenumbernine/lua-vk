@@ -49,6 +49,7 @@ deps = {
 	"make",
 	"mesh",
 	"sdl",
+	"stl",
 	"struct",
 	"vec-ffi",
 }
