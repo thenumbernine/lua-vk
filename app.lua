@@ -3,10 +3,7 @@ local sdl = require 'sdl'
 local VKEnv = require 'vk.env'
 local SDLApp = require 'sdl.app'
 
--- TODO move view and orbit out of glapp ... but to where ...
--- seems like we're going to need a geometry library soon ...
--- TODO should glapp.view always :subclass() for you? like glapp.orbit and imgui.withorbit already do?
-local VulkanApp = require 'glapp.view'.apply(SDLApp):subclass()
+local VulkanApp = require 'app3d.view'.apply(SDLApp):subclass()
 
 VulkanApp.title = 'Vulkan App'
 

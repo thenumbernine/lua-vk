@@ -42,9 +42,9 @@ files = {
 	"vulkanswapchain.lua",
 }
 deps = {
+	"app3d",
 	"ext",
 	"ffi",
-	"glapp",
 	"image",
 	"make",
 	"mesh",
