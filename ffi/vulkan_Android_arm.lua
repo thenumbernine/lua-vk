@@ -19830,7 +19830,7 @@ enum { VK_MAX_EXTENSION_NAME_SIZE = 256 };
 enum { VK_MAX_DESCRIPTION_SIZE = 256 };
 enum { VK_MAX_MEMORY_HEAPS = 16 };
 /* #define VK_ATTACHMENT_UNUSED (~0U) ### define is not number */
-/* #define VK_SUBPASS_EXTERNAL (~0U) ### define is not number */
+enum { VK_SUBPASS_EXTERNAL = -1 };
 enum { VK_VERSION_1_1 = 1 };
 /* #define VK_API_VERSION_1_1 VK_MAKE_API_VERSION(0, 1, 1, 0) ### define is not number */
 enum { VK_MAX_DEVICE_GROUP_SIZE = 32 };
