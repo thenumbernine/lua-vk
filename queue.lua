@@ -9,6 +9,8 @@ local makeTableToArray = require 'vk.util'.makeTableToArray
 
 
 local VkQueue = ffi.typeof'VkQueue'
+local VkFence = ffi.typeof'VkFence'
+
 
 local makeVkSubmitInfo = makeStructCtor(
 	'VkSubmitInfo',
@@ -69,12 +71,13 @@ end
 
 VKQueue.makeVkPipelineStageFlagsArray = makeVkPipelineStageFlagsArray
 VKQueue.makeVkSubmitInfo = makeVkSubmitInfo
+local tmpVkFence = VkFence()
 function VKQueue:submit(submitInfo, numInfo, fences)
 	return vkResult(vk.vkQueueSubmit(
 		self.id,
 		numInfo or 1,
 		submitInfo,
-		fences
+		fences or tmpVkFence	-- android doesn't like nils here
 	), 'vkQueueSubmit')
 end
 
