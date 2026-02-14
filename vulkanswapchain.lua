@@ -42,7 +42,7 @@ function VulkanSwapchain:init(args)
 	local surfaceFormat = select(2, swapChainSupport.formats:totable():find(nil, function(format)
 		return format.format == vk.VK_FORMAT_B8G8R8A8_SRGB
 		and format.colorSpace == vk.VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
-	end)) or swapChainSupport.formats:begin()
+	end)) or swapChainSupport.formats:begin()[0]
 
 	local indices = physDev:findQueueFamilies(surface)
 	indices = table.keys{
