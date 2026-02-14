@@ -35,7 +35,6 @@ VulkanApp.title = 'Vulkan test'
 VulkanApp.maxFramesInFlight = 2
 
 VulkanApp.vkenvArgs = {
-	enableValidationLayers = true,
 	title = VulkanApp.title,
 }
 function VulkanApp:initVK()

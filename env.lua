@@ -26,6 +26,9 @@ local VKEnv = class()
 
 function VKEnv:init(args)
 	local enableValidationLayers = args.enableValidationLayers
+	if enableValidationLayers == nil then
+		enableValidationLayers = self.enableValidationLayers
+	end
 
 	local enabledLayers = table()
 	do
