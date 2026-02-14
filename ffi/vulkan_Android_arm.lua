@@ -19818,9 +19818,9 @@ enum { VK_HEADER_VERSION = 343 };
 /* #define VK_API_VERSION_1_0 VK_MAKE_API_VERSION(0, 1, 0, 0) ### define is not number */
 enum { VK_FALSE = 0 };
 /* #define VK_LOD_CLAMP_NONE 1000.0F ### define is not number */
-/* #define VK_QUEUE_FAMILY_IGNORED (~0U) ### define is not number */
-/* #define VK_REMAINING_ARRAY_LAYERS (~0U) ### define is not number */
-/* #define VK_REMAINING_MIP_LEVELS (~0U) ### define is not number */
+enum { VK_QUEUE_FAMILY_IGNORED = -1 };
+enum { VK_REMAINING_ARRAY_LAYERS = -1 };
+enum { VK_REMAINING_MIP_LEVELS = -1 };
 enum { VK_TRUE = 1 };
 /* #define VK_WHOLE_SIZE (~0ULL) ### define is not number */
 enum { VK_MAX_MEMORY_TYPES = 32 };
@@ -19829,7 +19829,7 @@ enum { VK_UUID_SIZE = 16 };
 enum { VK_MAX_EXTENSION_NAME_SIZE = 256 };
 enum { VK_MAX_DESCRIPTION_SIZE = 256 };
 enum { VK_MAX_MEMORY_HEAPS = 16 };
-/* #define VK_ATTACHMENT_UNUSED (~0U) ### define is not number */
+enum { VK_ATTACHMENT_UNUSED = -1 };
 enum { VK_SUBPASS_EXTERNAL = -1 };
 enum { VK_VERSION_1_1 = 1 };
 /* #define VK_API_VERSION_1_1 VK_MAKE_API_VERSION(0, 1, 1, 0) ### define is not number */
@@ -20457,8 +20457,8 @@ enum { VK_NV_SHADING_RATE_IMAGE_SPEC_VERSION = 3 };
 enum { VK_NV_ray_tracing = 1 };
 enum { VK_NV_RAY_TRACING_SPEC_VERSION = 3 };
 /* #define VK_NV_RAY_TRACING_EXTENSION_NAME "VK_NV_ray_tracing" ### define is not number */
-/* #define VK_SHADER_UNUSED_KHR (~0U) ### define is not number */
-/* #define VK_SHADER_UNUSED_NV (~0U) ### define is not number */
+enum { VK_SHADER_UNUSED_KHR = -1 };
+enum { VK_SHADER_UNUSED_NV = -1 };
 enum { VK_NV_representative_fragment_test = 1 };
 enum { VK_NV_REPRESENTATIVE_FRAGMENT_TEST_SPEC_VERSION = 2 };
 /* #define VK_NV_REPRESENTATIVE_FRAGMENT_TEST_EXTENSION_NAME "VK_NV_representative_fragment_test" ### define is not number */
@@ -20822,7 +20822,7 @@ enum { VK_ARM_SCHEDULING_CONTROLS_SPEC_VERSION = 1 };
 enum { VK_EXT_image_sliced_view_of_3d = 1 };
 enum { VK_EXT_IMAGE_SLICED_VIEW_OF_3D_SPEC_VERSION = 1 };
 /* #define VK_EXT_IMAGE_SLICED_VIEW_OF_3D_EXTENSION_NAME "VK_EXT_image_sliced_view_of_3d" ### define is not number */
-/* #define VK_REMAINING_3D_SLICES_EXT (~0U) ### define is not number */
+enum { VK_REMAINING_3D_SLICES_EXT = -1 };
 enum { VK_VALVE_descriptor_set_host_mapping = 1 };
 enum { VK_VALVE_DESCRIPTOR_SET_HOST_MAPPING_SPEC_VERSION = 1 };
 /* #define VK_VALVE_DESCRIPTOR_SET_HOST_MAPPING_EXTENSION_NAME "VK_VALVE_descriptor_set_host_mapping" ### define is not number */
@@ -21008,7 +21008,7 @@ enum { VK_NV_CLUSTER_ACCELERATION_STRUCTURE_SPEC_VERSION = 4 };
 enum { VK_NV_partitioned_acceleration_structure = 1 };
 enum { VK_NV_PARTITIONED_ACCELERATION_STRUCTURE_SPEC_VERSION = 1 };
 /* #define VK_NV_PARTITIONED_ACCELERATION_STRUCTURE_EXTENSION_NAME "VK_NV_partitioned_acceleration_structure" ### define is not number */
-/* #define VK_PARTITIONED_ACCELERATION_STRUCTURE_PARTITION_INDEX_GLOBAL_NV (~0U) ### define is not number */
+enum { VK_PARTITIONED_ACCELERATION_STRUCTURE_PARTITION_INDEX_GLOBAL_NV = -1 };
 enum { VK_EXT_device_generated_commands = 1 };
 enum { VK_EXT_DEVICE_GENERATED_COMMANDS_SPEC_VERSION = 1 };
 /* #define VK_EXT_DEVICE_GENERATED_COMMANDS_EXTENSION_NAME "VK_EXT_device_generated_commands" ### define is not number */
