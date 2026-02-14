@@ -37,7 +37,7 @@ VulkanApp.maxFramesInFlight = 2
 
 VulkanApp.vkenvArgs = {
 	title = VulkanApp.title,
-	enableValidationLayers = cmdline.dontRequireSamplerAnisotropy,	-- off by default
+	enableValidationLayers = cmdline.enableValidationLayers,				-- off by default
 	requireSamplerAnisotropy = not cmdline.dontRequireSamplerAnisotropy,	-- on by default
 }
 function VulkanApp:initVK()
