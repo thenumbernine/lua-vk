@@ -1,4 +1,5 @@
 #!/usr/bin/env luajit
+local cmdline = require 'ext.cmdline'(...)
 local ffi = require 'ffi'
 local assert = require 'ext.assert'
 local timer = require 'ext.timer'
@@ -36,6 +37,8 @@ VulkanApp.maxFramesInFlight = 2
 
 VulkanApp.vkenvArgs = {
 	title = VulkanApp.title,
+	enableValidationLayers = cmdline.dontRequireSamplerAnisotropy,	-- off by default
+	requireSamplerAnisotropy = not cmdline.dontRequireSamplerAnisotropy,	-- on by default
 }
 function VulkanApp:initVK()
 	VulkanApp.super.initVK(self)

@@ -99,15 +99,20 @@ function VKPhysDev:findDepthFormat()
 end
 
 function VKPhysDev:findSupportedFormat(candidates, tiling, features)
+--DEBUG:print('VKPhysDev:findSupportedFormat', candidates, tiling, features)
 	for _,format in ipairs(candidates) do
+--DEBUG:print('checking format', format)
 		local props = self:getFormatProps(format)
+--DEBUG:print('props', props)
 		if tiling == vk.VK_IMAGE_TILING_LINEAR
 		and bit.band(props.linearTilingFeatures, features) == features
 		then
+--DEBUG:print('VK_IMAGE_TILING_LINEAR and props.linearTilingFeatures & features matches, returning')
 			return format
 		elseif tiling == vk.VK_IMAGE_TILING_OPTIMAL
 		and bit.band(props.optimalTilingFeatures, features) == features
 		then
+--DEBUG:print('VK_IMAGE_TILING_OPTIMAL and props.optimalTilingFeatures & features matches, returning')
 			return format
 		end
 	end
@@ -165,20 +170,28 @@ function VKPhysDev:checkDeviceExtensionSupport(deviceExtensions)
 	return next(requiredExtensions) == nil
 end
 
-function VKPhysDev:isDeviceSuitable(surface, deviceExtensions)
+function VKPhysDev:isDeviceSuitable(surface, deviceExtensions, requireSamplerAnisotropy)
+--DEBUG:local table = require 'ext.table'
+--DEBUG:print('VKPhysDev:isDeviceSuitable', surface, deviceExtensions)
 	local indices = self:findQueueFamilies(surface)
+--DEBUG:print('findQueueFamilies indices', table.keys(indices):sort():concat', ')
 	local extensionsSupported = self:checkDeviceExtensionSupport(deviceExtensions)
+--DEBUG:print('extensionsSupported', extensionsSupported)
 	local swapChainAdequate
 	if extensionsSupported then
 		local swapChainSupport = self:querySwapChainSupport(surface)
 		swapChainAdequate = #swapChainSupport.formats > 0 and #swapChainSupport.presentModes > 0
 	end
-
+--DEBUG:print('swapChainAdequate', swapChainAdequate)
 	local features = self:getFeatures()
+--DEBUG:print('features.samplerAnisotropy', features.samplerAnisotropy)
 	return indices
 		and extensionsSupported
 		and swapChainAdequate
-		and features.samplerAnisotropy ~= 0
+		and (
+			not requireSamplerAnisotropy
+			or features.samplerAnisotropy ~= 0
+		)
 end
 
 function VKPhysDev:findQueueFamilies(surface)

@@ -24,11 +24,12 @@ end
 
 local VKEnv = class()
 
+VKEnv.requireSamplerAnisotropy = true
+
 function VKEnv:init(args)
-	local enableValidationLayers = args.enableValidationLayers
-	if enableValidationLayers == nil then
-		enableValidationLayers = self.enableValidationLayers
-	end
+	self.enableValidationLayers = args.enableValidationLayers
+	self.requireSamplerAnisotropy = args.requireSamplerAnisotropy
+
 
 	local enabledLayers = table()
 	do
@@ -45,7 +46,7 @@ function VKEnv:init(args)
 --DEBUG:	print('', s)
 --DEBUG:end
 
-		if enableValidationLayers then
+		if self.enableValidationLayers then
 			for _,layerName in ipairs(validationLayerNames) do
 				if not layerProps:find(nil, function(layerProp) return layerProp.layerName == layerName end) then
 					error("validation layer "..layerName.." requested, but not available!")
@@ -70,7 +71,7 @@ function VKEnv:init(args)
 	end
 
 	-- debug:
-	if enableValidationLayers then
+	if self.enableValidationLayers then
 		self.debug = self.instance:makeDebugUtilsMessenger{
 			messageSeverity = bit.bor(
 				vk.VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT,
@@ -117,7 +118,7 @@ function VKEnv:init(args)
 	self.physDev = assert(select(2, self.instance
 		:getPhysDevs()
 		:find(nil, function(physDev)
-			return physDev:isDeviceSuitable(self.surface, deviceExtensions)
+			return physDev:isDeviceSuitable(self.surface, deviceExtensions, self.requireSamplerAnisotropy)
 		end)),
 		"failed to find a suitable GPU")
 
@@ -138,9 +139,9 @@ function VKEnv:init(args)
 		end),
 		enabledLayers = enabledLayers,
 		enabledExtensions = deviceExtensions,
-		enabledFeatures = {
+		enabledFeatures = self.requireSamplerAnisotropy and {
 			samplerAnisotropy = vk.VK_TRUE,
-		},
+		} or nil,
 	}
 	self.instance.autodestroys:insert(self.device)
 	-- or TODO maybe just use vkenv.autodestroys?
