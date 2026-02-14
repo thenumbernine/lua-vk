@@ -13,6 +13,7 @@ files = {
 	"descpool.lua",
 	"descset.lua",
 	"descsetlayout.lua",
+	"debug.lua",
 	"device.lua",
 	"distinfo",
 	"env.lua",
@@ -40,6 +41,9 @@ files = {
 	"vk.lua",
 	"vulkanmesh.lua",
 	"vulkanswapchain.lua",
+	"ffi/vulkan.lua",
+	"ffi/vulkan_Linux_x64.lua",
+	"ffi/vulkan_Android_arm.lua",
 }
 deps = {
 	"app3d",
