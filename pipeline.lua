@@ -9,6 +9,7 @@ local makeStructCtor = require 'vk.util'.makeStructCtor
 
 
 local VkPipeline = ffi.typeof'VkPipeline'
+local VkPipelineCache = ffi.typeof'VkPipelineCache'
 
 local makeVkPipelineShaderStageCreateInfo = makeStructCtor'VkPipelineShaderStageCreateInfo'
 
@@ -123,7 +124,7 @@ function VKPipeline:init(args)
 		vkassert,
 		vk.vkCreateGraphicsPipelines,
 		self.device.id,
-		nil,
+		VkPipelineCache(),
 		1,
 		makeVkGraphicsPipelineCreateInfo(args),
 		nil
