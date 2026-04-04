@@ -24,9 +24,9 @@ function DebugUtilsMesseger:init(args)
 	-- expect it to be a Lua function
 	-- cast it / create closure and store it so it doesn't gc (but don't they have to manually free?)
 	if args.userCallback then
-		self.userCallbackClosure = ffi.cast(PFN_vkDebugUtilsMessengerCallbackEXT, args.userCallback)
+		self.userCallback = args.userCallback	-- do you need to make sure the function doesn't gc, or just the closure?  but the closure doesn't because it must be manually freed...
+		self.userCallbackClosure = ffi.cast(PFN_vkDebugUtilsMessengerCallbackEXT, jit.off(args.userCallback))
 		args.pfnUserCallback = self.userCallbackClosure
-		args.userCallback = nil
 	end
 
 	self.vkCreateDebugUtilsMessengerEXT = instance:getProcAddr'vkCreateDebugUtilsMessengerEXT'
